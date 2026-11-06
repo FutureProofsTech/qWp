@@ -1,0 +1,18 @@
+qWp combined 1-hour fuzz soak evidence
+======================================
+
+Date: 2026-11-06
+Commit: e71ae29d6bd6b23e7d5ec1e6e370522e9ec08059
+Command: taskset -c 1 ./target/release/fuzz 3600
+Start (UTC): 2026-11-06T14:10:35Z
+End (UTC):   2026-11-06T15:10:35Z
+
+Raw driver output:
+fuzz: seconds=3600 iterations=333637807 panics=0
+exit=0
+
+Coverage: QHS-1, QHS-2, and QHS-3 signature parsing/verification.
+QHS-3.1 uses the identical QHS-3 signature format; its tree cache is covered
+by CLI tests.
+
+Result: PASS. Exactly 3,600 seconds, zero panics, driver exit 0.

@@ -1,6 +1,6 @@
 # QHS-3 Internal Proof Review
 
-**Status:** Implemented and reviewed; 1-hour soak and final mutation/coverage evidence pending.<br>
+**Status:** Implemented and reviewed; combined 1-hour soak passed; release candidate ready.<br>
 **Reviewers:** qWp crypto lead (engineer), qWp red team (attacker role).<br>
 **Related:** `docs/10-qhs3.md`, `docs/12-qhs31.md`, `docs/adr/0004-qhs3.md`, `docs/adr/0005-qhs31-tree-cache.md`, `crates/qwp-crypto/src/qhs3.rs`.
 
@@ -87,7 +87,7 @@
 
 | Obligation | Status | Closure |
 |---|---|---|
-| 1-hour fuzz soak | Pending | `./scripts/fuzz.sh 3600` with combined QHS-1/2/3/3.1 coverage |
+| 1-hour fuzz soak | **Passed** | 333,637,807 iterations, 0 panics; `docs/evidence/fuzz-soak-1h-all.txt` |
 | Mutation/coverage | Complete | QHS-3 mutation 129 caught; QHS-3 coverage 99.17% lines |
 | External review | Optional | Evidence only, never a gate |
 
@@ -95,5 +95,5 @@
 
 - Engineer review: pass with assumptions.
 - Attacker review: pass for implemented abuse cases and tamper matrix.
-- Release status: **not yet**; 1-hour soak and final mutation/coverage are pending.
+- Release status: **ready for QHS-3 / QHS-3.1 release candidate**; combined 1-hour soak passed.
 - No standard fallback.

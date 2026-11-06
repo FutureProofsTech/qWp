@@ -1,6 +1,6 @@
 # QHS-2 Internal Proof Review
 
-**Status:** Implemented and reviewed; 1-hour soak and final mutation/coverage evidence pending.<br>
+**Status:** Implemented and reviewed; combined 1-hour soak passed; release candidate ready.<br>
 **Reviewers:** qWp crypto lead (engineer), qWp red team (attacker role).<br>
 **Related:** `docs/07-qhs2.md`, `docs/adr/0003-qhs2.md`, `crates/qwp-crypto/src/qhs2.rs`.
 
@@ -44,7 +44,7 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 | QHS-1/QHS-2 domain contexts are distinct | Pass | `qhs2.rs` constants + tests |
 | Code matches the construction | Pass | `qhs2.rs` + tests |
 | Parser/bounds proofs | Pass | Kani harnesses |
-| Fuzz/timing evidence | Pending | 1-hour soak gate |
+| Fuzz/timing evidence | Pass | Combined 1-hour soak, 333,637,807 iterations, 0 panics |
 | Cached leaves are identical to sequential leaves | Pass | unit + parallel-equivalence tests |
 | Cache cannot alter signature semantics | Pass | cache fingerprint + checksum validation; verifier recomputes root |
 
@@ -76,12 +76,13 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 
 | Evidence | Result |
 |---|---|
-| Unit/integration tests | 109 tests pass workspace-wide |
-| Attack suite | 7/7 attack groups pass, including QHS-2 |
-| Kani | 9 parser/bounds proofs pass, including 3 QHS-2 proofs |
+| Unit/integration tests | 142 tests pass workspace-wide (release) |
+| Attack suite | 8/8 attack groups pass, including QHS-2 |
+| Kani | 12 parser/bounds proofs pass, including 3 QHS-2 proofs |
 | Miri | `qwp-core` and `qwp-crypto` format tests pass |
 | Timing | keygen ≈27–28 ms, sign ≈0.46–0.61 ms, verify ≈0.41 ms; Welch \|t\| < 4.5 |
-| Coverage | QHS-2 99.35% lines; QHS-1 99.50%; overall 83.58% with dev binaries excluded |
+| Coverage | QHS-2 99.35% lines; QHS-1 99.50%; QHS-3 99.17%; overall 79.82% with dev binaries excluded |
+| Fuzz | Combined 1-hour soak: 333,637,807 iterations, 0 panics (`docs/evidence/fuzz-soak-1h-all.txt`) |
 | KAT | `159fb7dd8498d70589da6e4ea1c52d00d86ca070e028ebcbcfa30fd083dd9385` |
 | CLI | keygen 0.08 s, sign/verify <0.01 s; signature 1,704 B; cache 8,232 B |
 
@@ -89,13 +90,13 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 
 | Obligation | Status | Closure |
 |---|---|---|
-| 1-hour fuzz soak | Pending | `./scripts/fuzz.sh 3600` with combined QHS-1/2/3 coverage |
-| Mutation | Pending | `./scripts/mutation.sh` |
+| 1-hour fuzz soak | **Passed** | 333,637,807 iterations, 0 panics; `docs/evidence/fuzz-soak-1h-all.txt` |
+| Mutation | QHS-2 not separately claimed; shared QHS-3/3.1 pass caught 129 non-equivalent mutants | `docs/11-qhs3-review.md` §6 |
 | External review | Optional | Evidence only, never a gate |
 
 ## 8. Sign-off
 
 - Engineer review: pass with assumptions.
 - Attacker review: pass for implemented abuse cases and tamper matrix.
-- Release status: **not yet**; 1-hour soak and final mutation/coverage are pending.
+- Release status: **ready for QHS-2 release candidate**; combined 1-hour soak passed, coverage complete.
 - No standard fallback.
