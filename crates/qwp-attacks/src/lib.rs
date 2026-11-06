@@ -269,12 +269,31 @@ pub fn attack_qhs1() -> bool {
     let accepted = public_key.verify(b"qhs-attack-message", &signature).is_ok();
     let wrong_message = public_key.verify(b"qhs-wrong-message", &signature).is_err();
 
-    let mut tampered_bytes = signature.to_bytes();
-    if let Some(byte) = tampered_bytes.get_mut(10) {
-        *byte ^= 1;
+    let tamper_offsets = [0_usize, 1, 2, 3, 10, 2148, 2404];
+    let mut tampered_rejected = true;
+    for offset in tamper_offsets {
+        let mut tampered_bytes = signature.to_bytes();
+        if let Some(byte) = tampered_bytes.get_mut(offset) {
+            *byte ^= 1;
+        }
+        let tampered = QhsSignature::from_bytes(tampered_bytes);
+        if public_key.verify(b"qhs-attack-message", &tampered).is_ok() {
+            tampered_rejected = false;
+            break;
+        }
     }
-    let tampered = QhsSignature::from_bytes(tampered_bytes);
-    let tampered_rejected = public_key.verify(b"qhs-attack-message", &tampered).is_err();
+    let zero_rejected = public_key
+        .verify(
+            b"qhs-attack-message",
+            &QhsSignature::from_bytes([0_u8; qwp_crypto::QHS_SIGNATURE_BYTES]),
+        )
+        .is_err();
+    let ff_rejected = public_key
+        .verify(
+            b"qhs-attack-message",
+            &QhsSignature::from_bytes([0xff_u8; qwp_crypto::QHS_SIGNATURE_BYTES]),
+        )
+        .is_err();
 
     let Ok((_, other_public_key)) = qhs_keygen(&[9_u8; 32]) else {
         return false;
@@ -290,7 +309,13 @@ pub fn attack_qhs1() -> bool {
     let exhausted_ok = QhsPrivateKey::from_bytes(&key_bytes)
         .is_ok_and(|mut exhausted| exhausted.sign(b"message") == Err(CryptoError::KeyExhausted));
 
-    accepted && wrong_message && tampered_rejected && wrong_key && exhausted_ok
+    accepted
+        && wrong_message
+        && tampered_rejected
+        && wrong_key
+        && exhausted_ok
+        && zero_rejected
+        && ff_rejected
 }
 
 #[cfg(test)]

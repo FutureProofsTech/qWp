@@ -43,3 +43,26 @@ impl fmt::Display for CryptoError {
         formatter.write_str(message)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::CryptoError;
+
+    #[test]
+    fn display_covers_every_variant() {
+        let cases = [
+            (CryptoError::InvalidLength, "invalid length"),
+            (CryptoError::InvalidGenerator, "invalid braid generator"),
+            (CryptoError::InvalidPadding, "invalid padding"),
+            (CryptoError::DegreeOutOfRange, "degree out of range"),
+            (CryptoError::ArithmeticOverflow, "arithmetic overflow"),
+            (CryptoError::EntropyFailure, "entropy failure"),
+            (CryptoError::UnsupportedPlatform, "unsupported platform"),
+            (CryptoError::KeyExhausted, "key exhausted"),
+            (CryptoError::VerificationFailed, "verification failed"),
+        ];
+        for (error, expected) in cases {
+            assert_eq!(std::string::ToString::to_string(&error), expected);
+        }
+    }
+}

@@ -15,6 +15,9 @@ cargo test --workspace --all-features
 echo "== attacks =="
 cargo run -p qwp-attacks --bin attack-suite
 
+echo "== fuzz =="
+cargo run -q -p qwp-tests --release --bin fuzz -- 5
+
 echo "== audit =="
 cargo run -p qwp-attacks --bin audit
 

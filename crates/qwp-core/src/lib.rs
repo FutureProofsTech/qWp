@@ -65,7 +65,8 @@
         clippy::arithmetic_side_effects,
         clippy::as_conversions,
         clippy::cast_lossless,
-        reason = "tests may assert, index fixed arrays, and use small numeric conversions"
+        clippy::std_instead_of_alloc,
+        reason = "tests may assert, index fixed arrays, use std test helpers, and use small numeric conversions"
     )
 )]
 

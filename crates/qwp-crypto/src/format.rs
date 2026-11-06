@@ -203,4 +203,29 @@ mod tests {
         assert!(debug.contains("PrivateKey"));
         assert!(!debug.contains("crossings"));
     }
+
+    #[test]
+    fn empty_private_key_and_invalid_bytes() {
+        let key = PrivateKey::from_braid(Braid::new());
+        assert!(key.is_empty());
+        let nonempty = PrivateKey::from_braid(Braid::from_generators(&[1]).unwrap());
+        assert!(!nonempty.is_empty());
+        let mut bytes = [0_u8; 40];
+        bytes[32..40].copy_from_slice(&33_u64.to_le_bytes());
+        assert!(PrivateKey::from_bytes(&bytes).is_err());
+    }
+
+    #[test]
+    fn zero_signature_and_bytes() {
+        let signature = Signature::from_bytes([0_u8; 160]);
+        assert!(signature.is_zero());
+        assert_eq!(signature.as_bytes(), &[0_u8; 160]);
+    }
+
+    #[test]
+    fn public_key_as_polynomial() {
+        let polynomial = Polynomial::new();
+        let key = PublicKey::from_polynomial(polynomial);
+        assert_eq!(key.as_polynomial(), &polynomial);
+    }
 }

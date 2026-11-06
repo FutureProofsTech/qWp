@@ -12,6 +12,10 @@ publish.workspace = true
 name = "qwp-bench"
 path = "src/main.rs"
 
+[[bin]]
+name = "qwp-timing"
+path = "src/bin/timing.rs"
+
 [dependencies]
 qwp-core = { path = "../qwp-core" }
 qwp-crypto = { path = "../qwp-crypto" }

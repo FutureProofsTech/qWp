@@ -205,4 +205,33 @@ mod tests {
         let parsed = Polynomial::from_bytes(&bytes);
         assert_eq!(parsed, polynomial);
     }
+
+    #[test]
+    fn default_and_single_coefficient_span() {
+        let mut polynomial = Polynomial::default();
+        assert!(polynomial.is_zero());
+        polynomial.set_coefficient(7, 3).unwrap();
+        assert_eq!(polynomial.degree_span(), Some(0));
+        assert_eq!(polynomial.nonzero_count(), 1);
+    }
+
+    #[test]
+    fn set_rejects_out_of_range() {
+        let mut polynomial = Polynomial::new();
+        assert_eq!(
+            polynomial.set_coefficient(MAX_DEGREE + 1, 1),
+            Err(CryptoError::DegreeOutOfRange)
+        );
+        assert_eq!(
+            polynomial.set_coefficient(MIN_DEGREE - 1, 1),
+            Err(CryptoError::DegreeOutOfRange)
+        );
+    }
+
+    #[test]
+    fn nonzero_polynomial_is_not_zero() {
+        let mut polynomial = Polynomial::new();
+        polynomial.set_coefficient(1, 1).unwrap();
+        assert!(!polynomial.is_zero());
+    }
 }

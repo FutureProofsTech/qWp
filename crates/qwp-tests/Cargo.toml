@@ -12,6 +12,10 @@ publish.workspace = true
 name = "qwp_tests"
 path = "src/lib.rs"
 
+[[bin]]
+name = "fuzz"
+path = "src/bin/fuzz.rs"
+
 [dependencies]
 qwp-core = { path = "../qwp-core" }
 qwp-crypto = { path = "../qwp-crypto" }

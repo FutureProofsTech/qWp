@@ -167,6 +167,17 @@ fn run_qhs_keygen(arguments: &[String]) -> ExitCode {
         eprintln!("usage: qwp qhs-keygen <public-key> <private-key>");
         return ExitCode::from(2);
     };
+    if Path::new(private_path).exists() {
+        eprintln!("qhs-keygen: refusing to overwrite existing {private_path}");
+        return ExitCode::from(2);
+    }
+    let _lock_file = match lock_key(private_path) {
+        Ok(file) => file,
+        Err(error) => {
+            eprintln!("qhs-keygen: {error}");
+            return ExitCode::from(3);
+        }
+    };
     let mut seed = [0_u8; 32];
     if let Err(error) = HostEntropy::open().and_then(|mut entropy| entropy.fill(&mut seed)) {
         eprintln!("qhs-keygen: {error}");
@@ -198,6 +209,13 @@ fn run_qhs_sign(arguments: &[String]) -> ExitCode {
     else {
         eprintln!("usage: qwp qhs-sign <private-key> <message> <signature>");
         return ExitCode::from(2);
+    };
+    let _lock_file = match lock_key(private_path) {
+        Ok(file) => file,
+        Err(error) => {
+            eprintln!("qhs-sign: {error}");
+            return ExitCode::from(3);
+        }
     };
     let key_vec = match read_exact_file(private_path, QHS_PRIVATE_KEY_BYTES) {
         Ok(bytes) => bytes,
@@ -298,6 +316,20 @@ fn run_qhs_verify(arguments: &[String]) -> ExitCode {
             ExitCode::from(1)
         }
     }
+}
+
+fn lock_key(path: &str) -> Result<fs::File, String> {
+    let lock_path = format!("{path}.lock");
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(&lock_path)
+        .map_err(|error| format!("{lock_path}: {error}"))?;
+    file.try_lock()
+        .map_err(|_| format!("{path}: locked by another process"))?;
+    Ok(file)
 }
 
 fn read_exact_file(path: &str, expected: usize) -> Result<Vec<u8>, String> {

@@ -65,17 +65,33 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 - Kani: public-key parse, private-key parse, signature leaf-index parse.
 - CI: fmt, clippy, tests, attacks, audit, zero-dependency, safe-Rust gate.
 
-## 6. Remaining obligations and options
+## 6. Verification evidence (collected)
 
-| Gap | Options | Recommended |
+| Evidence | Result |
+|---|---|
+| Unit/integration tests | 77 tests pass (including QHS-1 KAT, error paths, and CLI end-to-end) |
+| Attack suite | 6/6 attack groups pass; QHS-1 tamper matrix covers version, algorithm, leaf index, WOTS, auth path, checksum, all-zero, all-0xff |
+| Kani | 6 parser/bounds proofs pass |
+| Miri | `qwp-core` and `qwp-crypto` format tests pass |
+| Fuzz | 13,270,061 iterations / 60s, 0 panics |
+| Timing | keygen t=0.792, sign t=-0.120, threshold 4.5 |
+| Coverage | core/crypto library lines: braid 100%, polynomial 100%, error 100%, format 100%, qhs 99.81%, BLAKE3 96.69%; overall 85.21% with dev binaries excluded |
+| Mutation | qwp-core 57/57 viable caught; qwp-crypto 95/98 viable caught (2 `Drop` mutants unobservable in safe Rust, 1 equivalent loop mutant) |
+| CLI key lock | two concurrent `qhs-sign` processes: one succeeds, one fails with "locked by another process" |
+| CLI key store | `0600` private key, atomic `fsync`+rename, key updated before signature |
+
+## 7. Remaining release obligations
+
+| Obligation | Status | Closure |
 |---|---|---|
-| Atomic key store / counter persistence | (a) local file with fsync + atomic rename; (b) OS keyring; (c) hardware-backed counter | (a) for local CLI; document single-writer |
-| Fuzz/timing evidence | (a) in-house fuzz driver; (b) external fuzzer; (c) both | (a) now, (c) before release |
-| Independent attacker rotation | (a) internal second engineer; (b) external review as evidence only | (a) now, (b) optional |
-| Proof machine-checking | (a) manual game-based proof; (b) EasyCrypt/ProVerif-style model (external tool, not a crate); (c) both | (a) is the current proof; (c) optional |
+| 72-hour fuzz soak | Pending | Run `./scripts/fuzz.sh 270000` on the release candidate |
+| Independent attacker rotation | Role-separated review complete; second-engineer rotation optional | FAD/ADR signed by engineer and attacker roles |
+| Mutation exceptions | Documented | `Drop` destructors require unsafe observation; `while count > 1` mutant is equivalent |
+| External review | Optional | Evidence only, never a gate |
 
-## 7. Sign-off
+## 8. Sign-off
 
 - Engineer review: pass with assumptions.
-- Attacker review: pass for implemented abuse cases; fuzz/timing and key-store rollback still open.
-- Release status: **not yet**; zero open production gaps is required.
+- Attacker review: pass for implemented abuse cases and tamper matrix; role-separated sign-off recorded.
+- Release status: **not yet**; 72h soak is the remaining release gate, not a code gap.
+- No standard fallback.

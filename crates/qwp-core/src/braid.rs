@@ -277,4 +277,50 @@ mod tests {
         bytes[32..40].copy_from_slice(&bad_length.to_le_bytes());
         assert_eq!(Braid::from_bytes(&bytes), Err(CryptoError::InvalidLength));
     }
+
+    #[test]
+    fn get_and_iterate() {
+        let braid = Braid::from_generators(&[1, -2, 7]).unwrap();
+        assert_eq!(braid.get(0), Some(1));
+        assert_eq!(braid.get(1), Some(-2));
+        assert_eq!(braid.get(2), Some(7));
+        assert_eq!(braid.get(3), None);
+        assert_eq!(
+            braid.iter().collect::<std::vec::Vec<_>>(),
+            std::vec![1, -2, 7]
+        );
+        assert_eq!(braid.as_slice(), &[1, -2, 7]);
+    }
+
+    #[test]
+    fn empty_and_default_and_clear() {
+        let mut braid = Braid::default();
+        assert!(braid.is_empty());
+        assert_eq!(braid.as_slice(), &[]);
+        braid = Braid::from_generators(&[1, 2]).unwrap();
+        braid.clear();
+        assert!(braid.is_empty());
+        assert_eq!(braid.get(0), None);
+    }
+
+    #[test]
+    fn debug_is_redacted() {
+        let braid = Braid::from_generators(&[1, 2, 3]).unwrap();
+        let debug = std::format!("{braid:?}");
+        assert!(debug.contains("Braid"));
+        assert!(!debug.contains("crossings"));
+    }
+
+    #[test]
+    fn empty_generator_slice_is_valid() {
+        assert_eq!(Braid::from_generators(&[]), Ok(Braid::new()));
+    }
+
+    #[test]
+    fn max_length_is_valid_and_len_is_reported() {
+        let generators = [1_i8; MAX_CROSSINGS];
+        let braid = Braid::from_generators(&generators).unwrap();
+        assert_eq!(braid.len(), u8::try_from(MAX_CROSSINGS).unwrap());
+        assert!(!braid.is_empty());
+    }
 }

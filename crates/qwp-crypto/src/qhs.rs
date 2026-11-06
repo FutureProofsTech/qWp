@@ -591,6 +591,7 @@ mod tests {
     };
     use core::mem::size_of;
     use qwp_core::CryptoError;
+    use qwp_hash::hash32;
 
     const SEED: [u8; 32] = [7_u8; 32];
 
@@ -666,5 +667,159 @@ mod tests {
         let (_, public_key) = keygen(&SEED).unwrap();
         let bytes = public_key.to_bytes();
         assert_eq!(QhsPublicKey::from_bytes(&bytes), Ok(public_key));
+    }
+
+    #[test]
+    fn public_key_rejects_bad_metadata() {
+        let mut bytes = [0_u8; super::QHS_PUBLIC_KEY_BYTES];
+        bytes[0] = 0;
+        assert!(QhsPublicKey::from_bytes(&bytes).is_err());
+        bytes[0] = 1;
+        bytes[1] = 0;
+        assert!(QhsPublicKey::from_bytes(&bytes).is_err());
+        bytes[1] = 1;
+        bytes[2] = 0;
+        assert!(QhsPublicKey::from_bytes(&bytes).is_err());
+        bytes[2] = 8;
+        bytes[3] = 1;
+        assert!(QhsPublicKey::from_bytes(&bytes).is_err());
+    }
+
+    #[test]
+    fn private_key_rejects_bad_metadata_and_counter() {
+        let mut bytes = [0_u8; super::QHS_PRIVATE_KEY_BYTES];
+        bytes[0] = 0;
+        assert!(QhsPrivateKey::from_bytes(&bytes).is_err());
+        bytes[0] = 1;
+        bytes[1] = 1;
+        bytes[2] = 8;
+        bytes[3] = 0;
+        bytes[38] = 1;
+        assert!(QhsPrivateKey::from_bytes(&bytes).is_err());
+        bytes[38] = 0;
+        bytes[36..38].copy_from_slice(&257_u16.to_le_bytes());
+        assert!(QhsPrivateKey::from_bytes(&bytes).is_err());
+    }
+
+    #[test]
+    fn signature_rejects_bad_version_and_checksum() {
+        let (mut private_key, public_key) = keygen(&SEED).unwrap();
+        let signature = private_key.sign(b"message").unwrap();
+
+        let mut bad_version = signature.to_bytes();
+        bad_version[0] = 0;
+        assert!(
+            public_key
+                .verify(b"message", &QhsSignature::from_bytes(bad_version))
+                .is_err()
+        );
+
+        let mut bad_checksum = signature.to_bytes();
+        if let Some(byte) = bad_checksum.get_mut(QHS_SIGNATURE_BYTES - 1) {
+            *byte ^= 1;
+        }
+        assert!(
+            public_key
+                .verify(b"message", &QhsSignature::from_bytes(bad_checksum))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn from_parts_rejects_out_of_range_counter() {
+        assert!(QhsPrivateKey::from_parts([0_u8; 32], 257).is_err());
+    }
+
+    #[test]
+    fn verifies_second_leaf_and_rejects_bad_leaf_index() {
+        let (mut private_key, public_key) = keygen(&SEED).unwrap();
+        let first = private_key.sign(b"first").unwrap();
+        let second = private_key.sign(b"second").unwrap();
+        assert_eq!(public_key.verify(b"first", &first), Ok(()));
+        assert_eq!(public_key.verify(b"second", &second), Ok(()));
+        assert_eq!(second.leaf_index(), Ok(1));
+
+        let mut bytes = second.to_bytes();
+        bytes[2..4].copy_from_slice(&256_u16.to_le_bytes());
+        assert!(
+            public_key
+                .verify(b"second", &QhsSignature::from_bytes(bytes))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn wots_verify_rejects_wrong_length() {
+        assert!(super::wots_verify(&[], &[0_u8; super::WOTS_CHAINS]).is_err());
+    }
+
+    #[test]
+    fn known_answer_signature_hash() {
+        let (mut private_key, _public_key) = keygen(&SEED).unwrap();
+        let signature = private_key.sign(b"qWp QHS-1 KAT").unwrap();
+        assert_eq!(
+            std::format!("{:?}", hash32(&signature.to_bytes())),
+            "Hash32(662fbe8fa1196d087c6a9fe404ec146418424ae068cedb544328b7ac0c8c3eb9)"
+        );
+    }
+
+    #[test]
+    fn signature_round_trip_nonzero() {
+        let (mut private_key, _public_key) = keygen(&SEED).unwrap();
+        let signature = private_key.sign(b"qWp QHS-1 round-trip").unwrap();
+        let bytes = signature.to_bytes();
+        assert_eq!(QhsSignature::from_bytes(bytes).to_bytes(), bytes);
+    }
+
+    #[test]
+    fn next_leaf_starts_at_zero_and_increments() {
+        let (mut private_key, _public_key) = keygen(&SEED).unwrap();
+        assert_eq!(private_key.next_leaf(), 0);
+        let _one = private_key.sign(b"one").unwrap();
+        assert_eq!(private_key.next_leaf(), 1);
+        let _two = private_key.sign(b"two").unwrap();
+        assert_eq!(private_key.next_leaf(), 2);
+    }
+
+    #[test]
+    fn public_key_metadata_mutated_one_field_at_a_time() {
+        let (_, public_key) = keygen(&SEED).unwrap();
+        let original = public_key.to_bytes();
+        for index in 0..4 {
+            let mut bytes = original;
+            if let Some(byte) = bytes.get_mut(index) {
+                *byte ^= 1;
+            }
+            assert!(QhsPublicKey::from_bytes(&bytes).is_err());
+        }
+    }
+
+    #[test]
+    fn private_key_metadata_mutated_one_field_at_a_time() {
+        let (private_key, _public_key) = keygen(&SEED).unwrap();
+        let original = private_key.to_bytes();
+        for index in 0..4 {
+            let mut bytes = original;
+            if let Some(byte) = bytes.get_mut(index) {
+                *byte ^= 1;
+            }
+            assert!(QhsPrivateKey::from_bytes(&bytes).is_err());
+        }
+    }
+
+    #[test]
+    fn verify_rejects_bad_algorithm_only() {
+        let (mut private_key, public_key) = keygen(&SEED).unwrap();
+        let signature = private_key.sign(b"algorithm").unwrap();
+        let mut bytes = signature.to_bytes();
+        bytes[1] = 0;
+        let body = bytes.get(..super::CHECKSUM_BODY_BYTES).unwrap();
+        let checksum = super::signature_checksum(body).unwrap();
+        bytes[super::CHECKSUM_OFFSET..].copy_from_slice(&checksum);
+        assert!(
+            public_key
+                .verify(b"algorithm", &QhsSignature::from_bytes(bytes))
+                .is_err()
+        );
     }
 }
