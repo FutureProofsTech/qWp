@@ -74,21 +74,21 @@
 
 | Evidence | Result |
 |---|---|
-| Unit/integration tests | 141 tests pass workspace-wide (release, including QHS-3.1) |
+| Unit/integration tests | 142 tests pass workspace-wide (release, including QHS-3.1) |
 | Attack suite | 8/8 attack groups pass, including QHS-3 |
 | Kani | 12 parser/bounds proofs pass, including 3 QHS-3 proofs |
-| Timing | keygen ≈0.40–0.44 s, sign ≈1.60–1.70 ms, verify ≈0.39 ms; Welch \|t\| < 4.5 |
+| Timing | QHS-3: keygen ≈0.40–0.44 s, sign ≈1.60–1.70 ms, verify ≈0.39 ms; QHS-3.1: sign ≈0.35–0.36 ms; Welch \|t\| < 4.5 |
 | KAT | `e1c5fd67b35c6c86e0d4e9e436598e30394984db311c99392fd610f82b7ae03b` |
 | CLI | keygen 0.44 s, sign/verify <0.01 s; signature 1,832 B; cache 131,112 B |
-| Coverage | QHS-3 97.85% lines; QHS-1 99.50%; QHS-2 99.35%; overall 79.43% with dev binaries excluded |
-| Mutation | Pending final run |
+| Coverage | QHS-3/QHS-3.1 99.17% lines; QHS-1 99.50%; QHS-2 99.35%; overall 79.82% with dev binaries excluded |
+| Mutation | 163 mutants: 129 caught, 27 unviable, 7 documented equivalents (Drop, redundant bounds checks, OR→XOR shift); no non-equivalent viable survivor |
 
 ## 7. Remaining release obligations
 
 | Obligation | Status | Closure |
 |---|---|---|
-| 1-hour fuzz soak | Pending | `./scripts/fuzz.sh 3600` with combined QHS-1/2/3 coverage |
-| Mutation/coverage | Pending | `./scripts/mutation.sh`, `./scripts/coverage.sh` |
+| 1-hour fuzz soak | Pending | `./scripts/fuzz.sh 3600` with combined QHS-1/2/3/3.1 coverage |
+| Mutation/coverage | Complete | QHS-3 mutation 129 caught; QHS-3 coverage 99.17% lines |
 | External review | Optional | Evidence only, never a gate |
 
 ## 8. Sign-off

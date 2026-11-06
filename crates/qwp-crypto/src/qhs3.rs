@@ -1007,6 +1007,22 @@ mod tests {
     }
 
     #[test]
+    fn message_digits_padding_matches_digest_prefix() {
+        let mut found = false;
+        for value in 0_u8..=255 {
+            let message = [value];
+            let digest = qwp_hash::derive_key32(MESSAGE_CONTEXT, &message).to_bytes();
+            if digest.first().is_some_and(|byte| byte & 0x80 != 0) {
+                let digits = super::message_digits(&message);
+                assert_eq!(digits.first(), Some(&(digest[0] >> 4)));
+                found = true;
+                break;
+            }
+        }
+        assert!(found);
+    }
+
+    #[test]
     fn known_message_digits() {
         assert_eq!(
             super::message_digits(b"qWp QHS-3 KAT"),
