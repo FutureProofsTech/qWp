@@ -8,7 +8,7 @@ It is built under three hard constraints:
 2. **Zero external crates** — no dependencies; only `core`/`std` from the pinned toolchain.
 3. **No hidden gaps** — every function gets an adversary dossier and attack harness; every known gap is tracked until closed.
 
-> **Status: QHS-1 production candidate; zero open production gaps.** The core types, fixed layouts, in-tree BLAKE3, safe Unix entropy, attack harnesses, CLI, proof, and verification evidence are in place. Production signatures use **QHS-1** (WOTS + Merkle, 2408-byte signature, 64-byte keys). 1-hour pre-soak passed; release gate: 72-hour fuzz soak. The original topological `P·M·P⁻¹` construction is a confirmed break and is retained only as research. See `docs/05-qhs1.md`, `docs/06-qhs1-review.md`, `docs/gap-register.md`, and `docs/break-log.md`.
+> **Status: QHS-1 release candidate; zero open production gaps.** The core types, fixed layouts, in-tree BLAKE3, safe Unix entropy, attack harnesses, CLI, proof, and verification evidence are in place. Production signatures use **QHS-1** (WOTS + Merkle, 2408-byte signature, 64-byte keys). 1-hour fuzz soak passed; 72-hour soak waived by owner decision (2026-11-06). The original topological `P·M·P⁻¹` construction is a confirmed break and is retained only as research. See `docs/05-qhs1.md`, `docs/06-qhs1-review.md`, `docs/gap-register.md`, and `docs/break-log.md`.
 
 ## Workspace
 
@@ -73,4 +73,4 @@ The private key is stateful: each signature consumes one leaf and the CLI atomic
 
 ## Warning
 
-This project is not standard and not externally audited. The QHS-1 construction is closed with an internal proof and evidence, and the production gap register is empty. It remains a release candidate until the 72-hour soak passes. Do not use qWp for real security before that gate and an independent review of your deployment.
+This project is not standard and not externally audited. The QHS-1 construction is closed with an internal proof and evidence, and the production gap register is empty. It is a QHS-1 release candidate with a passed 1-hour fuzz soak; the 72-hour soak was waived by owner decision. Do not use qWp for real security without an independent review of your deployment.

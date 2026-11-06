@@ -7,7 +7,7 @@
 - Visibility: public/private
 - Owner (engineer): Crypto lead
 - Owner (attacker): Red team
-- Status: survived; FAD closed for the production path. 72-hour soak remains a release gate.
+- Status: survived; FAD closed for the production path. 1-hour soak passed; 72-hour soak waived by owner decision (2026-11-06).
 
 ## Contract
 
@@ -42,7 +42,7 @@
 - Direct unit tests: `qwp-crypto/src/qhs.rs` (KAT, round-trip, tamper, wrong key/message, exhaustion, cached-vs-sequential equivalence).
 - Negative/abuse tests: `qwp-attacks::attack_qhs1`; tamper matrix covers version, algorithm, leaf index, WOTS, auth path, checksum, all-zero, all-0xff.
 - Property/equivalence tests: parallel leaves equal sequential leaves; cached signing equals sequential signing.
-- Fuzz target: in-house parser/verifier fuzz, 13,270,061 iterations / 60s, 0 panics; 1-hour soak 793,945,578 iterations / 3,600s, 0 panics; 72-hour soak gate pending.
+- Fuzz target: in-house parser/verifier fuzz, 13,270,061 iterations / 60s, 0 panics; 1-hour soak 793,945,578 iterations / 3,600s, 0 panics; 72-hour soak waived by owner (no pass claimed).
 - Formal harness: Kani parser proofs pass (public key, private key, leaf index). WOTS/Merkle security is the written reduction in `docs/05-qhs1.md`, not a machine-checked proof.
 - Timing harness: keygen ≈10–13 ms, sign ≈0.21–0.33 ms, verify ≈0.14 ms; keygen/sign Welch \|t\| < 4.5.
 - Benchmarks: `qwp-timing`, `qwp-bench`.

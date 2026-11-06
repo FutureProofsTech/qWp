@@ -80,7 +80,7 @@ Any change requires an ADR, a gap-register entry, traceability update, impact an
 | Correctness | Math spec + KATs + differential + property tests |
 | Coverage | 100% core line/branch target; 95% overall; exceptions in gap register |
 | Mutation | ≥95% target, 100% goal |
-| Fuzzing | 72h clean, regression corpus |
+| Fuzzing | 72h clean by default; QHS-1 RC accepted 1h by owner waiver 2026-11-06 |
 | Attack coverage | 100% of functions have FAD + attack harness |
 | Gap coverage | Zero open gaps at release |
 | Supply chain | Zero crates; pinned toolchain; reproducible builds |

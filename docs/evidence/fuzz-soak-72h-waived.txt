@@ -1,0 +1,19 @@
+qWp 72-hour fuzz soak - owner waiver
+====================================
+
+Date: 2026-11-06
+Commit: b86b6bf058709419b155cd9ece24524efc43f3be
+Start (UTC): 2026-11-06T11:30:00Z
+Stopped (UTC): 2026-11-06T11:59:34Z
+Duration: ~29m34s
+
+Result: CANCELLED by owner decision. No pass/fail claim is made for the
+72-hour soak.
+
+Reason: the owner accepted the completed 1-hour soak as sufficient fuzz
+evidence for the QHS-1 release candidate. See
+docs/evidence/fuzz-soak-1h.txt: 793,945,578 iterations, 0 panics, 3,600s.
+
+Consequence: the 72-hour soak is waived for the QHS-1 release candidate only.
+It remains the default release-soak target for future versions unless the
+owner changes the standard.

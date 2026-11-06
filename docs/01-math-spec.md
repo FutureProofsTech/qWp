@@ -269,7 +269,7 @@ The in-tree naive reference is the primary oracle; Sage/KnotTheory is optional e
 
 - replacement signature paradigm — ADR-0002 selects QHS-1;
 - keygen/sign/verify — QHS-1 implemented and reviewed;
-- production FAD/attack/fuzz/formal coverage — evidence in `docs/06-qhs1-review.md`; 72-hour soak is the release gate.
+- production FAD/attack/fuzz/formal coverage — evidence in `docs/06-qhs1-review.md`; 1-hour soak passed, 72-hour soak waived by owner.
 
 **Open and tracked (research-only, not production):**
 

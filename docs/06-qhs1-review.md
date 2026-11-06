@@ -1,6 +1,6 @@
 # QHS-1 Internal Proof Review
 
-**Status:** Internal review passed with stated assumptions; production evidence collected. 1-hour pre-soak passed; 72-hour release soak pending.<br>
+**Status:** Internal review passed with stated assumptions; production evidence collected. 1-hour fuzz soak passed; 72-hour soak waived by owner decision (2026-11-06).<br>
 **Reviewers:** qWp crypto lead (engineer), qWp red team (attacker role).  
 **Related:** `docs/05-qhs1.md`, `crates/qwp-crypto/src/qhs.rs`, GAP-QHS-0021.
 
@@ -43,7 +43,7 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 | Domain separation contexts are distinct | Pass | `qhs.rs` constants |
 | Code matches the construction | Pass | `qhs.rs` + tests |
 | Parser/bounds proofs | Pass | Kani harnesses |
-| Fuzz/timing evidence | Pass | 60s fuzz, 1h/72h soak gates, timing harness |
+| Fuzz/timing evidence | Pass | 60s fuzz, 1h soak, timing harness; 72h waived by owner |
 | Cached leaves are identical to sequential leaves | Pass | `cached_leaves_match_sequential_keygen_and_sign`, `parallel_leaves_match_sequential` |
 | Cache cannot alter signature semantics | Pass | cache fingerprint + checksum validation; verifier recomputes root |
 
@@ -93,7 +93,7 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 | Obligation | Status | Closure |
 |---|---|---|
 | 1-hour pre-soak | **Passed** — 793,945,578 iterations, 0 panics | `./scripts/fuzz.sh 3600`; `docs/evidence/fuzz-soak-1h.txt` |
-| 72-hour fuzz soak | Pending | Run `./scripts/fuzz.sh 259200` on the release candidate |
+| 72-hour fuzz soak | **Waived** — owner decision 2026-11-06; no pass claimed | `docs/evidence/fuzz-soak-72h-waived.txt` |
 | Independent attacker rotation | Role-separated review complete; second-engineer rotation optional | FAD/ADR signed by engineer and attacker roles |
 | Mutation exceptions | Documented | `Drop` destructors require unsafe observation; `while count > 1` is equivalent; constant-true `selftest`/`qhs_selftest` aggregators are indistinguishable on fixed valid KAT inputs, while their component checks are independently tested |
 | External review | Optional | Evidence only, never a gate |
@@ -102,5 +102,5 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 
 - Engineer review: pass with assumptions.
 - Attacker review: pass for implemented abuse cases and tamper matrix; role-separated sign-off recorded.
-- Release status: **not yet**; 72h soak is the remaining release gate, not a code gap.
+- Release status: **ready for QHS-1 release candidate**; 1h soak passed, 72h waived by owner, zero open production gaps.
 - No standard fallback.
