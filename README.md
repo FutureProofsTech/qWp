@@ -41,6 +41,16 @@ Local CI:
 ./scripts/ci.sh
 ```
 
+## QHS-1 CLI
+
+```bash
+cargo run -p qwp-cli --bin qwp -- qhs-keygen public.key private.key
+cargo run -p qwp-cli --bin qwp -- qhs-sign private.key message.txt message.sig
+cargo run -p qwp-cli --bin qwp -- qhs-verify public.key message.txt message.sig
+```
+
+The private key is stateful: each signature consumes one leaf and the CLI atomically updates the key counter with `fsync` + rename before writing the signature. The private key file is created with mode `0600` on Unix. Do not copy, roll back, or use the same key concurrently from multiple processes.
+
 ## Doctrine and registers
 
 - `docs/qwp-standard.md` — qWp Standard v1
@@ -48,6 +58,7 @@ Local CI:
 - `docs/03-formats.md` — fixed layouts and signature container
 - `docs/security-memo.md` — Phase 0 soundness findings
 - `docs/05-qhs1.md` — QHS-1 construction and security proof
+- `docs/06-qhs1-review.md` — internal proof review and remaining obligations
 - `docs/adr/0002-qhs1.md` — QHS-1 acceptance
 - `docs/adr/0001-signature-paradigm.md` — superseded signature paradigm decision
 - `docs/gap-register.md` — every open gap
