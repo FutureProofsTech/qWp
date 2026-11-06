@@ -11,8 +11,8 @@
 | BL-0005 | 2026-11-06 | Public key | Equivalent-braid search | **Open risk.** Any braid with the same invariant may verify | GAP-CRYPTO-0006 | Open |
 | BL-0006 | 2026-11-06 | B8 | Garside/conjugacy/length-based attacks | **Open risk.** B8 is small; no security reduction | GAP-CRYPTO-0005 | Open |
 | BL-0007 | 2026-11-06 | Secret lifetime | Zeroization in safe Rust | **Accepted limitation.** No guaranteed wipe without unsafe/volatile writes | GAP-POLICY-0013 | Accepted by D13, compensating controls open |
-| BL-0008 | 2026-11-06 | In-tree BLAKE3 | Implementation fault injection | **Open risk.** No implementation yet | GAP-CRYPTO-0014 | Open |
-| BL-0009 | 2026-11-06 | Parser | Malformed/oversized input | **Open risk.** No parser yet | GAP-FMT-0007 | Open |
+| BL-0008 | 2026-11-06 | In-tree BLAKE3 | Implementation fault injection | **Mitigated by implementation.** KATs pass; fuzz/Kani pending | GAP-CRYPTO-0014 | In progress |
+| BL-0009 | 2026-11-06 | Parser | Malformed/oversized input | **Mitigated by implementation.** Negative tests pass; fuzz pending | GAP-FMT-0007 | In progress |
 | BL-0010 | 2026-11-06 | Timing | Branch/memory leakage in keygen/sign/verify | **Open risk.** No CT implementation yet | GAP-CRYPTO-0001 | Open |
 
 ## Rules

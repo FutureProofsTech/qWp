@@ -50,6 +50,7 @@ Local CI:
 - `docs/attack-trees.md` — per-asset attack trees
 - `docs/adversary/` — one Function Adversary Dossier per function
 - `PLAN.md` — full engineering and security plan
+- `STATUS.md` — current implementation and verification status
 
 ## Warning
 
