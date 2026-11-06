@@ -1,0 +1,24 @@
+[package]
+name = "qwp-bench"
+description = "qWp in-house benchmark and timing harness."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "qwp-bench"
+path = "src/main.rs"
+
+[dependencies]
+qwp-core = { path = "../qwp-core" }
+qwp-crypto = { path = "../qwp-crypto" }
+qwp-hash = { path = "../qwp-hash" }
+
+[dev-dependencies]
+# none
+
+[build-dependencies]
+# none

@@ -1,0 +1,18 @@
+[package]
+name = "qwp-core"
+description = "qWp core types: braids, polynomials, fixed layouts, errors."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+# none
+
+[dev-dependencies]
+# none
+
+[build-dependencies]
+# none

@@ -1,0 +1,18 @@
+[package]
+name = "qwp-platform"
+description = "qWp safe platform adapters: Unix entropy and embedded traits."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+qwp-core = { path = "../qwp-core" }
+
+[dev-dependencies]
+# none
+
+[build-dependencies]
+# none

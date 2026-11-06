@@ -1,0 +1,25 @@
+[package]
+name = "qwp-cli"
+description = "qWp command-line interface."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "qwp"
+path = "src/main.rs"
+
+[dependencies]
+qwp-core = { path = "../qwp-core" }
+qwp-crypto = { path = "../qwp-crypto" }
+qwp-hash = { path = "../qwp-hash" }
+qwp-platform = { path = "../qwp-platform" }
+
+[dev-dependencies]
+# none
+
+[build-dependencies]
+# none
