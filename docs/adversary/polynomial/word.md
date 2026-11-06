@@ -7,7 +7,7 @@
 - Visibility: public
 - Owner (engineer): Math/Rust lead
 - Owner (attacker): Red team
-- Status: survived unit/attack; formal proof pending (GAP-CRYPTO-0014)
+- Status: survived unit/attack and Kani proof; fuzz pending (GAP-CRYPTO-0014)
 
 ## Contract
 
@@ -47,6 +47,6 @@
 
 - Abuse cases covered: yes.
 - Error paths tested: yes.
-- Bounds proven: Kani harness written, proof run pending.
-- Red-team sign-off: pending formal/fuzz.
+- Bounds proven: Kani proof passes.
+- Red-team sign-off: pending fuzz.
 - Date: 2026-11-06
