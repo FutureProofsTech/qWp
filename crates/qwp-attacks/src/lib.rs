@@ -72,7 +72,9 @@ use std::fs;
 use std::path::Path;
 
 use qwp_core::{BRAID_BYTES, Braid, CryptoError, MAX_CROSSINGS, Polynomial};
-use qwp_crypto::{PrivateKey, PublicKey, Signature};
+use qwp_crypto::{
+    PrivateKey, PublicKey, QHS_MAX_SIGNATURES, QhsPrivateKey, QhsSignature, Signature, qhs_keygen,
+};
 use qwp_hash::hash32;
 use qwp_platform::HostEntropy;
 
@@ -138,6 +140,7 @@ pub fn run_all() -> AttackReport {
         attack_key_formats(),
         attack_hash_vectors(),
         attack_entropy(),
+        attack_qhs1(),
     ];
     let passed = checks.iter().filter(|result| **result).count();
     let failed = checks.len().saturating_sub(passed);
@@ -252,11 +255,49 @@ pub fn attack_entropy() -> bool {
     })
 }
 
+/// Attacks QHS-1 with wrong messages, tampering, wrong keys, and exhaustion.
+#[must_use]
+#[inline]
+pub fn attack_qhs1() -> bool {
+    let seed = [7_u8; 32];
+    let Ok((mut private_key, public_key)) = qhs_keygen(&seed) else {
+        return false;
+    };
+    let Ok(signature) = private_key.sign(b"qhs-attack-message") else {
+        return false;
+    };
+    let accepted = public_key.verify(b"qhs-attack-message", &signature).is_ok();
+    let wrong_message = public_key.verify(b"qhs-wrong-message", &signature).is_err();
+
+    let mut tampered_bytes = signature.to_bytes();
+    if let Some(byte) = tampered_bytes.get_mut(10) {
+        *byte ^= 1;
+    }
+    let tampered = QhsSignature::from_bytes(tampered_bytes);
+    let tampered_rejected = public_key.verify(b"qhs-attack-message", &tampered).is_err();
+
+    let Ok((_, other_public_key)) = qhs_keygen(&[9_u8; 32]) else {
+        return false;
+    };
+    let wrong_key = other_public_key
+        .verify(b"qhs-attack-message", &signature)
+        .is_err();
+
+    let mut key_bytes = private_key.to_bytes();
+    if let Some(slot) = key_bytes.get_mut(36..38) {
+        slot.copy_from_slice(&QHS_MAX_SIGNATURES.to_le_bytes());
+    }
+    let exhausted_ok = QhsPrivateKey::from_bytes(&key_bytes)
+        .is_ok_and(|mut exhausted| exhausted.sign(b"message") == Err(CryptoError::KeyExhausted));
+
+    accepted && wrong_message && tampered_rejected && wrong_key && exhausted_ok
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         attack_braid_parser, attack_entropy, attack_hash_vectors, attack_key_formats,
-        attack_polynomial_round_trip, audit, run_all,
+        attack_polynomial_round_trip, attack_qhs1, audit, run_all,
     };
 
     #[test]
@@ -266,6 +307,7 @@ mod tests {
         assert!(attack_key_formats());
         assert!(attack_hash_vectors());
         assert!(attack_entropy());
+        assert!(attack_qhs1());
         assert!(run_all().is_ok());
     }
 

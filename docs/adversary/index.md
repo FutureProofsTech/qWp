@@ -26,6 +26,10 @@
 | `verify` | `qwp-crypto` | planned | `qwp-attacks/verify` | Open (not implemented) |
 | `signature_from_bytes` / `to_bytes` | `qwp-crypto` | `format/signature.md` | `qwp-attacks/parser` | Attacked (semantics open) |
 | `host_entropy_fill` | `qwp-platform` | `platform/entropy.md` | `qwp-attacks/entropy` | Attacked (health tests pending) |
+| `qhs_keygen` | `qwp-crypto` | `qhs/qhs1.md` | `qwp-attacks/qhs1` | Attacked (proof/fuzz pending) |
+| `QhsPrivateKey::sign` | `qwp-crypto` | `qhs/qhs1.md` | `qwp-attacks/qhs1` | Attacked (timing pending) |
+| `QhsPublicKey::verify` | `qwp-crypto` | `qhs/qhs1.md` | `qwp-attacks/qhs1` | Attacked |
+| `message_digits` / WOTS / Merkle internals | `qwp-crypto` | `qhs/qhs1.md` | `qwp-attacks/qhs1` | Attacked (Kani/fuzz pending) |
 
 ## Status meanings
 

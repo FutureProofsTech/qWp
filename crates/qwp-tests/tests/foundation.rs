@@ -3,7 +3,7 @@
 use qwp_core::{
     BRAID_BYTES, Braid, CryptoError, MAX_CROSSINGS, PUBLIC_KEY_BYTES, Polynomial, SIGNATURE_BYTES,
 };
-use qwp_crypto::{PrivateKey, PublicKey, Signature};
+use qwp_crypto::{PrivateKey, PublicKey, QhsSignature, Signature, qhs_keygen};
 use qwp_hash::hash32;
 use qwp_platform::HostEntropy;
 
@@ -73,6 +73,34 @@ fn blake3_vectors() {
         std::format!("{:?}", hash32(b"abc")),
         "Hash32(6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85)"
     );
+}
+
+#[test]
+fn qhs1_sign_verify_round_trip() {
+    let seed = [7_u8; 32];
+    let (mut private_key, public_key) = qhs_keygen(&seed).unwrap();
+    let signature = private_key.sign(b"qWp QHS-1 integration").unwrap();
+    assert_eq!(
+        public_key.verify(b"qWp QHS-1 integration", &signature),
+        Ok(())
+    );
+    assert_eq!(signature.leaf_index(), Ok(0));
+    assert_eq!(private_key.next_leaf(), 1);
+}
+
+#[test]
+fn qhs1_rejects_tampering_and_wrong_message() {
+    let seed = [7_u8; 32];
+    let (mut private_key, public_key) = qhs_keygen(&seed).unwrap();
+    let signature = private_key.sign(b"message-a").unwrap();
+    assert!(public_key.verify(b"message-b", &signature).is_err());
+
+    let mut bytes = signature.to_bytes();
+    if let Some(byte) = bytes.get_mut(20) {
+        *byte ^= 1;
+    }
+    let tampered = QhsSignature::from_bytes(bytes);
+    assert!(public_key.verify(b"message-a", &tampered).is_err());
 }
 
 #[cfg(unix)]

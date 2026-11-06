@@ -8,7 +8,7 @@ It is built under three hard constraints:
 2. **Zero external crates** — no dependencies; only `core`/`std` from the pinned toolchain.
 3. **No hidden gaps** — every function gets an adversary dossier and attack harness; every known gap is tracked until closed.
 
-> **Status: foundation slice.** The core types, fixed layouts, in-tree BLAKE3, safe Unix entropy, attack harnesses, and CLI selftest are in place. The custom signature is **not implemented** and the original `P·M·P⁻¹` construction is a confirmed break. See `docs/gap-register.md` and `docs/break-log.md`.
+> **Status: foundation + QHS-1.** The core types, fixed layouts, in-tree BLAKE3, safe Unix entropy, attack harnesses, and CLI selftests are in place. Production signatures use **QHS-1** (WOTS + Merkle, 2408-byte signature, 64-byte keys). The original topological `P·M·P⁻¹` construction is a confirmed break and is retained only as research. See `docs/05-qhs1.md`, `docs/gap-register.md`, and `docs/break-log.md`.
 
 ## Workspace
 
@@ -47,7 +47,9 @@ Local CI:
 - `docs/01-math-spec.md` — invariant, bounds, TL solver, signature analysis
 - `docs/03-formats.md` — fixed layouts and signature container
 - `docs/security-memo.md` — Phase 0 soundness findings
-- `docs/adr/0001-signature-paradigm.md` — signature paradigm decision
+- `docs/05-qhs1.md` — QHS-1 construction and security proof
+- `docs/adr/0002-qhs1.md` — QHS-1 acceptance
+- `docs/adr/0001-signature-paradigm.md` — superseded signature paradigm decision
 - `docs/gap-register.md` — every open gap
 - `docs/traceability.md` — requirement traceability
 - `docs/break-log.md` — attack attempts and results

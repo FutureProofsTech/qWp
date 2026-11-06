@@ -1,7 +1,7 @@
 # qWp Math Specification (Phase 0)
 
-**Status:** Frozen for the invariant and bounds; signature paradigm decision pending ADR-0001.  
-**Authority:** This document plus `docs/gap-register.md`. No external standard is authoritative.
+**Status:** Frozen for the invariant and bounds; production signature is QHS-1 (ADR-0002).  
+**Authority:** This document plus `docs/05-qhs1.md` and `docs/gap-register.md`. No external standard is authoritative.
 
 ---
 
@@ -226,13 +226,11 @@ A sound qWp signature must:
 
 ### 8.4 Decision
 
-The original topological signature cannot be made sound within the 160-byte/128-bit target. Phase 0 therefore closes C1 as a **rejected construction**, and opens a replacement decision:
+The original topological signature cannot be made sound within the 160-byte/128-bit target. Phase 0 closes C1 as a **rejected construction**.
 
-- **ADR-0001 Option A:** preserve the topological construction, enlarge signatures to ~2–4 KB and \(n\ge16\)–20; accept a research-grade security claim until attacked.
-- **ADR-0001 Option B:** preserve the 160-byte size, switch to a custom compact group signature; abandon the topological invariant.
-- **ADR-0001 Option C:** remain a research prototype with the break documented; do not ship.
+The production path is **QHS-1** (ADR-0002): a custom WOTS/Merkle hash-based signature on in-tree BLAKE3, 2408-byte signatures, 64-byte keys, with a written EUF-CMA proof in `docs/05-qhs1.md`. The braid/Jones engine remains a research module; it is not part of the production security argument.
 
-No standard fallback is permitted. The decision is recorded in `docs/adr/0001-signature-paradigm.md`.
+No standard fallback is permitted.
 
 ## 9. Security model
 

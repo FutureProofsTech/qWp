@@ -86,3 +86,18 @@ Leak secret
 ```
 
 Every leaf must have an attack harness or a documented reason in the gap register.
+
+## 7. QHS-1 signature
+
+```
+Forge QHS-1
+├── Used leaf, different message
+│   ├── Decrease a WOTS digit                 [Lemma 1]
+│   └── Find preimage/collision                [assumption]
+├── Unused leaf
+│   ├── Key-only WOTS forgery                  [Lemma 2]
+│   └── Merkle path collision                  [Lemma 3]
+├── Leaf reuse / counter rollback              [operational invariant]
+├── Auth path / leaf index tampering           [attack suite]
+└── Checksum/parser confusion                  [parser tests]
+```

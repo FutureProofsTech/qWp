@@ -1,6 +1,6 @@
 # qWp Format Specification (Phase 0)
 
-**Status:** Foundation formats frozen; signature semantics pending ADR-0001.  
+**Status:** Foundation formats frozen; production signature is QHS-1 (ADR-0002). The 160-byte container is legacy research v0.  
 **Rule:** Every format is versioned, canonical, fixed-size, and little-endian. No external crates.
 
 ---
@@ -91,13 +91,11 @@ Derived, not serialized:
 2. Base-14 mapping to 32 crossings.
 3. Full 32-byte digest is stored in the signature (D16).
 
-## 6. Signature semantics
+## 6. Legacy research signature container (v0)
 
-The original equation `S = P·M·P⁻¹` is rejected (see `docs/security-memo.md`). The replacement is selected by `docs/adr/0001-signature-paradigm.md`. Until that ADR is accepted:
+The 160-byte container in section 4 is **legacy research v0**. The original equation `S = P·M·P⁻¹` is rejected (see `docs/security-memo.md`). Production signatures use QHS-1 (section 10, ADR-0002).
 
-- the container may be parsed and attacked;
-- no `sign` or `verify` function may be shipped;
-- the signature format is marked **research v0**.
+The v0 container may be parsed and attacked, but no `sign`/`verify` function may use it for production.
 
 ## 7. Checksum
 
@@ -115,9 +113,77 @@ It detects accidental corruption only; it is not authentication.
 - Old versions are rejected unless a migration is explicitly implemented.
 - No format is silently extended.
 
-## 9. Open items
+## 9. QHS-1 constants
 
-- ADR-0001 signature paradigm (critical).
-- Public key may need to grow if the chosen signature uses a different public object.
-- Signature may need to grow for a topological construction.
+| Name | Value |
+|---|---:|
+| `QHS_PUBLIC_KEY_BYTES` | 64 |
+| `QHS_PRIVATE_KEY_BYTES` | 64 |
+| `QHS_SIGNATURE_BYTES` | 2408 |
+| `QHS_MAX_SIGNATURES` | 256 |
+| WOTS chains | 67 |
+| WOTS chain length | 15 |
+| Merkle height | 8 |
+
+## 10. QHS-1 production formats
+
+### 10.1 QHS-1 public key (64 bytes)
+
+```
+offset  size  field
+0       1     version        // 1
+1       1     algorithm      // 1 = QHS-1
+2       1     height         // 8
+3       1     reserved       // 0
+4       32    merkle_root
+36      28    reserved       // 0
+```
+
+### 10.2 QHS-1 private key (64 bytes)
+
+```
+offset  size  field
+0       1     version        // 1
+1       1     algorithm      // 1
+2       1     height         // 8
+3       1     reserved       // 0
+4       32    seed
+36      2     next_leaf      // 0..=256, little-endian
+38      26    reserved       // 0
+```
+
+The private key is stateful. `next_leaf` must be persisted atomically after every signature. Reusing or rolling back a leaf is a security break.
+
+### 10.3 QHS-1 signature (2408 bytes)
+
+```
+offset  size  field
+0       1     version        // 1
+1       1     algorithm      // 1
+2       2     leaf_index     // 0..=255, little-endian
+4       2144  wots_signature // 67 × 32 bytes
+2148    256   auth_path      // 8 × 32 bytes
+2404    4     checksum       // BLAKE3-derived
+```
+
+Canonical rules:
+
+- `version == 1`, `algorithm == 1`.
+- `leaf_index < 256`.
+- The checksum matches the first 2404 bytes.
+- The auth path is exactly 8 nodes.
+- No non-canonical trailing data.
+
+### 10.4 Checksum
+
+```
+BLAKE3("qWp QHS-1 signature-checksum" || first 2404 bytes)[0..4]
+```
+
+The checksum detects accidental corruption; the Merkle root and WOTS chains provide authentication.
+
+## 11. Open items
+
+- QHS-1 key store / atomic counter persistence (CLI).
+- QHS-1 Kani/Miri/fuzz/timing evidence.
 - These are tracked in `docs/gap-register.md`, not hidden.

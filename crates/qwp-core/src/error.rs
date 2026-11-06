@@ -20,6 +20,10 @@ pub enum CryptoError {
     EntropyFailure,
     /// The platform does not provide the requested capability.
     UnsupportedPlatform,
+    /// The one-time signature key has no leaves left.
+    KeyExhausted,
+    /// Signature verification failed.
+    VerificationFailed,
 }
 
 impl fmt::Display for CryptoError {
@@ -33,6 +37,8 @@ impl fmt::Display for CryptoError {
             Self::ArithmeticOverflow => "arithmetic overflow",
             Self::EntropyFailure => "entropy failure",
             Self::UnsupportedPlatform => "unsupported platform",
+            Self::KeyExhausted => "key exhausted",
+            Self::VerificationFailed => "verification failed",
         };
         formatter.write_str(message)
     }

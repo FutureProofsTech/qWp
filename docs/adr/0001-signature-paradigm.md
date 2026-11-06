@@ -1,9 +1,9 @@
 # ADR-0001: Signature Paradigm
 
-**Status:** Proposed — owner decision required  
+**Status:** Superseded by ADR-0002 — Option A retained only as a research module  
 **Date:** 2026-11-06  
 **Deciders:** qWp owner, crypto lead, red team  
-**Related:** `docs/security-memo.md`, `docs/01-math-spec.md`, `docs/03-formats.md`, GAP-CRYPTO-0001
+**Related:** `docs/security-memo.md`, `docs/01-math-spec.md`, `docs/03-formats.md`, `docs/05-qhs1.md`, `docs/adr/0002-qhs1.md`, GAP-CRYPTO-0001
 
 ---
 

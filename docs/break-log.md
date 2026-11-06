@@ -14,6 +14,9 @@
 | BL-0008 | 2026-11-06 | In-tree BLAKE3 | Implementation fault injection | **Mitigated by implementation.** KATs pass; fuzz/Kani pending | GAP-CRYPTO-0014 | In progress |
 | BL-0009 | 2026-11-06 | Parser | Malformed/oversized input | **Mitigated by implementation.** Negative tests pass; fuzz pending | GAP-FMT-0007 | In progress |
 | BL-0010 | 2026-11-06 | Timing | Branch/memory leakage in keygen/sign/verify | **Open risk.** No CT implementation yet | GAP-CRYPTO-0001 | Open |
+| BL-0011 | 2026-11-06 | QHS-1 | WOTS/Merkle forgery analysis | **Proof written.** EUF-CMA reduction to BLAKE3 preimage/collision; Kani parser proofs pass; review pending | GAP-QHS-0021 | In progress |
+| BL-0012 | 2026-11-06 | QHS-1 | Leaf reuse via counter rollback | **Open operational risk.** API enforces counter; persistence pending | GAP-QHS-0020 | Open |
+| BL-0013 | 2026-11-06 | QHS-1 | Auth path / leaf index tampering | **Mitigated by tests.** Tamper tests pass; fuzz pending | GAP-QHS-0022 | In progress |
 
 ## Rules
 

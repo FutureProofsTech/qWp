@@ -59,7 +59,7 @@ use std::env;
 use std::process::ExitCode;
 
 use qwp_core::{BRAID_BYTES, Braid, PUBLIC_KEY_BYTES, Polynomial, SIGNATURE_BYTES};
-use qwp_crypto::{PrivateKey, PublicKey, Signature};
+use qwp_crypto::{PrivateKey, PublicKey, Signature, qhs_keygen};
 use qwp_hash::hash32;
 use qwp_platform::HostEntropy;
 
@@ -105,6 +105,15 @@ fn main() -> ExitCode {
                 ExitCode::from(3)
             }
         }
+        Some("qhs-selftest") => {
+            if qhs_selftest() {
+                println!("qhs-selftest: ok");
+                ExitCode::SUCCESS
+            } else {
+                eprintln!("qhs-selftest: failed");
+                ExitCode::from(3)
+            }
+        }
         Some("help") | None => {
             print_help();
             ExitCode::SUCCESS
@@ -124,6 +133,7 @@ fn print_help() {
     println!("  hash [text]       print BLAKE3 hash of text");
     println!("  entropy [n]       print n bytes from /dev/urandom (max 4096)");
     println!("  selftest          run internal layout and hash checks");
+    println!("  qhs-selftest      run QHS-1 keygen/sign/verify");
     println!("  help              show this help");
 }
 
@@ -136,6 +146,18 @@ fn print_hex(bytes: &[u8]) {
         print!("{byte:02x}");
     }
     println!();
+}
+
+fn qhs_selftest() -> bool {
+    let seed = [7_u8; 32];
+    let Ok((mut private_key, public_key)) = qhs_keygen(&seed) else {
+        return false;
+    };
+    let Ok(signature) = private_key.sign(b"qhs-selftest") else {
+        return false;
+    };
+    public_key.verify(b"qhs-selftest", &signature).is_ok()
+        && public_key.verify(b"qhs-wrong", &signature).is_err()
 }
 
 fn selftest() -> bool {

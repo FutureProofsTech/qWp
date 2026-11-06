@@ -139,5 +139,7 @@ Every candidate must survive:
 ## 8. Current status
 
 - C1 original construction: **closed as rejected**.
-- Replacement: **open** (ADR-0001).
-- No `sign`/`verify` implementation will be shipped until ADR-0001 is accepted and the replacement survives the attack suite.
+- Replacement: **QHS-1 selected** (ADR-0002).
+- QHS-1 is implemented in `qwp-crypto::qhs`; the proof is in `docs/05-qhs1.md`.
+- The braid/Jones engine is research-only and is not part of the production security argument.
+- QHS-1 proof review, key-store atomicity, fuzz/timing, and attack-suite expansion remain open production gaps.

@@ -73,5 +73,10 @@
 extern crate std;
 
 pub mod format;
+pub mod qhs;
 
 pub use format::{PrivateKey, PublicKey, Signature};
+pub use qhs::{
+    QHS_MAX_SIGNATURES, QHS_PRIVATE_KEY_BYTES, QHS_PUBLIC_KEY_BYTES, QHS_SIGNATURE_BYTES,
+    QhsPrivateKey, QhsPublicKey, QhsSignature, keygen as qhs_keygen,
+};
