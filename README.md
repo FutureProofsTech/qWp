@@ -44,6 +44,10 @@ Local CI:
 ## Doctrine and registers
 
 - `docs/qwp-standard.md` — qWp Standard v1
+- `docs/01-math-spec.md` — invariant, bounds, TL solver, signature analysis
+- `docs/03-formats.md` — fixed layouts and signature container
+- `docs/security-memo.md` — Phase 0 soundness findings
+- `docs/adr/0001-signature-paradigm.md` — signature paradigm decision
 - `docs/gap-register.md` — every open gap
 - `docs/traceability.md` — requirement traceability
 - `docs/break-log.md` — attack attempts and results
