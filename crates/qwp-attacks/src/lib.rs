@@ -73,10 +73,12 @@ use std::path::Path;
 
 use qwp_core::{BRAID_BYTES, Braid, CryptoError, MAX_CROSSINGS, Polynomial};
 use qwp_crypto::{
-    PrivateKey, PublicKey, QHS_MAX_SIGNATURES, QhsPrivateKey, QhsSignature, Signature, qhs_keygen,
+    PrivateKey, PublicKey, QHS_MAX_SIGNATURES, QHS2_MAX_SIGNATURES, QHS3_MAX_SIGNATURES,
+    Qhs2PrivateKey, Qhs2Signature, Qhs3PrivateKey, Qhs3PublicKey, Qhs3Signature, QhsPrivateKey,
+    QhsSignature, Signature, qhs_keygen, qhs2_keygen, qhs3_keygen_from_leaves,
 };
 use qwp_hash::hash32;
-use qwp_platform::HostEntropy;
+use qwp_platform::{HostEntropy, qhs3_leaves_parallel};
 
 /// Summary of an attack run.
 #[non_exhaustive]
@@ -141,6 +143,8 @@ pub fn run_all() -> AttackReport {
         attack_hash_vectors(),
         attack_entropy(),
         attack_qhs1(),
+        attack_qhs2(),
+        attack_qhs3(),
     ];
     let passed = checks.iter().filter(|result| **result).count();
     let failed = checks.len().saturating_sub(passed);
@@ -318,11 +322,146 @@ pub fn attack_qhs1() -> bool {
         && ff_rejected
 }
 
+/// Attacks QHS-2 with wrong messages, tampering, wrong keys, and exhaustion.
+#[must_use]
+#[inline]
+pub fn attack_qhs2() -> bool {
+    let seed = [7_u8; 32];
+    let Ok((mut private_key, public_key)) = qhs2_keygen(&seed) else {
+        return false;
+    };
+    let Ok(signature) = private_key.sign(b"qhs2-attack-message") else {
+        return false;
+    };
+    let accepted = public_key
+        .verify(b"qhs2-attack-message", &signature)
+        .is_ok();
+    let wrong_message = public_key
+        .verify(b"qhs2-wrong-message", &signature)
+        .is_err();
+
+    let tamper_offsets = [0_usize, 1, 2, 3, 10, 1444, 1700];
+    let mut tampered_rejected = true;
+    for offset in tamper_offsets {
+        let mut tampered_bytes = signature.to_bytes();
+        if let Some(byte) = tampered_bytes.get_mut(offset) {
+            *byte ^= 1;
+        }
+        let tampered = Qhs2Signature::from_bytes(tampered_bytes);
+        if public_key.verify(b"qhs2-attack-message", &tampered).is_ok() {
+            tampered_rejected = false;
+            break;
+        }
+    }
+    let zero_rejected = public_key
+        .verify(
+            b"qhs2-attack-message",
+            &Qhs2Signature::from_bytes([0_u8; qwp_crypto::QHS2_SIGNATURE_BYTES]),
+        )
+        .is_err();
+    let ff_rejected = public_key
+        .verify(
+            b"qhs2-attack-message",
+            &Qhs2Signature::from_bytes([0xff_u8; qwp_crypto::QHS2_SIGNATURE_BYTES]),
+        )
+        .is_err();
+
+    let Ok((_, other_public_key)) = qhs2_keygen(&[9_u8; 32]) else {
+        return false;
+    };
+    let wrong_key = other_public_key
+        .verify(b"qhs2-attack-message", &signature)
+        .is_err();
+
+    let mut key_bytes = private_key.to_bytes();
+    if let Some(slot) = key_bytes.get_mut(36..38) {
+        slot.copy_from_slice(&QHS2_MAX_SIGNATURES.to_le_bytes());
+    }
+    let exhausted_ok = Qhs2PrivateKey::from_bytes(&key_bytes)
+        .is_ok_and(|mut exhausted| exhausted.sign(b"message") == Err(CryptoError::KeyExhausted));
+
+    accepted
+        && wrong_message
+        && tampered_rejected
+        && wrong_key
+        && exhausted_ok
+        && zero_rejected
+        && ff_rejected
+}
+
+/// Attacks QHS-3 with wrong messages, tampering, wrong keys, and exhaustion.
+#[must_use]
+#[inline]
+pub fn attack_qhs3() -> bool {
+    let seed = [7_u8; 32];
+    let Ok(leaves) = qhs3_leaves_parallel(&seed) else {
+        return false;
+    };
+    let Ok((mut private_key, public_key)) = qhs3_keygen_from_leaves(&seed, &leaves) else {
+        return false;
+    };
+    let Ok(signature) = private_key.sign_with_leaves(b"qhs3-attack-message", &leaves) else {
+        return false;
+    };
+    let accepted = public_key
+        .verify(b"qhs3-attack-message", &signature)
+        .is_ok();
+    let wrong_message = public_key
+        .verify(b"qhs3-wrong-message", &signature)
+        .is_err();
+
+    let tamper_offsets = [0_usize, 1, 2, 3, 10, 1444, 1700];
+    let mut tampered_rejected = true;
+    for offset in tamper_offsets {
+        let mut tampered_bytes = signature.to_bytes();
+        if let Some(byte) = tampered_bytes.get_mut(offset) {
+            *byte ^= 1;
+        }
+        let tampered = Qhs3Signature::from_bytes(tampered_bytes);
+        if public_key.verify(b"qhs3-attack-message", &tampered).is_ok() {
+            tampered_rejected = false;
+            break;
+        }
+    }
+    let zero_rejected = public_key
+        .verify(
+            b"qhs3-attack-message",
+            &Qhs3Signature::from_bytes([0_u8; qwp_crypto::QHS3_SIGNATURE_BYTES]),
+        )
+        .is_err();
+    let ff_rejected = public_key
+        .verify(
+            b"qhs3-attack-message",
+            &Qhs3Signature::from_bytes([0xff_u8; qwp_crypto::QHS3_SIGNATURE_BYTES]),
+        )
+        .is_err();
+
+    let mut wrong_bytes = public_key.to_bytes();
+    wrong_bytes[4] ^= 1;
+    let wrong_key = Qhs3PublicKey::from_bytes(&wrong_bytes)
+        .is_ok_and(|other| other.verify(b"qhs3-attack-message", &signature).is_err());
+
+    let mut key_bytes = private_key.to_bytes();
+    if let Some(slot) = key_bytes.get_mut(36..38) {
+        slot.copy_from_slice(&QHS3_MAX_SIGNATURES.to_le_bytes());
+    }
+    let exhausted_ok = Qhs3PrivateKey::from_bytes(&key_bytes)
+        .is_ok_and(|mut exhausted| exhausted.sign(b"message") == Err(CryptoError::KeyExhausted));
+
+    accepted
+        && wrong_message
+        && tampered_rejected
+        && wrong_key
+        && exhausted_ok
+        && zero_rejected
+        && ff_rejected
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         attack_braid_parser, attack_entropy, attack_hash_vectors, attack_key_formats,
-        attack_polynomial_round_trip, attack_qhs1, audit, run_all,
+        attack_polynomial_round_trip, attack_qhs1, attack_qhs2, attack_qhs3, audit, run_all,
     };
 
     #[test]
@@ -333,6 +472,8 @@ mod tests {
         assert!(attack_hash_vectors());
         assert!(attack_entropy());
         assert!(attack_qhs1());
+        assert!(attack_qhs2());
+        assert!(attack_qhs3());
         assert!(run_all().is_ok());
     }
 

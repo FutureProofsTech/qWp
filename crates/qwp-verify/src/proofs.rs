@@ -1,7 +1,10 @@
 //! Kani proofs for the qWp foundation.
 
 use qwp_core::{Braid, Polynomial};
-use qwp_crypto::{QhsPrivateKey, QhsPublicKey, QhsSignature};
+use qwp_crypto::{
+    Qhs2PrivateKey, Qhs2PublicKey, Qhs2Signature, Qhs3PrivateKey, Qhs3PublicKey, Qhs3Signature,
+    QhsPrivateKey, QhsPublicKey, QhsSignature,
+};
 
 #[kani::proof]
 fn braid_from_bytes_never_panics() {
@@ -41,5 +44,43 @@ fn qhs_private_key_parse_never_panics() {
 fn qhs_signature_leaf_index_never_panics() {
     let bytes: [u8; qwp_crypto::QHS_SIGNATURE_BYTES] = kani::any();
     let signature = QhsSignature::from_bytes(bytes);
+    let _result = signature.leaf_index();
+}
+
+#[kani::proof]
+fn qhs2_public_key_parse_never_panics() {
+    let bytes: [u8; qwp_crypto::QHS2_PUBLIC_KEY_BYTES] = kani::any();
+    let _result = Qhs2PublicKey::from_bytes(&bytes);
+}
+
+#[kani::proof]
+fn qhs2_private_key_parse_never_panics() {
+    let bytes: [u8; qwp_crypto::QHS2_PRIVATE_KEY_BYTES] = kani::any();
+    let _result = Qhs2PrivateKey::from_bytes(&bytes);
+}
+
+#[kani::proof]
+fn qhs2_signature_leaf_index_never_panics() {
+    let bytes: [u8; qwp_crypto::QHS2_SIGNATURE_BYTES] = kani::any();
+    let signature = Qhs2Signature::from_bytes(bytes);
+    let _result = signature.leaf_index();
+}
+
+#[kani::proof]
+fn qhs3_public_key_parse_never_panics() {
+    let bytes: [u8; qwp_crypto::QHS3_PUBLIC_KEY_BYTES] = kani::any();
+    let _result = Qhs3PublicKey::from_bytes(&bytes);
+}
+
+#[kani::proof]
+fn qhs3_private_key_parse_never_panics() {
+    let bytes: [u8; qwp_crypto::QHS3_PRIVATE_KEY_BYTES] = kani::any();
+    let _result = Qhs3PrivateKey::from_bytes(&bytes);
+}
+
+#[kani::proof]
+fn qhs3_signature_leaf_index_never_panics() {
+    let bytes: [u8; qwp_crypto::QHS3_SIGNATURE_BYTES] = kani::any();
+    let signature = Qhs3Signature::from_bytes(bytes);
     let _result = signature.leaf_index();
 }

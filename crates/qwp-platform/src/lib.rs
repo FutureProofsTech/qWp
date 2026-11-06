@@ -76,7 +76,9 @@ use std::fs::File;
 use std::io::Read;
 
 use qwp_core::CryptoError;
-use qwp_crypto::{QHS_LEAF_COUNT, qhs_leaf};
+use qwp_crypto::{
+    QHS_LEAF_COUNT, QHS2_LEAF_COUNT, QHS3_LEAF_COUNT, qhs_leaf, qhs2_leaf, qhs3_leaf,
+};
 
 /// A safe host entropy source backed by `/dev/urandom`.
 pub struct HostEntropy {
@@ -163,9 +165,85 @@ pub fn qhs_leaves_parallel(seed: &[u8; 32]) -> Result<[[u8; 32]; QHS_LEAF_COUNT]
     Ok(leaves)
 }
 
+/// Computes QHS-2 Merkle leaves in parallel on the host.
+///
+/// This is a performance API. The leaves are identical to the sequential
+/// derivation and contain no secret WOTS values.
+///
+/// # Errors
+///
+/// Returns an internal error if a worker fails or a leaf index is invalid.
+#[inline]
+pub fn qhs2_leaves_parallel(seed: &[u8; 32]) -> Result<[[u8; 32]; QHS2_LEAF_COUNT], CryptoError> {
+    let mut leaves = [[0_u8; 32]; QHS2_LEAF_COUNT];
+    let threads = std::thread::available_parallelism()
+        .map_or(1, std::num::NonZero::get)
+        .min(16);
+    let chunk_size = QHS2_LEAF_COUNT.div_ceil(threads);
+
+    std::thread::scope(|scope| -> Result<(), CryptoError> {
+        let mut handles = Vec::new();
+        for (chunk_index, chunk) in leaves.chunks_mut(chunk_size).enumerate() {
+            let base = chunk_index.checked_mul(chunk_size).unwrap_or(0);
+            handles.push(scope.spawn(move || -> Result<(), CryptoError> {
+                for (offset, slot) in chunk.iter_mut().enumerate() {
+                    let index = u16::try_from(base.checked_add(offset).unwrap_or(0))
+                        .map_err(|_| CryptoError::InvalidLength)?;
+                    *slot = qhs2_leaf(seed, index)?;
+                }
+                Ok(())
+            }));
+        }
+        for handle in handles {
+            handle.join().map_err(|_| CryptoError::InternalFailure)??;
+        }
+        Ok(())
+    })?;
+
+    Ok(leaves)
+}
+
+/// Computes QHS-3 Merkle leaves in parallel on the host.
+///
+/// This is a performance API. The leaves are identical to the sequential
+/// derivation and contain no secret WOTS values.
+///
+/// # Errors
+///
+/// Returns an internal error if a worker fails or a leaf index is invalid.
+#[inline]
+pub fn qhs3_leaves_parallel(seed: &[u8; 32]) -> Result<Vec<[u8; 32]>, CryptoError> {
+    let mut leaves = vec![[0_u8; 32]; QHS3_LEAF_COUNT];
+    let threads = std::thread::available_parallelism()
+        .map_or(1, std::num::NonZero::get)
+        .min(16);
+    let chunk_size = QHS3_LEAF_COUNT.div_ceil(threads);
+
+    std::thread::scope(|scope| -> Result<(), CryptoError> {
+        let mut handles = Vec::new();
+        for (chunk_index, chunk) in leaves.chunks_mut(chunk_size).enumerate() {
+            let base = chunk_index.checked_mul(chunk_size).unwrap_or(0);
+            handles.push(scope.spawn(move || -> Result<(), CryptoError> {
+                for (offset, slot) in chunk.iter_mut().enumerate() {
+                    let index = u16::try_from(base.checked_add(offset).unwrap_or(0))
+                        .map_err(|_| CryptoError::InvalidLength)?;
+                    *slot = qhs3_leaf(seed, index)?;
+                }
+                Ok(())
+            }));
+        }
+        for handle in handles {
+            handle.join().map_err(|_| CryptoError::InternalFailure)??;
+        }
+        Ok(())
+    })?;
+
+    Ok(leaves)
+}
+
 #[cfg(all(test, unix))]
 mod tests {
-    use super::{HostEntropy, qhs_leaves_parallel};
+    use super::{HostEntropy, qhs_leaves_parallel, qhs2_leaves_parallel, qhs3_leaves_parallel};
 
     #[test]
     fn parallel_leaves_match_sequential() {
@@ -173,6 +251,18 @@ mod tests {
         let sequential = qwp_crypto::qhs_leaves(&seed).unwrap();
         let parallel = qhs_leaves_parallel(&seed).unwrap();
         assert_eq!(sequential, parallel);
+        let sequential2 = qwp_crypto::qhs2_leaves(&seed).unwrap();
+        let parallel2 = qhs2_leaves_parallel(&seed).unwrap();
+        assert_eq!(sequential2, parallel2);
+
+        let parallel3 = qhs3_leaves_parallel(&seed).unwrap();
+        for index in [0_usize, 1, 42, 255, 256, 1024, 2048, 4095] {
+            let leaf_index = u16::try_from(index).unwrap();
+            assert_eq!(
+                parallel3.get(index),
+                Some(&qwp_crypto::qhs3_leaf(&seed, leaf_index).unwrap())
+            );
+        }
     }
 
     #[test]

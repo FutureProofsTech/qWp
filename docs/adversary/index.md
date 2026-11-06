@@ -42,6 +42,21 @@
 | `message_digits` / WOTS / Merkle internals | `qwp-crypto` | `qhs/qhs1.md` | `qwp-attacks/qhs1` | Survived — KAT + Kani parsers + fuzz |
 | `qhs_leaves_parallel` | `qwp-platform` | `qhs/qhs1.md` | `qwp-platform` tests | Survived — parallel/sequential equivalence |
 | `read_qhs_cache` / `write_qhs_cache` | `qwp-cli` | `qhs/qhs1.md` §7.1 | `qwp-cli` tests | Survived — tamper/foreign/truncation tests |
+| `qhs2_keygen` / `qhs2_keygen_from_leaves` / `qhs2_leaf` / `qhs2_leaves` | `qwp-crypto` | `qhs/qhs2.md` | `qwp-attacks/qhs2` | Survived — KAT + attack + timing |
+| `Qhs2PrivateKey::sign` / `sign_with_leaves` | `qwp-crypto` | `qhs/qhs2.md` | `qwp-attacks/qhs2` | Survived — proof + timing + cache equivalence |
+| `Qhs2PublicKey::verify` | `qwp-crypto` | `qhs/qhs2.md` | `qwp-attacks/qhs2` | Survived — attack suite + fuzz |
+| `Qhs2PrivateKey` / `Qhs2PublicKey` / `Qhs2Signature` accessors | `qwp-crypto` | `qhs/qhs2.md` | `qwp-attacks/qhs2` | Survived — unit + Kani + fuzz |
+| `qhs2_leaves_parallel` | `qwp-platform` | `qhs/qhs2.md` | `qwp-platform` tests | Survived — parallel/sequential equivalence |
+| QHS-2 cache read/write | `qwp-cli` | `qhs/qhs2.md` | `qwp-cli` tests | Survived — header/tamper/foreign/oversized tests |
+| `qhs3_keygen` / `qhs3_keygen_from_leaves` / `qhs3_leaf` | `qwp-crypto` | `qhs/qhs3.md` | `qwp-attacks/qhs3` | Survived — KAT + attack + timing |
+| `Qhs3PrivateKey::sign` / `sign_with_leaves` | `qwp-crypto` | `qhs/qhs3.md` | `qwp-attacks/qhs3` | Survived — proof + timing + cache equivalence |
+| `Qhs3PublicKey::verify` | `qwp-crypto` | `qhs/qhs3.md` | `qwp-attacks/qhs3` | Survived — attack suite + fuzz |
+| `Qhs3PrivateKey` / `Qhs3PublicKey` / `Qhs3Signature` accessors | `qwp-crypto` | `qhs/qhs3.md` | `qwp-attacks/qhs3` | Survived — unit + Kani + fuzz |
+| `qhs3_leaves_parallel` | `qwp-platform` | `qhs/qhs3.md` | `qwp-platform` tests | Survived — parallel/sequential equivalence |
+| QHS-3 cache read/write | `qwp-cli` | `qhs/qhs3.md` | `qwp-cli` tests | Survived — header/tamper/foreign/oversized tests |
+| `qhs3_build_tree` / `qhs3_auth_path_from_tree` | `qwp-crypto` | `qhs/qhs31.md` | `qhs3` unit tests | Survived — tree/leaf equivalence |
+| `Qhs3PrivateKey::sign_with_auth_path` | `qwp-crypto` | `qhs/qhs31.md` | `qhs3` unit tests | Survived — signature equivalence |
+| QHS-3.1 tree cache read/write | `qwp-cli` | `qhs/qhs31.md` | `qwp-cli` tests | Survived — header/tamper/foreign/oversized tests |
 
 ## Status meanings
 

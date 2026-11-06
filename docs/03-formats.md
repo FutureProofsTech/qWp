@@ -126,8 +126,24 @@ It detects accidental corruption only; it is not authentication.
 | WOTS chains | 67 |
 | WOTS chain length | 15 |
 | Merkle height | 8 |
+| `QHS2_PUBLIC_KEY_BYTES` | 64 |
+| `QHS2_PRIVATE_KEY_BYTES` | 64 |
+| `QHS2_SIGNATURE_BYTES` | 1704 |
+| `QHS2_MAX_SIGNATURES` | 256 |
+| QHS-2 WOTS chains | 45 |
+| QHS-2 WOTS chain length | 63 |
+| QHS-2 message digits | 43 base-64 |
+| QHS-2 checksum digits | 2 base-64 |
+| `QHS3_PUBLIC_KEY_BYTES` | 64 |
+| `QHS3_PRIVATE_KEY_BYTES` | 64 |
+| `QHS3_SIGNATURE_BYTES` | 1832 |
+| `QHS3_MAX_SIGNATURES` | 4096 |
+| QHS-3 Merkle height | 12 |
+| QHS-3 WOTS chains | 45 |
+| QHS-3 WOTS chain length | 63 |
+| QHS-3.1 tree cache | 262,152 |
 
-## 10. QHS-1 production formats
+## 10. QHS production formats
 
 ### 10.1 QHS-1 public key (64 bytes)
 
@@ -216,7 +232,170 @@ WOTS secrets, or chain values. A poisoned cache cannot produce a valid forgery:
 the verifier recomputes the Merkle root, so altered leaves yield an invalid
 signature. The cache is therefore outside the production security boundary.
 
+### 10.6 QHS-2 public key (64 bytes)
+
+```
+offset  size  field
+0       1     version        // 2
+1       1     algorithm      // 2 = QHS-2
+2       1     height         // 8
+3       1     reserved       // 0
+4       32    merkle_root
+36      28    reserved       // 0
+```
+
+### 10.7 QHS-2 private key (64 bytes)
+
+```
+offset  size  field
+0       1     version        // 2
+1       1     algorithm      // 2
+2       1     height         // 8
+3       1     reserved       // 0
+4       32    seed
+36      2     next_leaf      // 0..=256, little-endian
+38      26    reserved       // 0
+```
+
+The QHS-2 private key is stateful exactly like QHS-1.
+
+### 10.8 QHS-2 signature (1,704 bytes)
+
+```
+offset  size  field
+0       1     version        // 2
+1       1     algorithm      // 2
+2       2     leaf_index     // 0..=255, little-endian
+4       1440  wots_signature // 45 × 32 bytes
+1444    256   auth_path      // 8 × 32 bytes
+1700    4     checksum       // BLAKE3-derived
+```
+
+Canonical rules:
+
+- `version == 2`, `algorithm == 2`.
+- `leaf_index < 256`.
+- The checksum matches the first 1,700 bytes.
+- The auth path is exactly 8 nodes.
+- No non-canonical trailing data.
+
+### 10.9 QHS-2 checksum
+
+```
+BLAKE3("qWp QHS-2 signature-checksum" || first 1700 bytes)[0..4]
+```
+
+The checksum detects accidental corruption; the Merkle root and WOTS chains
+provide authentication.
+
+### 10.10 QHS-2 public-leaf cache (8,232 bytes, optional)
+
+The QHS-2 cache has the same layout as QHS-1 with a different header and
+fingerprint context:
+
+```
+offset  size  field
+0       1     version        // 2
+1       1     algorithm      // 2
+2       1     height         // 8
+3       1     reserved       // 0
+4       32    fingerprint    // BLAKE3 derive-key("qWp QHS-2 cache fingerprint", seed)
+36      8192  leaves         // 256 × 32 bytes, leaf 0 first
+8228    4     checksum       // BLAKE3(first 8228 bytes)[0..4]
+```
+
+QHS-1 and QHS-2 caches are not interchangeable: the header and fingerprint
+context differ, and a mismatched cache is ignored and recomputed.
+
+### 10.11 QHS-3 public key (64 bytes)
+
+```
+offset  size  field
+0       1     version        // 3
+1       1     algorithm      // 3 = QHS-3
+2       1     height         // 12
+3       1     reserved       // 0
+4       32    merkle_root
+36      28    reserved       // 0
+```
+
+### 10.12 QHS-3 private key (64 bytes)
+
+```
+offset  size  field
+0       1     version        // 3
+1       1     algorithm      // 3
+2       1     height         // 12
+3       1     reserved       // 0
+4       32    seed
+36      2     next_leaf      // 0..=4096, little-endian
+38      26    reserved       // 0
+```
+
+### 10.13 QHS-3 signature (1,832 bytes)
+
+```
+offset  size  field
+0       1     version        // 3
+1       1     algorithm      // 3
+2       2     leaf_index     // 0..=4095, little-endian
+4       1440  wots_signature // 45 × 32 bytes
+1444    384   auth_path      // 12 × 32 bytes
+1828    4     checksum       // BLAKE3-derived
+```
+
+Canonical rules:
+
+- `version == 3`, `algorithm == 3`.
+- `leaf_index < 4096`.
+- The checksum matches the first 1,828 bytes.
+- The auth path is exactly 12 nodes.
+- No non-canonical trailing data.
+
+### 10.14 QHS-3 checksum
+
+```
+BLAKE3("qWp QHS-3 signature-checksum" || first 1828 bytes)[0..4]
+```
+
+### 10.15 QHS-3 public-leaf cache (131,112 bytes, optional)
+
+```
+offset   size    field
+0        1       version        // 3
+1        1       algorithm      // 3
+2        1       height         // 12
+3        1       reserved       // 0
+4        32      fingerprint    // BLAKE3 derive-key("qWp QHS-3 cache fingerprint", seed)
+36       131072  leaves         // 4096 × 32 bytes, leaf 0 first
+131108   4       checksum       // BLAKE3(first 131108 bytes)[0..4]
+```
+
+QHS-3 caches are not interchangeable with QHS-1/QHS-2 caches.
+
+### 10.16 QHS-3.1 tree cache (262,152 bytes, optional)
+
+QHS-3.1 is the tree-cache profile of QHS-3. Keys and signatures are identical
+to QHS-3; only the signing cache differs.
+
+```
+offset    size    field
+0         1       version        // 3
+1         1       algorithm      // 3
+2         1       height         // 12
+3         1       kind           // 1 = tree cache
+4         32      fingerprint    // BLAKE3 derive-key("qWp QHS-3.1 cache fingerprint", seed)
+36        131072  leaves         // 4096 × 32 bytes
+131108    131040  nodes          // 4095 internal nodes, level 1..12
+262148    4       checksum       // BLAKE3(first 262148 bytes)[0..4]
+```
+
+The internal nodes are stored level by level: 2,048 nodes at level 1, 1,024 at
+level 2, and so on, with the root at offset 4,094 within the node region.
+QHS-3.1 signatures verify with QHS-3 verifiers and vice versa.
+
 ## 11. Open items
 
-No open production format items. The legacy 160-byte v0 container remains
-research-only and is not used for production signing or verification.
+No open production format items. QHS-1, QHS-2, QHS-3, and the QHS-3.1 tree
+cache are frozen and version-separated. The legacy 160-byte v0 container
+remains research-only and is not used for production signing or verification.

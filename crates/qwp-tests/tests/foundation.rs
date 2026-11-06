@@ -3,9 +3,12 @@
 use qwp_core::{
     BRAID_BYTES, Braid, CryptoError, MAX_CROSSINGS, PUBLIC_KEY_BYTES, Polynomial, SIGNATURE_BYTES,
 };
-use qwp_crypto::{PrivateKey, PublicKey, QhsSignature, Signature, qhs_keygen};
+use qwp_crypto::{
+    PrivateKey, PublicKey, QHS2_SIGNATURE_BYTES, QHS3_SIGNATURE_BYTES, Qhs2Signature,
+    Qhs3Signature, QhsSignature, Signature, qhs_keygen, qhs2_keygen, qhs3_keygen_from_leaves,
+};
 use qwp_hash::hash32;
-use qwp_platform::HostEntropy;
+use qwp_platform::{HostEntropy, qhs3_leaves_parallel};
 
 #[test]
 fn fixed_layout_sizes() {
@@ -101,6 +104,64 @@ fn qhs1_rejects_tampering_and_wrong_message() {
     }
     let tampered = QhsSignature::from_bytes(bytes);
     assert!(public_key.verify(b"message-a", &tampered).is_err());
+}
+
+#[test]
+fn qhs2_sign_verify_round_trip() {
+    let seed = [7_u8; 32];
+    let (mut private_key, public_key) = qhs2_keygen(&seed).unwrap();
+    let signature = private_key.sign(b"qWp QHS-2 integration").unwrap();
+    assert_eq!(
+        public_key.verify(b"qWp QHS-2 integration", &signature),
+        Ok(())
+    );
+    assert_eq!(signature.leaf_index(), Ok(0));
+    assert_eq!(private_key.next_leaf(), 1);
+    assert_eq!(signature.to_bytes().len(), QHS2_SIGNATURE_BYTES);
+}
+
+#[test]
+fn qhs2_rejects_tampering_and_wrong_message() {
+    let seed = [7_u8; 32];
+    let (mut private_key, public_key) = qhs2_keygen(&seed).unwrap();
+    let signature = private_key.sign(b"message-a").unwrap();
+    assert!(public_key.verify(b"message-b", &signature).is_err());
+
+    let mut bytes = signature.to_bytes();
+    if let Some(byte) = bytes.get_mut(20) {
+        *byte ^= 1;
+    }
+    let tampered = Qhs2Signature::from_bytes(bytes);
+    assert!(public_key.verify(b"message-a", &tampered).is_err());
+}
+
+#[test]
+fn qhs3_sign_verify_round_trip_and_tamper() {
+    let seed = [7_u8; 32];
+    let leaves = qhs3_leaves_parallel(&seed).unwrap();
+    let (mut private_key, public_key) = qhs3_keygen_from_leaves(&seed, &leaves).unwrap();
+    let signature = private_key
+        .sign_with_leaves(b"qWp QHS-3 integration", &leaves)
+        .unwrap();
+    assert_eq!(
+        public_key.verify(b"qWp QHS-3 integration", &signature),
+        Ok(())
+    );
+    assert_eq!(signature.leaf_index(), Ok(0));
+    assert_eq!(private_key.next_leaf(), 1);
+    assert_eq!(signature.to_bytes().len(), QHS3_SIGNATURE_BYTES);
+    assert!(public_key.verify(b"wrong", &signature).is_err());
+
+    let mut bytes = signature.to_bytes();
+    if let Some(byte) = bytes.get_mut(20) {
+        *byte ^= 1;
+    }
+    let tampered = Qhs3Signature::from_bytes(bytes);
+    assert!(
+        public_key
+            .verify(b"qWp QHS-3 integration", &tampered)
+            .is_err()
+    );
 }
 
 #[cfg(unix)]

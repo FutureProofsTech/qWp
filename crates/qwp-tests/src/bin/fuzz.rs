@@ -10,9 +10,13 @@ use std::time::{Duration, Instant};
 
 use qwp_core::{BRAID_BYTES, Braid, PUBLIC_KEY_BYTES, Polynomial};
 use qwp_crypto::{
-    QHS_PRIVATE_KEY_BYTES, QHS_PUBLIC_KEY_BYTES, QHS_SIGNATURE_BYTES, QhsPrivateKey, QhsPublicKey,
-    QhsSignature, qhs_keygen,
+    QHS_PRIVATE_KEY_BYTES, QHS_PUBLIC_KEY_BYTES, QHS_SIGNATURE_BYTES, QHS2_PRIVATE_KEY_BYTES,
+    QHS2_PUBLIC_KEY_BYTES, QHS2_SIGNATURE_BYTES, QHS3_PRIVATE_KEY_BYTES, QHS3_PUBLIC_KEY_BYTES,
+    QHS3_SIGNATURE_BYTES, Qhs2PrivateKey, Qhs2PublicKey, Qhs2Signature, Qhs3PrivateKey,
+    Qhs3PublicKey, Qhs3Signature, QhsPrivateKey, QhsPublicKey, QhsSignature, qhs_keygen,
+    qhs2_keygen, qhs3_keygen_from_leaves,
 };
+use qwp_platform::qhs3_leaves_parallel;
 
 struct Rng(u64);
 
@@ -57,6 +61,40 @@ fn main() {
         eprintln!("fuzz: seed verify failed");
         std::process::exit(2);
     }
+    let Ok((mut private_key2, public_key2)) = qhs2_keygen(&seed) else {
+        eprintln!("fuzz: qhs2 keygen failed");
+        std::process::exit(2);
+    };
+    let Ok(valid_signature2) = private_key2.sign(b"fuzz-seed-qhs2") else {
+        eprintln!("fuzz: qhs2 seed sign failed");
+        std::process::exit(2);
+    };
+    if public_key2
+        .verify(b"fuzz-seed-qhs2", &valid_signature2)
+        .is_err()
+    {
+        eprintln!("fuzz: qhs2 seed verify failed");
+        std::process::exit(2);
+    }
+    let Ok(leaves3) = qhs3_leaves_parallel(&seed) else {
+        eprintln!("fuzz: qhs3 leaves failed");
+        std::process::exit(2);
+    };
+    let Ok((mut private_key3, public_key3)) = qhs3_keygen_from_leaves(&seed, &leaves3) else {
+        eprintln!("fuzz: qhs3 keygen failed");
+        std::process::exit(2);
+    };
+    let Ok(valid_signature3) = private_key3.sign_with_leaves(b"fuzz-seed-qhs3", &leaves3) else {
+        eprintln!("fuzz: qhs3 seed sign failed");
+        std::process::exit(2);
+    };
+    if public_key3
+        .verify(b"fuzz-seed-qhs3", &valid_signature3)
+        .is_err()
+    {
+        eprintln!("fuzz: qhs3 seed verify failed");
+        std::process::exit(2);
+    }
 
     let mut iterations: u64 = 0;
     let mut panics: u64 = 0;
@@ -88,9 +126,37 @@ fn main() {
             let signature = QhsSignature::from_bytes(signature_bytes);
             let _ = signature.leaf_index();
 
+            let mut public_bytes2 = [0_u8; QHS2_PUBLIC_KEY_BYTES];
+            rng.fill(&mut public_bytes2);
+            let _ = Qhs2PublicKey::from_bytes(&public_bytes2);
+
+            let mut private_bytes2 = [0_u8; QHS2_PRIVATE_KEY_BYTES];
+            rng.fill(&mut private_bytes2);
+            let _ = Qhs2PrivateKey::from_bytes(&private_bytes2);
+
+            let mut signature_bytes2 = [0_u8; QHS2_SIGNATURE_BYTES];
+            rng.fill(&mut signature_bytes2);
+            let signature2 = Qhs2Signature::from_bytes(signature_bytes2);
+            let _ = signature2.leaf_index();
+
+            let mut public_bytes3 = [0_u8; QHS3_PUBLIC_KEY_BYTES];
+            rng.fill(&mut public_bytes3);
+            let _ = Qhs3PublicKey::from_bytes(&public_bytes3);
+
+            let mut private_bytes3 = [0_u8; QHS3_PRIVATE_KEY_BYTES];
+            rng.fill(&mut private_bytes3);
+            let _ = Qhs3PrivateKey::from_bytes(&private_bytes3);
+
+            let mut signature_bytes3 = [0_u8; QHS3_SIGNATURE_BYTES];
+            rng.fill(&mut signature_bytes3);
+            let signature3 = Qhs3Signature::from_bytes(signature_bytes3);
+            let _ = signature3.leaf_index();
+
             let mut message = [0_u8; 64];
             rng.fill(&mut message);
             let _ = public_key.verify(&message, &signature);
+            let _ = public_key2.verify(&message, &signature2);
+            let _ = public_key3.verify(&message, &signature3);
         }));
         if result.is_err() {
             panics = panics.saturating_add(1);

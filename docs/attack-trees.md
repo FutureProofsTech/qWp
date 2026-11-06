@@ -104,3 +104,48 @@ Forge QHS-1
 ├── Cache poisoning / foreign cache            [fingerprint + checksum; verifier root]
 └── Checksum/parser confusion                  [parser tests]
 ```
+
+## 8. QHS-2 signature
+
+```
+Forge QHS-2
+├── Used leaf, different message
+│   ├── Decrease a base-64 WOTS digit          [Lemma 1]
+│   └── Find preimage/collision                [assumption]
+├── Unused leaf
+│   ├── Key-only WOTS forgery                  [Lemma 2]
+│   └── Merkle path collision                  [Lemma 3]
+├── Leaf reuse / counter rollback              [CLI lock + atomic counter]
+├── Auth path / leaf index tampering           [attack suite]
+├── Cache poisoning / foreign cache            [versioned fingerprint + checksum; verifier root]
+├── QHS-1/QHS-2 cross-version confusion        [versioned formats/contexts; CLI tests]
+└── Checksum/parser confusion                  [parser tests]
+```
+
+## 9. QHS-3 signature
+
+```
+Forge QHS-3
+├── Used leaf, different message
+│   ├── Decrease a base-64 WOTS digit          [Lemma 1]
+│   └── Find preimage/collision                [assumption]
+├── Unused leaf
+│   ├── Key-only WOTS forgery                  [Lemma 2]
+│   └── Merkle path collision                  [Lemma 3]
+├── Leaf reuse / counter rollback              [CLI lock + atomic counter]
+├── Auth path / leaf index tampering           [attack suite]
+├── Cache poisoning / oversized cache          [versioned fingerprint + checksum; bounded reads]
+├── QHS-1/QHS-2/QHS-3 cross-version confusion  [versioned formats/contexts; CLI tests]
+└── Checksum/parser confusion                  [parser tests]
+```
+
+## 10. QHS-3.1 tree-cache profile
+
+```
+Attack QHS-3.1
+├── Poisoned leaves or internal nodes           [versioned fingerprint + checksum; verifier root]
+├── Foreign tree cache                          [QHS-3.1 fingerprint context]
+├── Oversized/special tree cache                [bounded reads]
+├── Wrong tree for leaf index                   [auth-path extraction bounds; unit tests]
+└── Signature semantics                         [same QHS-3 signature/proof]
+```

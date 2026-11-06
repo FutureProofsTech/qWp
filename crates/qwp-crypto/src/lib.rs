@@ -74,10 +74,23 @@ extern crate std;
 
 pub mod format;
 pub mod qhs;
+pub mod qhs2;
+pub mod qhs3;
 
 pub use format::{PrivateKey, PublicKey, Signature};
 pub use qhs::{
     QHS_LEAF_BYTES, QHS_LEAF_COUNT, QHS_MAX_SIGNATURES, QHS_PRIVATE_KEY_BYTES,
     QHS_PUBLIC_KEY_BYTES, QHS_SIGNATURE_BYTES, QhsPrivateKey, QhsPublicKey, QhsSignature,
     keygen as qhs_keygen, qhs_keygen_from_leaves, qhs_leaf, qhs_leaves,
+};
+pub use qhs2::{
+    QHS2_LEAF_BYTES, QHS2_LEAF_COUNT, QHS2_MAX_SIGNATURES, QHS2_PRIVATE_KEY_BYTES,
+    QHS2_PUBLIC_KEY_BYTES, QHS2_SIGNATURE_BYTES, Qhs2PrivateKey, Qhs2PublicKey, Qhs2Signature,
+    keygen as qhs2_keygen, qhs2_keygen_from_leaves, qhs2_leaf, qhs2_leaves,
+};
+pub use qhs3::{
+    QHS3_LEAF_BYTES, QHS3_LEAF_COUNT, QHS3_MAX_SIGNATURES, QHS3_PRIVATE_KEY_BYTES,
+    QHS3_PUBLIC_KEY_BYTES, QHS3_SIGNATURE_BYTES, QHS3_TREE_NODES, Qhs3PrivateKey, Qhs3PublicKey,
+    Qhs3Signature, keygen as qhs3_keygen, qhs3_auth_path_from_tree, qhs3_build_tree,
+    qhs3_keygen_from_leaves, qhs3_leaf,
 };
