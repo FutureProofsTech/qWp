@@ -57,7 +57,7 @@
 use core::mem::size_of;
 use std::env;
 use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::io::{Read, Write};
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
@@ -65,11 +65,22 @@ use std::process::ExitCode;
 
 use qwp_core::{BRAID_BYTES, Braid, PUBLIC_KEY_BYTES, Polynomial, SIGNATURE_BYTES};
 use qwp_crypto::{
-    PrivateKey, PublicKey, QHS_PRIVATE_KEY_BYTES, QHS_PUBLIC_KEY_BYTES, QHS_SIGNATURE_BYTES,
-    QhsPrivateKey, QhsPublicKey, QhsSignature, Signature, qhs_keygen,
+    PrivateKey, PublicKey, QHS_LEAF_BYTES, QHS_LEAF_COUNT, QHS_PRIVATE_KEY_BYTES,
+    QHS_PUBLIC_KEY_BYTES, QHS_SIGNATURE_BYTES, QhsPrivateKey, QhsPublicKey, QhsSignature,
+    Signature, qhs_keygen, qhs_keygen_from_leaves, qhs_leaves,
 };
-use qwp_hash::hash32;
-use qwp_platform::HostEntropy;
+use qwp_hash::{derive_key32, hash32};
+use qwp_platform::{HostEntropy, qhs_leaves_parallel};
+
+const QHS_CACHE_HEADER_BYTES: usize = 4;
+const QHS_CACHE_CHECKSUM_BYTES: usize = 4;
+const QHS_CACHE_BYTES: usize = 8232;
+const QHS_CACHE_FINGERPRINT_START: usize = 4;
+const QHS_CACHE_FINGERPRINT_END: usize = 36;
+const QHS_CACHE_LEAVES_START: usize = 36;
+const QHS_CACHE_LEAVES_END: usize = 8228;
+const QHS_CACHE_CHECKSUM_START: usize = 8228;
+const QHS_CACHE_FINGERPRINT_CONTEXT: &[u8] = b"qWp QHS-1 cache fingerprint";
 
 fn main() -> ExitCode {
     let arguments: Vec<String> = env::args().collect();
@@ -183,7 +194,14 @@ fn run_qhs_keygen(arguments: &[String]) -> ExitCode {
         eprintln!("qhs-keygen: {error}");
         return ExitCode::from(3);
     }
-    match qhs_keygen(&seed) {
+    let leaves = match compute_leaves_for_cli(&seed) {
+        Ok(leaves) => leaves,
+        Err(error) => {
+            eprintln!("qhs-keygen: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    match qhs_keygen_from_leaves(&seed, &leaves) {
         Ok((private_key, public_key)) => {
             if let Err(error) = write_atomic(private_path, &private_key.to_bytes(), true) {
                 eprintln!("qhs-keygen: {error}");
@@ -193,7 +211,10 @@ fn run_qhs_keygen(arguments: &[String]) -> ExitCode {
                 eprintln!("qhs-keygen: {error}");
                 return ExitCode::from(3);
             }
-            println!("qhs-keygen: wrote {public_path} and {private_path}");
+            if let Err(error) = write_qhs_cache(private_path, &seed, &leaves) {
+                eprintln!("qhs-keygen: warning: cache not written: {error}");
+            }
+            println!("qhs-keygen: wrote {public_path}, {private_path}, and cache");
             ExitCode::SUCCESS
         }
         Err(error) => {
@@ -235,6 +256,10 @@ fn run_qhs_sign(arguments: &[String]) -> ExitCode {
             return ExitCode::from(3);
         }
     };
+    if private_key.is_exhausted() {
+        eprintln!("qhs-sign: key exhausted");
+        return ExitCode::from(3);
+    }
     let message = match fs::read(message_path) {
         Ok(bytes) => bytes,
         Err(error) => {
@@ -242,7 +267,15 @@ fn run_qhs_sign(arguments: &[String]) -> ExitCode {
             return ExitCode::from(3);
         }
     };
-    let signature = match private_key.sign(&message) {
+    let seed = *private_key.seed();
+    let leaves = match load_or_compute_leaves(private_path, &seed) {
+        Ok(leaves) => leaves,
+        Err(error) => {
+            eprintln!("qhs-sign: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let signature = match private_key.sign_with_leaves(&message, &leaves) {
         Ok(signature) => signature,
         Err(error) => {
             eprintln!("qhs-sign: {error}");
@@ -332,13 +365,127 @@ fn lock_key(path: &str) -> Result<fs::File, String> {
     Ok(file)
 }
 
+fn cache_path(private_path: &str) -> String {
+    format!("{private_path}.cache")
+}
+
+fn cache_fingerprint(seed: &[u8; 32]) -> [u8; 32] {
+    derive_key32(QHS_CACHE_FINGERPRINT_CONTEXT, seed).to_bytes()
+}
+
+fn compute_leaves_for_cli(seed: &[u8; 32]) -> Result<[[u8; 32]; QHS_LEAF_COUNT], String> {
+    qhs_leaves_parallel(seed)
+        .map_or_else(|_| qhs_leaves(seed).map_err(|error| error.to_string()), Ok)
+}
+
+fn load_or_compute_leaves(
+    private_path: &str,
+    seed: &[u8; 32],
+) -> Result<[[u8; 32]; QHS_LEAF_COUNT], String> {
+    let path = cache_path(private_path);
+    if let Some(leaves) = read_qhs_cache(&path, seed) {
+        return Ok(leaves);
+    }
+    let leaves = compute_leaves_for_cli(seed)?;
+    if let Err(error) = write_qhs_cache(private_path, seed, &leaves) {
+        eprintln!("qhs-sign: warning: cache not written: {error}");
+    }
+    Ok(leaves)
+}
+
+fn write_qhs_cache(
+    private_path: &str,
+    seed: &[u8; 32],
+    leaves: &[[u8; 32]; QHS_LEAF_COUNT],
+) -> Result<(), String> {
+    let mut bytes = [0_u8; QHS_CACHE_BYTES];
+    if let Some(slot) = bytes.get_mut(0..QHS_CACHE_HEADER_BYTES) {
+        slot.copy_from_slice(&[1, 1, 8, 0]);
+    }
+    if let Some(slot) = bytes.get_mut(QHS_CACHE_FINGERPRINT_START..QHS_CACHE_FINGERPRINT_END) {
+        slot.copy_from_slice(&cache_fingerprint(seed));
+    }
+    let leaves_start = QHS_CACHE_LEAVES_START;
+    let leaves_end = QHS_CACHE_LEAVES_END;
+    if let Some(slot) = bytes.get_mut(leaves_start..leaves_end) {
+        for (destination, source) in slot
+            .as_chunks_mut::<QHS_LEAF_BYTES>()
+            .0
+            .iter_mut()
+            .zip(leaves.iter())
+        {
+            destination.copy_from_slice(source);
+        }
+    }
+    let body = bytes
+        .get(..leaves_end)
+        .ok_or_else(|| "cache layout".to_string())?;
+    let checksum = hash32(body).to_bytes();
+    if let Some(slot) = bytes.get_mut(QHS_CACHE_CHECKSUM_START..QHS_CACHE_BYTES) {
+        slot.copy_from_slice(
+            checksum
+                .get(..QHS_CACHE_CHECKSUM_BYTES)
+                .ok_or_else(|| "cache checksum".to_string())?,
+        );
+    }
+    write_atomic(&cache_path(private_path), &bytes, true)
+}
+
+fn read_qhs_cache(path: &str, seed: &[u8; 32]) -> Option<[[u8; 32]; QHS_LEAF_COUNT]> {
+    let file = fs::File::open(path).ok()?;
+    let limit = u64::try_from(QHS_CACHE_BYTES).ok()?.saturating_add(1);
+    let mut bytes = Vec::with_capacity(QHS_CACHE_BYTES.saturating_add(1));
+    let read = file.take(limit).read_to_end(&mut bytes).ok()?;
+    if read != QHS_CACHE_BYTES {
+        return None;
+    }
+    if bytes.first() != Some(&1)
+        || bytes.get(1) != Some(&1)
+        || bytes.get(2) != Some(&8)
+        || bytes.get(3) != Some(&0)
+    {
+        return None;
+    }
+    let expected_fingerprint = cache_fingerprint(seed);
+    if bytes.get(QHS_CACHE_FINGERPRINT_START..QHS_CACHE_FINGERPRINT_END)?
+        != expected_fingerprint.as_slice()
+    {
+        return None;
+    }
+    let leaves_start = QHS_CACHE_LEAVES_START;
+    let leaves_end = QHS_CACHE_LEAVES_END;
+    let body = bytes.get(..leaves_end)?;
+    let expected_checksum = hash32(body).to_bytes();
+    if bytes.get(QHS_CACHE_CHECKSUM_START..QHS_CACHE_BYTES)?
+        != expected_checksum.get(..QHS_CACHE_CHECKSUM_BYTES)?
+    {
+        return None;
+    }
+
+    let mut leaves = [[0_u8; 32]; QHS_LEAF_COUNT];
+    for (slot, chunk) in leaves.iter_mut().zip(
+        bytes
+            .get(leaves_start..leaves_end)?
+            .as_chunks::<QHS_LEAF_BYTES>()
+            .0,
+    ) {
+        *slot = *chunk;
+    }
+    Some(leaves)
+}
+
 fn read_exact_file(path: &str, expected: usize) -> Result<Vec<u8>, String> {
-    let bytes = fs::read(path).map_err(|error| format!("{path}: {error}"))?;
-    if bytes.len() != expected {
-        return Err(format!(
-            "{path}: expected {expected} bytes, got {}",
-            bytes.len()
-        ));
+    let file = fs::File::open(path).map_err(|error| format!("{path}: {error}"))?;
+    let limit = u64::try_from(expected)
+        .map_err(|_| format!("{path}: invalid expected length"))?
+        .saturating_add(1);
+    let mut bytes = Vec::with_capacity(expected.saturating_add(1));
+    let read = file
+        .take(limit)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("{path}: {error}"))?;
+    if read != expected {
+        return Err(format!("{path}: expected {expected} bytes, got {read}"));
     }
     Ok(bytes)
 }
@@ -379,6 +526,19 @@ fn write_atomic(path: &str, bytes: &[u8], private: bool) -> Result<(), String> {
     Ok(())
 }
 
+fn all_true(checks: &[bool]) -> bool {
+    checks.iter().all(|value| *value)
+}
+
+fn braid_selftest(value: &Braid) -> bool {
+    let bytes = value.to_bytes();
+    value.len() == 3
+        && bytes.first() == Some(&1)
+        && bytes.get(1) == Some(&0xfe)
+        && bytes.get(2) == Some(&7)
+        && Braid::from_bytes(&bytes).is_ok_and(|parsed| parsed == *value)
+}
+
 fn qhs_selftest() -> bool {
     let seed = [7_u8; 32];
     let Ok((mut private_key, public_key)) = qhs_keygen(&seed) else {
@@ -387,21 +547,22 @@ fn qhs_selftest() -> bool {
     let Ok(signature) = private_key.sign(b"qhs-selftest") else {
         return false;
     };
-    public_key.verify(b"qhs-selftest", &signature).is_ok()
-        && public_key.verify(b"qhs-wrong", &signature).is_err()
+    all_true(&[
+        public_key.verify(b"qhs-selftest", &signature).is_ok(),
+        public_key.verify(b"qhs-wrong", &signature).is_err(),
+    ])
 }
 
 fn selftest() -> bool {
     let braid = Braid::from_generators(&[1, -2, 7]);
-    let braid_ok = braid.is_ok_and(|value| {
-        let bytes = value.to_bytes();
-        Braid::from_bytes(&bytes).is_ok_and(|parsed| parsed == value)
-    });
+    let braid_ok = braid.is_ok_and(|value| braid_selftest(&value));
 
     let mut polynomial = Polynomial::new();
-    let polynomial_ok = polynomial.set_coefficient(0, 42).is_ok()
-        && polynomial.coefficient(0) == Ok(42)
-        && Polynomial::from_bytes(&polynomial.to_bytes()) == polynomial;
+    let polynomial_ok = all_true(&[
+        polynomial.set_coefficient(0, 42).is_ok(),
+        polynomial.coefficient(0) == Ok(42),
+        Polynomial::from_bytes(&polynomial.to_bytes()) == polynomial,
+    ]);
 
     let private_key_ok = braid.is_ok_and(|value| {
         let key = PrivateKey::from_braid(value);
@@ -417,13 +578,40 @@ fn selftest() -> bool {
     let hash_ok = std::format!("{:?}", hash32(b""))
         == "Hash32(af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262)";
 
-    braid_ok
-        && polynomial_ok
-        && private_key_ok
-        && public_key_ok
-        && signature_ok
-        && hash_ok
-        && size_of::<Braid>() == BRAID_BYTES
-        && size_of::<Polynomial>() == PUBLIC_KEY_BYTES
-        && size_of::<Signature>() == SIGNATURE_BYTES
+    all_true(&[
+        braid_ok,
+        polynomial_ok,
+        private_key_ok,
+        public_key_ok,
+        signature_ok,
+        hash_ok,
+        size_of::<Braid>() == BRAID_BYTES,
+        size_of::<Polynomial>() == PUBLIC_KEY_BYTES,
+        size_of::<Signature>() == SIGNATURE_BYTES,
+    ])
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "tests use fixed valid fixtures and expect construction to succeed"
+    )]
+
+    use super::{Braid, all_true, braid_selftest};
+
+    #[test]
+    fn all_true_requires_every_check() {
+        assert!(all_true(&[true, true]));
+        assert!(!all_true(&[true, false]));
+        assert!(!all_true(&[false, true]));
+    }
+
+    #[test]
+    fn braid_selftest_rejects_wrong_word() {
+        let good = Braid::from_generators(&[1, -2, 7]).unwrap();
+        assert!(braid_selftest(&good));
+        let wrong = Braid::from_generators(&[1, 2, 7]).unwrap();
+        assert!(!braid_selftest(&wrong));
+    }
 }

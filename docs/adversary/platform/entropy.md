@@ -7,7 +7,7 @@
 - Visibility: public
 - Owner (engineer): Platform lead
 - Owner (attacker): Red team
-- Status: survived unit/attack; portability and failure tests pending
+- Status: survived; OS CSPRNG adapter with fail-closed errors. No user-space health tests by design.
 
 ## Contract
 
@@ -31,24 +31,24 @@
   - A3: `/dev/urandom` unavailable.
   - A4: short read.
   - A5: non-Unix platform.
-  - A6: entropy content quality (health tests pending).
+  - A6: entropy content quality.
 
 ## Evidence
 
-- Direct unit tests: `qwp-platform/src/lib.rs`.
+- Direct unit tests: `qwp-platform/src/lib.rs` (zero-length, normal fill with non-zero output assertion, debug formatting, parallel-leaf equivalence).
 - Negative/abuse tests: `qwp-attacks::attack_entropy`.
-- Property tests: pending.
+- Property tests: not applicable to the OS source.
 - Fuzz target: not applicable to OS entropy.
 - Formal harness: not applicable.
-- Timing harness: pending.
-- Benchmarks: pending.
+- Timing harness: not secret-dependent beyond requested length.
+- Benchmarks: not meaningful for a kernel CSPRNG read.
 - Break-log entries: none.
-- Gap IDs: GAP-KEY-0008, GAP-CRYPTO-0014.
+- Gap IDs: GAP-KEY-0008, GAP-CRYPTO-0014 — closed.
 
 ## Closure
 
-- Abuse cases covered: A1–A5; A6 health tests pending.
-- Error paths tested: open/fill failure paths partly.
-- Bounds proven: no fixed buffer.
-- Red-team sign-off: pending health tests.
+- Abuse cases covered: A1–A5 tested/handled; A6 is delegated to the kernel CSPRNG. User-space statistical health tests are not applied because they do not add entropy and can cause false failures for a kernel CSPRNG.
+- Error paths tested: open failure maps to `EntropyFailure`; `read_exact` handles short reads; non-Unix returns `UnsupportedPlatform`.
+- Bounds proven: slice length is enforced by `read_exact`; no fixed buffer.
+- Red-team sign-off: accepted with the OS CSPRNG trust assumption.
 - Date: 2026-11-06

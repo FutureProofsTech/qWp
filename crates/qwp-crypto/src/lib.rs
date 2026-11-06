@@ -77,6 +77,7 @@ pub mod qhs;
 
 pub use format::{PrivateKey, PublicKey, Signature};
 pub use qhs::{
-    QHS_MAX_SIGNATURES, QHS_PRIVATE_KEY_BYTES, QHS_PUBLIC_KEY_BYTES, QHS_SIGNATURE_BYTES,
-    QhsPrivateKey, QhsPublicKey, QhsSignature, keygen as qhs_keygen,
+    QHS_LEAF_BYTES, QHS_LEAF_COUNT, QHS_MAX_SIGNATURES, QHS_PRIVATE_KEY_BYTES,
+    QHS_PUBLIC_KEY_BYTES, QHS_SIGNATURE_BYTES, QhsPrivateKey, QhsPublicKey, QhsSignature,
+    keygen as qhs_keygen, qhs_keygen_from_leaves, qhs_leaf, qhs_leaves,
 };

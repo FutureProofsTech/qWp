@@ -121,6 +121,8 @@ It detects accidental corruption only; it is not authentication.
 | `QHS_PRIVATE_KEY_BYTES` | 64 |
 | `QHS_SIGNATURE_BYTES` | 2408 |
 | `QHS_MAX_SIGNATURES` | 256 |
+| `QHS_LEAF_COUNT` | 256 |
+| `QHS_LEAF_BYTES` | 32 |
 | WOTS chains | 67 |
 | WOTS chain length | 15 |
 | Merkle height | 8 |
@@ -182,8 +184,39 @@ BLAKE3("qWp QHS-1 signature-checksum" || first 2404 bytes)[0..4]
 
 The checksum detects accidental corruption; the Merkle root and WOTS chains provide authentication.
 
+### 10.5 QHS-1 public-leaf cache (8,232 bytes, optional)
+
+The CLI may store the 256 public Merkle leaves next to the private key as
+`<private-key>.cache`. The cache is a performance aid, not a key and not part of
+the signature format.
+
+```
+offset  size  field
+0       1     version        // 1
+1       1     algorithm      // 1
+2       1     height         // 8
+3       1     reserved       // 0
+4       32    fingerprint    // BLAKE3 derive-key("qWp QHS-1 cache fingerprint", seed)
+36      8192  leaves         // 256 × 32 bytes, leaf 0 first
+8228    4     checksum       // BLAKE3(first 8228 bytes)[0..4]
+```
+
+Canonical rules:
+
+- The file is exactly 8,232 bytes; any other length is ignored.
+- The CLI reads at most 8,233 bytes, so an oversized or special file cannot force an unbounded allocation.
+- Header is `[1, 1, 8, 0]`.
+- The fingerprint must match the private key seed; a foreign cache is ignored.
+- The checksum must match the first 8,228 bytes; a corrupt cache is ignored.
+- A rejected or missing cache causes the leaves to be recomputed.
+- The file is written atomically with mode `0600` on Unix.
+
+The cache contains only public Merkle commitments. It never contains the seed,
+WOTS secrets, or chain values. A poisoned cache cannot produce a valid forgery:
+the verifier recomputes the Merkle root, so altered leaves yield an invalid
+signature. The cache is therefore outside the production security boundary.
+
 ## 11. Open items
 
-- QHS-1 key store / atomic counter persistence (CLI).
-- QHS-1 Kani/Miri/fuzz/timing evidence.
-- These are tracked in `docs/gap-register.md`, not hidden.
+No open production format items. The legacy 160-byte v0 container remains
+research-only and is not used for production signing or verification.

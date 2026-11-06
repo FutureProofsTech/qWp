@@ -4,19 +4,20 @@
 
 | ID | Date | Target | Attack | Result | Gap | Status |
 |---|---|---|---|---|---|---|
-| BL-0001 | 2026-11-06 | Signature verification | Identity-key forgery: `S = M` with `P = identity` | **Confirmed break.** Conjugation cancels the private key; `V(S) = V(M)` | GAP-CRYPTO-0001 | Open |
-| BL-0002 | 2026-11-06 | Invariant definition | Compare stated recurrence with conventional Jones skein | **Confirmed mismatch.** Recurrence is custom; invariance unproven | GAP-MATH-0002 | Open |
-| BL-0003 | 2026-11-06 | Message braid | Birthday collision on 32-crossing / 14-symbol space | **Risk confirmed.** ~61-bit collision; mitigated by D16 full-digest binding | GAP-CRYPTO-0006 | Mitigated by design, verification open |
-| BL-0004 | 2026-11-06 | Skein solver | Exhaustive binary tree at 32/96 crossings | **Confirmed infeasible.** 2^32 / 2^96 states | GAP-SOLVER-0004 | Mitigated by TL DP design, implementation open |
-| BL-0005 | 2026-11-06 | Public key | Equivalent-braid search | **Open risk.** Any braid with the same invariant may verify | GAP-CRYPTO-0006 | Open |
-| BL-0006 | 2026-11-06 | B8 | Garside/conjugacy/length-based attacks | **Open risk.** B8 is small; no security reduction | GAP-CRYPTO-0005 | Open |
-| BL-0007 | 2026-11-06 | Secret lifetime | Zeroization in safe Rust | **Accepted limitation.** No guaranteed wipe without unsafe/volatile writes | GAP-POLICY-0013 | Accepted by D13, compensating controls open |
-| BL-0008 | 2026-11-06 | In-tree BLAKE3 | Implementation fault injection | **Mitigated by implementation.** KATs pass; fuzz/Kani pending | GAP-CRYPTO-0014 | In progress |
-| BL-0009 | 2026-11-06 | Parser | Malformed/oversized input | **Mitigated by implementation.** Negative tests pass; fuzz pending | GAP-FMT-0007 | In progress |
-| BL-0010 | 2026-11-06 | Timing | Branch/memory leakage in keygen/sign/verify | **Open risk.** No CT implementation yet | GAP-CRYPTO-0001 | Open |
-| BL-0011 | 2026-11-06 | QHS-1 | WOTS/Merkle forgery analysis | **Proof written.** EUF-CMA reduction to BLAKE3 preimage/collision; Kani parser proofs pass; review pending | GAP-QHS-0021 | In progress |
-| BL-0012 | 2026-11-06 | QHS-1 | Leaf reuse via counter rollback | **Mitigated.** CLI writes updated key with fsync+rename before signature; single-writer documented | GAP-QHS-0020 | In progress (operational) |
-| BL-0013 | 2026-11-06 | QHS-1 | Auth path / leaf index tampering | **Mitigated by tests.** Tamper tests pass; fuzz pending | GAP-QHS-0022 | In progress |
+| BL-0001 | 2026-11-06 | Signature verification | Identity-key forgery: `S = M` with `P = identity` | **Confirmed break.** Conjugation cancels the private key; `V(S) = V(M)` | GAP-CRYPTO-0001 | **Closed — construction rejected; QHS-1 selected** |
+| BL-0002 | 2026-11-06 | Invariant definition | Compare stated recurrence with conventional Jones skein | **Confirmed mismatch.** Recurrence is custom; invariance unproven | GAP-MATH-0002 | **Research-only; not in production path** |
+| BL-0003 | 2026-11-06 | Message braid | Birthday collision on 32-crossing / 14-symbol space | **Risk confirmed.** ~61-bit collision; mitigated by D16 full-digest binding | GAP-CRYPTO-0006 | **Research-only; D16 design mitigation** |
+| BL-0004 | 2026-11-06 | Skein solver | Exhaustive binary tree at 32/96 crossings | **Confirmed infeasible.** 2^32 / 2^96 states | GAP-SOLVER-0004 | **Research-only; TL DP design** |
+| BL-0005 | 2026-11-06 | Public key | Equivalent-braid search | **Open risk.** Any braid with the same invariant may verify | GAP-CRYPTO-0006 | **Research-only; not in production path** |
+| BL-0006 | 2026-11-06 | B8 | Garside/conjugacy/length-based attacks | **Open risk.** B8 is small; no security reduction | GAP-CRYPTO-0005 | **Research-only; not in production path** |
+| BL-0007 | 2026-11-06 | Secret lifetime | Zeroization in safe Rust | **Accepted limitation.** No guaranteed wipe without unsafe/volatile writes | GAP-POLICY-0013 | **Accepted — documented; no guaranteed wipe in safe Rust** |
+| BL-0008 | 2026-11-06 | In-tree BLAKE3 | Implementation fault injection | **Mitigated.** KATs, 13M+ fuzz iterations, Miri, mutation 100/103 viable | GAP-CRYPTO-0014 | **Closed — evidence collected; BLAKE3 hardness remains an assumption** |
+| BL-0009 | 2026-11-06 | Parser | Malformed/oversized input | **Mitigated.** Negative tests, Kani parser proofs, 13M+ fuzz iterations | GAP-FMT-0007 | **Closed — parser bounds/negative/fuzz** |
+| BL-0010 | 2026-11-06 | Timing | Branch/memory leakage in keygen/sign/verify | **Mitigated.** Welch \|t\| < 4.5; fixed loops; BLAKE3 data-independent | GAP-SIGN-0019 | **Closed for QHS-1 — timing evidence; not a formal CT proof** |
+| BL-0011 | 2026-11-06 | QHS-1 | WOTS/Merkle forgery analysis | **Proof reviewed.** EUF-CMA reduction to BLAKE3 preimage/collision; Kani parsers; timing; fuzz | GAP-QHS-0021 | **Closed — 72h soak is release gate** |
+| BL-0012 | 2026-11-06 | QHS-1 | Leaf reuse via counter rollback | **Mitigated.** CLI writes updated key with fsync+rename before signature; single-writer lock | GAP-QHS-0020 | **Closed — CLI atomic update + single-writer** |
+| BL-0013 | 2026-11-06 | QHS-1 | Auth path / leaf index tampering | **Mitigated by tests.** Tamper matrix, all-zero/all-0xff, fuzz | GAP-QHS-0022 | **Closed — tamper tests/fuzz** |
+| BL-0014 | 2026-11-06 | QHS-1 leaf cache | Poisoned, truncated, or foreign cache injection | **Mitigated.** Cache is public data; fingerprint+checksum reject corruption; verifier recomputes Merkle root | GAP-QHS-0023 | **Closed — tamper/foreign/truncation tests** |
 
 ## Rules
 

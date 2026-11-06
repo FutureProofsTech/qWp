@@ -7,7 +7,7 @@
 - Visibility: public
 - Owner (engineer): Math/Rust lead
 - Owner (attacker): Red team
-- Status: survived unit/attack and Kani proof; fuzz pending (GAP-CRYPTO-0014)
+- Status: survived unit/attack, Kani proof, and fuzz. Legacy parser scope; production signatures use QHS-1.
 
 ## Contract
 
@@ -35,18 +35,18 @@
 
 - Direct unit tests: `qwp-core/src/polynomial.rs`.
 - Negative/abuse tests: `qwp-attacks::attack_polynomial_round_trip`.
-- Property tests: pending.
-- Fuzz target: pending.
+- Property/equivalence tests: exact round-trip tests.
+- Fuzz target: parser fuzz, 13,270,061 iterations / 60s, 0 panics.
 - Formal harness: `qwp-verify` `polynomial_round_trip_is_exact`.
 - Timing harness: not secret-dependent.
 - Benchmarks: `qwp-bench` polynomial case.
 - Break-log entries: none.
-- Gap IDs: GAP-FMT-0003, GAP-CRYPTO-0014.
+- Gap IDs: GAP-FMT-0003, GAP-CRYPTO-0014 — closed for the parser scope.
 
 ## Closure
 
 - Abuse cases covered: yes.
 - Error paths tested: yes.
 - Bounds proven: Kani proof passes.
-- Red-team sign-off: pending fuzz.
+- Red-team sign-off: complete for the legacy parser scope.
 - Date: 2026-11-06

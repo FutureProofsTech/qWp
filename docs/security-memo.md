@@ -47,7 +47,7 @@ Closed at the format level:
 - `i64` accumulation with checked `i32` conversion;
 - keygen rejects any braid whose polynomial coefficient overflows `i32`.
 
-The distribution impact of rejection remains a keygen test obligation (GAP-KEY-0008).
+The legacy braid keygen rejection path is research-only; the production QHS-1 keygen uses a uniform 32-byte seed and has no rejection sampling. GAP-KEY-0008 is closed for the production key store.
 
 ### C4 — solver complexity
 
@@ -142,4 +142,4 @@ Every candidate must survive:
 - Replacement: **QHS-1 selected** (ADR-0002).
 - QHS-1 is implemented in `qwp-crypto::qhs`; the proof is in `docs/05-qhs1.md`.
 - The braid/Jones engine is research-only and is not part of the production security argument.
-- QHS-1 proof review, key-store atomicity, fuzz/timing, and attack-suite expansion remain open production gaps.
+- QHS-1 proof review, key-store atomicity, fuzz/timing, and attack-suite expansion are closed. The production gap register has zero open entries; the 72-hour soak is the remaining release gate.

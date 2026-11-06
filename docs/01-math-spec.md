@@ -265,9 +265,14 @@ The in-tree naive reference is the primary oracle; Sage/KnotTheory is optional e
 - TL DP algorithm choice (C4);
 - original signature construction rejection (C1).
 
-**Open and tracked:**
+**Closed by follow-on work:**
 
-- replacement signature paradigm (ADR-0001);
-- reduction/solver implementation;
-- keygen/sign/verify;
-- full FAD/attack/fuzz/formal coverage.
+- replacement signature paradigm — ADR-0002 selects QHS-1;
+- keygen/sign/verify — QHS-1 implemented and reviewed;
+- production FAD/attack/fuzz/formal coverage — evidence in `docs/06-qhs1-review.md`; 72-hour soak is the release gate.
+
+**Open and tracked (research-only, not production):**
+
+- Artin/Garside reduction;
+- TL DP solver implementation;
+- braid/Jones research module.

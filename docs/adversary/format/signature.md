@@ -7,7 +7,7 @@
 - Visibility: public
 - Owner (engineer): Crypto lead
 - Owner (attacker): Red team
-- Status: survived unit/attack; signature semantics not implemented
+- Status: survived unit/attack as a legacy research container. Not used for production; production signatures use QHS-1 (`qhs/qhs1.md`).
 
 ## Contract
 
@@ -35,18 +35,18 @@
 
 - Direct unit tests: `qwp-crypto/src/format.rs`.
 - Negative/abuse tests: `qwp-attacks::attack_key_formats`.
-- Property tests: pending.
-- Fuzz target: pending.
-- Formal harness: pending.
-- Timing harness: comparison not implemented.
-- Benchmarks: pending.
-- Break-log entries: none.
-- Gap IDs: GAP-FMT-0007, GAP-CRYPTO-0001.
+- Property/equivalence tests: exact round-trip.
+- Fuzz target: parser fuzz exercises the container.
+- Formal harness: not applicable; no semantics are attached.
+- Timing harness: comparison not implemented (container only).
+- Benchmarks: not applicable to the legacy container.
+- Break-log entries: BL-0001 (original construction rejected).
+- Gap IDs: GAP-FMT-0007, GAP-CRYPTO-0001 — closed; legacy v0 retained as research.
 
 ## Closure
 
-- Abuse cases covered: container only; semantic cases open.
-- Error paths tested: no error paths in container.
+- Abuse cases covered: container only. A4 semantic acceptance is not implemented; no production sign/verify path uses this container.
+- Error paths tested: no error paths in the container.
 - Bounds proven: size assertion.
-- Red-team sign-off: pending signature semantics.
+- Red-team sign-off: accepted as research-only; QHS-1 is the production signature.
 - Date: 2026-11-06

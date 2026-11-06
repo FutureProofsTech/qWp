@@ -19,6 +19,7 @@ dependencies = [
  "qwp-core",
  "qwp-crypto",
  "qwp-hash",
+ "qwp-platform",
 ]
 
 [[package]]
@@ -52,6 +53,7 @@ name = "qwp-platform"
 version = "0.1.0"
 dependencies = [
  "qwp-core",
+ "qwp-crypto",
 ]
 
 [[package]]

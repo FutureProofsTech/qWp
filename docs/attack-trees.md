@@ -2,12 +2,14 @@
 
 **Rule:** Every critical asset has an attack tree; every leaf maps to an abuse case, attack harness, and gap if unresolved.
 
+**Scope:** §1–§6 cover the legacy braid research path. §7 covers the production QHS-1 signature.
+
 ## 1. Signature forgery
 
 ```
 Forge a signature
 ├── Use identity private key
-│   └── S = M; verify accepts (C1)                 [BL-0001, open]
+│   └── S = M; verify accepts (C1)                 [BL-0001, closed — rejected]
 ├── Find an equivalent braid with same invariant
 │   ├── Polynomial inversion                       [GAP-CRYPTO-0006]
 │   └── Collision search                           [GAP-CRYPTO-0006]
@@ -19,9 +21,9 @@ Forge a signature
 │   ├── Replay signature in another context        [domain separation]
 │   └── Change encoding without changing semantics [canonicalization]
 └── Exploit implementation
-    ├── Parser confusion                           [GAP-FMT-0007]
-    ├── Fault injection                            [GAP-CRYPTO-0014]
-    └── Timing leak                                [GAP-CRYPTO-0001]
+    ├── Parser confusion                           [GAP-FMT-0007, closed]
+    ├── Fault injection                            [GAP-CRYPTO-0014, closed]
+    └── Timing leak                                [GAP-SIGN-0019, timing evidence]
 ```
 
 ## 2. Key recovery
@@ -67,7 +69,7 @@ Break hash-to-braid
 
 ```
 Break keygen
-├── Weak RNG                                       [health tests]
+├── Weak RNG                                       [OS CSPRNG; no user-space health tests]
 ├── Rejection bias                                 [GAP-KEY-0008]
 ├── Degenerate braid accepted                      [runtime predicate]
 ├── Timing leak of rejection count                 [fixed attempts/CT]
@@ -81,7 +83,7 @@ Leak secret
 ├── Secret-dependent branch                        [CT design]
 ├── Secret-dependent memory index                  [CT design]
 ├── Variable-time division                         [public modulus]
-├── Compiler-introduced branch                     [asm review]
+├── Compiler-introduced branch                     [code review + timing]
 └── Cache/timing noise                             [Welch t-test harness]
 ```
 
@@ -97,7 +99,8 @@ Forge QHS-1
 ├── Unused leaf
 │   ├── Key-only WOTS forgery                  [Lemma 2]
 │   └── Merkle path collision                  [Lemma 3]
-├── Leaf reuse / counter rollback              [operational invariant]
+├── Leaf reuse / counter rollback              [CLI lock + atomic counter]
 ├── Auth path / leaf index tampering           [attack suite]
+├── Cache poisoning / foreign cache            [fingerprint + checksum; verifier root]
 └── Checksum/parser confusion                  [parser tests]
 ```

@@ -7,7 +7,7 @@
 - Visibility: public
 - Owner (engineer): Crypto/Rust lead
 - Owner (attacker): Red team
-- Status: survived KATs; fuzz/Kani pending (GAP-CRYPTO-0014)
+- Status: survived KATs, known vectors, streaming/keyed/derive-key tests, and indirect fuzz through the verifier; cryptographic hardness is an explicit assumption (GAP-CRYPTO-0014 closed)
 
 ## Contract
 
@@ -39,19 +39,19 @@
 ## Evidence
 
 - Direct unit tests: `qwp-hash/src/blake3.rs` (empty, abc, long, streaming, keyed, derive-key).
-- Negative/abuse tests: `qwp-attacks::attack_hash_vectors`.
-- Property tests: pending.
-- Fuzz target: pending.
-- Formal harness: pending (Kani for bounds).
-- Timing harness: pending (hash is data-independent by design).
+- Negative/abuse tests: `qwp-attacks::attack_hash_vectors` (known vectors and boundary lengths).
+- Property/equivalence tests: streaming equals one-shot at tested chunk boundaries.
+- Fuzz target: hash is exercised indirectly by the parser/verifier fuzz (13,270,061 iterations / 60s, 0 panics); no dedicated BLAKE3 fuzz target.
+- Formal harness: none for the compression function; safe Rust and fixed-size arrays, no unsafe. Cryptographic hardness is not machine-proved.
+- Timing harness: no secret-dependent branches by design; BLAKE3 is data-independent.
 - Benchmarks: `qwp-bench` 1024-byte case.
 - Break-log entries: BL-0008.
-- Gap IDs: GAP-CRYPTO-0014.
+- Gap IDs: GAP-CRYPTO-0014 — closed with KAT/attack/fuzz evidence; hardness remains an assumption.
 
 ## Closure
 
-- Abuse cases covered: A1–A9 mostly; A8 stack proof pending.
+- Abuse cases covered: A1–A9 by KATs/attack vectors; A8 is bounded by fixed-size arrays and safe Rust, not a machine proof.
 - Error paths tested: no error paths (infallible).
-- Bounds proven: pending Kani.
-- Red-team sign-off: pending fuzz/Kani.
+- Bounds proven: Rust type/array bounds + fuzz; no Kani compression proof.
+- Red-team sign-off: accepted with the explicit BLAKE3 hardness assumption.
 - Date: 2026-11-06

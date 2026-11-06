@@ -12,7 +12,8 @@
 
 use std::time::Instant;
 
-use qwp_crypto::qhs_keygen;
+use qwp_crypto::{QHS_LEAF_COUNT, qhs_keygen_from_leaves, qhs_leaves};
+use qwp_platform::qhs_leaves_parallel;
 
 fn main() {
     let seed_a = [7_u8; 32];
@@ -23,6 +24,7 @@ fn main() {
     let keygen_b = sample_keygen(&seed_b, samples);
     let sign_a = sample_sign(&seed_a, samples);
     let sign_b = sample_sign(&seed_b, samples);
+    let verify_a = sample_verify(&seed_a, 1000);
 
     let keygen_t = welch_t(&keygen_a, &keygen_b);
     let sign_t = welch_t(&sign_a, &sign_b);
@@ -38,6 +40,7 @@ fn main() {
         mean(&sign_b),
         sign_t
     );
+    println!("verify: mean={:.0}ns/op", mean(&verify_a));
 
     let threshold = 4.5;
     if keygen_t.abs() >= threshold || sign_t.abs() >= threshold {
@@ -47,11 +50,25 @@ fn main() {
     println!("timing: ok (threshold |t| < {threshold})");
 }
 
+fn leaves_for(seed: &[u8; 32]) -> [[u8; 32]; QHS_LEAF_COUNT] {
+    match qhs_leaves_parallel(seed) {
+        Ok(leaves) => leaves,
+        Err(_) => match qhs_leaves(seed) {
+            Ok(leaves) => leaves,
+            Err(error) => {
+                eprintln!("timing: leaves failed: {error}");
+                std::process::exit(2);
+            }
+        },
+    }
+}
+
 fn sample_keygen(seed: &[u8; 32], samples: u32) -> Vec<u64> {
     let mut values = Vec::with_capacity(usize::try_from(samples).unwrap_or(0));
     for _ in 0..samples {
         let start = Instant::now();
-        let result = qhs_keygen(seed);
+        let leaves = leaves_for(seed);
+        let result = qhs_keygen_from_leaves(seed, &leaves);
         let elapsed = start.elapsed().as_nanos();
         if result.is_err() {
             eprintln!("timing: keygen failed");
@@ -63,17 +80,42 @@ fn sample_keygen(seed: &[u8; 32], samples: u32) -> Vec<u64> {
 }
 
 fn sample_sign(seed: &[u8; 32], samples: u32) -> Vec<u64> {
-    let Ok((mut private_key, _public_key)) = qhs_keygen(seed) else {
+    let leaves = leaves_for(seed);
+    let Ok((mut private_key, _public_key)) = qhs_keygen_from_leaves(seed, &leaves) else {
         eprintln!("timing: keygen failed");
         std::process::exit(2);
     };
     let mut values = Vec::with_capacity(usize::try_from(samples).unwrap_or(0));
     for _ in 0..samples {
         let start = Instant::now();
-        let result = private_key.sign(b"qWp timing message");
+        let result = private_key.sign_with_leaves(b"qWp timing message", &leaves);
         let elapsed = start.elapsed().as_nanos();
         if result.is_err() {
             eprintln!("timing: sign failed");
+            std::process::exit(2);
+        }
+        values.push(u64::try_from(elapsed).unwrap_or(u64::MAX));
+    }
+    values
+}
+
+fn sample_verify(seed: &[u8; 32], samples: u32) -> Vec<u64> {
+    let leaves = leaves_for(seed);
+    let Ok((mut private_key, public_key)) = qhs_keygen_from_leaves(seed, &leaves) else {
+        eprintln!("timing: keygen failed");
+        std::process::exit(2);
+    };
+    let Ok(signature) = private_key.sign_with_leaves(b"qWp verify timing", &leaves) else {
+        eprintln!("timing: sign failed");
+        std::process::exit(2);
+    };
+    let mut values = Vec::with_capacity(usize::try_from(samples).unwrap_or(0));
+    for _ in 0..samples {
+        let start = Instant::now();
+        let result = public_key.verify(b"qWp verify timing", &signature);
+        let elapsed = start.elapsed().as_nanos();
+        if result.is_err() {
+            eprintln!("timing: verify failed");
             std::process::exit(2);
         }
         values.push(u64::try_from(elapsed).unwrap_or(u64::MAX));

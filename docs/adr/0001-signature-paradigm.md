@@ -57,7 +57,7 @@ Phase 0 therefore cannot "fix" the original equation inside the existing 160-byt
 
 ## Decision
 
-**Pending owner decision.** The engineering recommendation is:
+**Superseded by ADR-0002.** ADR-0002 selects QHS-1 for the production signature and retains the braid/Jones work as a research module. The historical options and recommendation below are kept for the record; they are not pending.
 
 1. If **topology is non-negotiable**, choose **Option A** and explicitly change the signature size target to 2–4 KB. Do not claim 160-byte compatibility.
 2. If **160-byte signature and shippable security are non-negotiable**, choose **Option B** and explicitly change the project identity from "topological signature" to "custom group signature with a topological research module."

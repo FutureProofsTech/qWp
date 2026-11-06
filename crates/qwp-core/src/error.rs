@@ -24,6 +24,8 @@ pub enum CryptoError {
     KeyExhausted,
     /// Signature verification failed.
     VerificationFailed,
+    /// An internal worker or invariant failed.
+    InternalFailure,
 }
 
 impl fmt::Display for CryptoError {
@@ -39,6 +41,7 @@ impl fmt::Display for CryptoError {
             Self::UnsupportedPlatform => "unsupported platform",
             Self::KeyExhausted => "key exhausted",
             Self::VerificationFailed => "verification failed",
+            Self::InternalFailure => "internal failure",
         };
         formatter.write_str(message)
     }
@@ -60,6 +63,7 @@ mod tests {
             (CryptoError::UnsupportedPlatform, "unsupported platform"),
             (CryptoError::KeyExhausted, "key exhausted"),
             (CryptoError::VerificationFailed, "verification failed"),
+            (CryptoError::InternalFailure, "internal failure"),
         ];
         for (error, expected) in cases {
             assert_eq!(std::string::ToString::to_string(&error), expected);

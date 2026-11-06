@@ -7,7 +7,7 @@
 - Visibility: public
 - Owner (engineer): Rust core lead
 - Owner (attacker): Red team
-- Status: survived unit/attack and Kani proof; fuzz pending (GAP-CRYPTO-0014)
+- Status: survived unit/attack, Kani proof, and fuzz. Legacy parser scope; production signatures use QHS-1.
 
 ## Contract
 
@@ -39,18 +39,18 @@
 
 - Direct unit tests: `qwp-core/src/braid.rs` tests.
 - Negative/abuse tests: `qwp-attacks::attack_braid_parser`.
-- Property tests: pending.
-- Fuzz target: pending.
+- Property/equivalence tests: round-trip and validation tests.
+- Fuzz target: parser fuzz, 13,270,061 iterations / 60s, 0 panics.
 - Formal harness: `qwp-verify` `braid_from_bytes_never_panics`, `braid_round_trip_is_stable`.
-- Timing harness: not secret-dependent for parsing; pending.
+- Timing harness: not secret-dependent for parsing.
 - Benchmarks: `qwp-bench` braid cases.
 - Break-log entries: BL-0009.
-- Gap IDs: GAP-FMT-0003, GAP-CRYPTO-0014.
+- Gap IDs: GAP-FMT-0003, GAP-CRYPTO-0014 — closed for the parser scope.
 
 ## Closure
 
-- Abuse cases covered: A1–A7 yes; A8 documented limitation.
+- Abuse cases covered: A1–A7 yes; A8 documented best-effort wipe limitation.
 - Error paths tested: yes.
 - Bounds proven: Kani proof passes.
-- Red-team sign-off: pending fuzz.
+- Red-team sign-off: complete for the legacy parser scope.
 - Date: 2026-11-06

@@ -1,0 +1,13 @@
+qWp 1-hour fuzz pre-soak evidence
+=================================
+
+Date: 2026-11-06
+Command: taskset -c 1 ./scripts/fuzz.sh 3600
+Start (UTC): 2026-11-06T10:14:25Z
+End (UTC):   2026-11-06T11:14:25Z
+
+Raw driver output:
+fuzz: seconds=3600 iterations=793945578 panics=0
+
+Result: PASS. The driver reports zero panics over exactly 3,600 seconds.
+The fuzz driver exits non-zero when panics != 0; this run reports panics=0.

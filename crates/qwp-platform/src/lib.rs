@@ -76,6 +76,7 @@ use std::fs::File;
 use std::io::Read;
 
 use qwp_core::CryptoError;
+use qwp_crypto::{QHS_LEAF_COUNT, qhs_leaf};
 
 /// A safe host entropy source backed by `/dev/urandom`.
 pub struct HostEntropy {
@@ -124,9 +125,55 @@ impl fmt::Debug for HostEntropy {
     }
 }
 
+/// Computes QHS-1 Merkle leaves in parallel on the host.
+///
+/// This is a performance API. The leaves are identical to the sequential
+/// derivation and contain no secret WOTS values.
+///
+/// # Errors
+///
+/// Returns an internal error if a worker fails or a leaf index is invalid.
+#[inline]
+pub fn qhs_leaves_parallel(seed: &[u8; 32]) -> Result<[[u8; 32]; QHS_LEAF_COUNT], CryptoError> {
+    let mut leaves = [[0_u8; 32]; QHS_LEAF_COUNT];
+    let threads = std::thread::available_parallelism()
+        .map_or(1, std::num::NonZero::get)
+        .min(16);
+    let chunk_size = QHS_LEAF_COUNT.div_ceil(threads);
+
+    std::thread::scope(|scope| -> Result<(), CryptoError> {
+        let mut handles = Vec::new();
+        for (chunk_index, chunk) in leaves.chunks_mut(chunk_size).enumerate() {
+            let base = chunk_index.checked_mul(chunk_size).unwrap_or(0);
+            handles.push(scope.spawn(move || -> Result<(), CryptoError> {
+                for (offset, slot) in chunk.iter_mut().enumerate() {
+                    let index = u16::try_from(base.checked_add(offset).unwrap_or(0))
+                        .map_err(|_| CryptoError::InvalidLength)?;
+                    *slot = qhs_leaf(seed, index)?;
+                }
+                Ok(())
+            }));
+        }
+        for handle in handles {
+            handle.join().map_err(|_| CryptoError::InternalFailure)??;
+        }
+        Ok(())
+    })?;
+
+    Ok(leaves)
+}
+
 #[cfg(all(test, unix))]
 mod tests {
-    use super::HostEntropy;
+    use super::{HostEntropy, qhs_leaves_parallel};
+
+    #[test]
+    fn parallel_leaves_match_sequential() {
+        let seed = [7_u8; 32];
+        let sequential = qwp_crypto::qhs_leaves(&seed).unwrap();
+        let parallel = qhs_leaves_parallel(&seed).unwrap();
+        assert_eq!(sequential, parallel);
+    }
 
     #[test]
     fn fills_requested_bytes() {
@@ -134,6 +181,11 @@ mod tests {
         let mut output = [0_u8; 32];
         entropy.fill(&mut output).unwrap();
         assert_eq!(output.len(), 32);
+        assert!(
+            output.iter().any(|byte| *byte != 0),
+            "entropy fill left the buffer unchanged"
+        );
+        assert!(std::format!("{entropy:?}").contains("HostEntropy"));
     }
 
     #[test]

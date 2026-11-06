@@ -43,6 +43,10 @@ pub const QHS_PRIVATE_KEY_BYTES: usize = 64;
 pub const QHS_SIGNATURE_BYTES: usize = CHECKSUM_OFFSET + SIGNATURE_CHECKSUM_BYTES;
 /// Number of signatures available from one private key.
 pub const QHS_MAX_SIGNATURES: u16 = 256;
+/// Number of Merkle leaves per key.
+pub const QHS_LEAF_COUNT: usize = LEAF_COUNT;
+/// Bytes per Merkle leaf.
+pub const QHS_LEAF_BYTES: usize = 32;
 
 const SECRET_CONTEXT: &[u8] = b"qWp QHS-1 secret";
 const CHAIN_CONTEXT: &[u8] = b"qWp QHS-1 chain";
@@ -254,6 +258,15 @@ impl QhsPrivateKey {
         bytes
     }
 
+    /// Returns the secret seed for host-side leaf derivation.
+    ///
+    /// The caller must not log or expose this value.
+    #[must_use]
+    #[inline]
+    pub const fn seed(&self) -> &[u8; 32] {
+        &self.seed
+    }
+
     /// Returns the next leaf index.
     #[must_use]
     #[inline]
@@ -278,43 +291,73 @@ impl QhsPrivateKey {
         if self.is_exhausted() {
             return Err(CryptoError::KeyExhausted);
         }
+        let leaves = compute_leaves(&self.seed)?;
+        self.sign_with_leaves(message, &leaves)
+    }
+
+    /// Signs a message using precomputed Merkle leaves.
+    ///
+    /// The leaves must be the exact leaves derived from this key's seed. The
+    /// CLI validates a fingerprinted cache before calling this. Caching is a
+    /// performance optimization only; it does not change the signature.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CryptoError::KeyExhausted`] after 256 signatures.
+    #[inline]
+    pub fn sign_with_leaves(
+        &mut self,
+        message: &[u8],
+        leaves: &[[u8; 32]; LEAF_COUNT],
+    ) -> Result<QhsSignature, CryptoError> {
+        if self.is_exhausted() {
+            return Err(CryptoError::KeyExhausted);
+        }
         let leaf_index = self.next_leaf;
         self.next_leaf = self.next_leaf.saturating_add(1);
 
         let digits = message_digits(message);
         let wots_signature = wots_sign(&self.seed, leaf_index, &digits)?;
-        let auth_path = auth_path(&self.seed, leaf_index)?;
-        let mut bytes = [0_u8; QHS_SIGNATURE_BYTES];
-
-        if let Some(slot) = bytes.get_mut(0..4) {
-            slot.copy_from_slice(&[1, 1, 0, 0]);
-        }
-        if let Some(slot) = bytes.get_mut(2..4) {
-            slot.copy_from_slice(&leaf_index.to_le_bytes());
-        }
-        if let Some(slot) = bytes.get_mut(WOTS_OFFSET..AUTH_OFFSET) {
-            slot.copy_from_slice(&wots_signature);
-        }
-        if let Some(slot) = bytes.get_mut(AUTH_OFFSET..CHECKSUM_OFFSET) {
-            for (destination, source) in slot
-                .as_chunks_mut::<32>()
-                .0
-                .iter_mut()
-                .zip(auth_path.iter())
-            {
-                destination.copy_from_slice(source);
-            }
-        }
-        let body = bytes
-            .get(..CHECKSUM_BODY_BYTES)
-            .ok_or(CryptoError::InvalidLength)?;
-        let checksum = signature_checksum(body)?;
-        if let Some(slot) = bytes.get_mut(CHECKSUM_OFFSET..QHS_SIGNATURE_BYTES) {
-            slot.copy_from_slice(&checksum);
-        }
-
-        Ok(QhsSignature { bytes })
+        let auth_path = auth_path_from_leaves(leaves, leaf_index)?;
+        build_signature(leaf_index, &wots_signature, &auth_path)
     }
+}
+
+fn build_signature(
+    leaf_index: u16,
+    wots_signature: &[u8; WOTS_SIGNATURE_BYTES],
+    auth_path: &[[u8; 32]; TREE_HEIGHT],
+) -> Result<QhsSignature, CryptoError> {
+    let mut bytes = [0_u8; QHS_SIGNATURE_BYTES];
+
+    if let Some(slot) = bytes.get_mut(0..4) {
+        slot.copy_from_slice(&[1, 1, 0, 0]);
+    }
+    if let Some(slot) = bytes.get_mut(2..4) {
+        slot.copy_from_slice(&leaf_index.to_le_bytes());
+    }
+    if let Some(slot) = bytes.get_mut(WOTS_OFFSET..AUTH_OFFSET) {
+        slot.copy_from_slice(wots_signature);
+    }
+    if let Some(slot) = bytes.get_mut(AUTH_OFFSET..CHECKSUM_OFFSET) {
+        for (destination, source) in slot
+            .as_chunks_mut::<32>()
+            .0
+            .iter_mut()
+            .zip(auth_path.iter())
+        {
+            destination.copy_from_slice(source);
+        }
+    }
+    let body = bytes
+        .get(..CHECKSUM_BODY_BYTES)
+        .ok_or(CryptoError::InvalidLength)?;
+    let checksum = signature_checksum(body)?;
+    if let Some(slot) = bytes.get_mut(CHECKSUM_OFFSET..QHS_SIGNATURE_BYTES) {
+        slot.copy_from_slice(&checksum);
+    }
+
+    Ok(QhsSignature { bytes })
 }
 
 impl Drop for QhsPrivateKey {
@@ -378,6 +421,49 @@ impl QhsSignature {
     }
 }
 
+/// Computes one Merkle leaf from the seed.
+///
+/// # Errors
+///
+/// Returns an error when `leaf_index` is outside `0..256`.
+#[inline]
+pub fn qhs_leaf(seed: &[u8; 32], leaf_index: u16) -> Result<[u8; 32], CryptoError> {
+    if leaf_index >= QHS_MAX_SIGNATURES {
+        return Err(CryptoError::InvalidLength);
+    }
+    let wots_pk = wots_pk_hash(seed, leaf_index);
+    Ok(leaf_hash(leaf_index, &wots_pk))
+}
+
+/// Computes all Merkle leaves from the seed.
+///
+/// # Errors
+///
+/// Returns an internal length error if a fixed-size buffer is malformed.
+#[inline]
+pub fn qhs_leaves(seed: &[u8; 32]) -> Result<[[u8; 32]; LEAF_COUNT], CryptoError> {
+    compute_leaves(seed)
+}
+
+/// Builds a key pair from precomputed Merkle leaves.
+///
+/// The leaves must be the exact leaves derived from `seed`. This is a
+/// performance API used by the host key store after cache validation.
+///
+/// # Errors
+///
+/// Returns an internal length error if a fixed-size buffer is malformed.
+#[inline]
+pub fn qhs_keygen_from_leaves(
+    seed: &[u8; 32],
+    leaves: &[[u8; 32]; LEAF_COUNT],
+) -> Result<(QhsPrivateKey, QhsPublicKey), CryptoError> {
+    let root = merkle_root(*leaves)?;
+    let private_key = QhsPrivateKey::from_parts(*seed, 0)?;
+    let public_key = QhsPublicKey::from_root(root);
+    Ok((private_key, public_key))
+}
+
 /// Generates a QHS-1 key pair from a 32-byte seed.
 ///
 /// # Errors
@@ -385,11 +471,8 @@ impl QhsSignature {
 /// Returns an internal length error if a fixed-size buffer is malformed.
 #[inline]
 pub fn keygen(seed: &[u8; 32]) -> Result<(QhsPrivateKey, QhsPublicKey), CryptoError> {
-    let leaves = compute_leaves(seed)?;
-    let root = merkle_root(leaves)?;
-    let private_key = QhsPrivateKey::from_parts(*seed, 0)?;
-    let public_key = QhsPublicKey::from_root(root);
-    Ok((private_key, public_key))
+    let leaves = qhs_leaves(seed)?;
+    qhs_keygen_from_leaves(seed, &leaves)
 }
 
 fn secret(seed: &[u8; 32], leaf_index: u16, chain_index: u8) -> [u8; 32] {
@@ -468,8 +551,11 @@ fn merkle_root(mut nodes: [[u8; 32]; LEAF_COUNT]) -> Result<[u8; 32], CryptoErro
     nodes.first().copied().ok_or(CryptoError::InvalidLength)
 }
 
-fn auth_path(seed: &[u8; 32], leaf_index: u16) -> Result<[[u8; 32]; TREE_HEIGHT], CryptoError> {
-    let mut nodes = compute_leaves(seed)?;
+fn auth_path_from_leaves(
+    leaves: &[[u8; 32]; LEAF_COUNT],
+    leaf_index: u16,
+) -> Result<[[u8; 32]; TREE_HEIGHT], CryptoError> {
+    let mut nodes = *leaves;
     let mut path = [[0_u8; 32]; TREE_HEIGHT];
     let mut count = LEAF_COUNT;
 
@@ -587,7 +673,9 @@ const _: [(); 2408] = [(); QHS_SIGNATURE_BYTES];
 #[cfg(test)]
 mod tests {
     use super::{
-        QHS_MAX_SIGNATURES, QHS_SIGNATURE_BYTES, QhsPrivateKey, QhsPublicKey, QhsSignature, keygen,
+        CHAIN_CONTEXT, CHECKSUM_CONTEXT, LEAF_CONTEXT, MESSAGE_CONTEXT, NODE_CONTEXT,
+        QHS_MAX_SIGNATURES, QHS_SIGNATURE_BYTES, QhsPrivateKey, QhsPublicKey, QhsSignature,
+        SECRET_CONTEXT, WOTS_PK_CONTEXT, keygen, qhs_keygen_from_leaves, qhs_leaf, qhs_leaves,
     };
     use core::mem::size_of;
     use qwp_core::CryptoError;
@@ -660,6 +748,39 @@ mod tests {
     fn signature_size_is_exact() {
         assert_eq!(size_of::<QhsSignature>(), QHS_SIGNATURE_BYTES);
         assert_eq!(QHS_SIGNATURE_BYTES, 2408);
+    }
+
+    #[test]
+    fn domain_contexts_are_distinct() {
+        let contexts = [
+            SECRET_CONTEXT,
+            CHAIN_CONTEXT,
+            WOTS_PK_CONTEXT,
+            LEAF_CONTEXT,
+            NODE_CONTEXT,
+            MESSAGE_CONTEXT,
+            CHECKSUM_CONTEXT,
+        ];
+        for (index, left) in contexts.iter().enumerate() {
+            for right in contexts.iter().skip(index.saturating_add(1)) {
+                assert_ne!(left, right);
+            }
+        }
+    }
+
+    #[test]
+    fn cached_leaves_match_sequential_keygen_and_sign() {
+        let leaves = qhs_leaves(&SEED).unwrap();
+        assert_eq!(qhs_leaf(&SEED, 0).unwrap(), leaves[0]);
+
+        let (mut sequential_key, sequential_public) = keygen(&SEED).unwrap();
+        let (mut cached_key, cached_public) = qhs_keygen_from_leaves(&SEED, &leaves).unwrap();
+        assert_eq!(sequential_public, cached_public);
+
+        let sequential_signature = sequential_key.sign(b"cached").unwrap();
+        let cached_signature = cached_key.sign_with_leaves(b"cached", &leaves).unwrap();
+        assert_eq!(sequential_signature, cached_signature);
+        assert_eq!(cached_public.verify(b"cached", &cached_signature), Ok(()));
     }
 
     #[test]
