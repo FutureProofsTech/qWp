@@ -27,12 +27,12 @@ The version family is organized around six axes:
 | QHS-4 (planned) | stateless hypertree/FORS | No | unbounded | 7–30 KB | fast | slow | ≈ms | concurrent/high-volume services |
 | QHS-5 (planned) | 512-bit hash, h=8 | Yes | 256 | ≈3.4 KB | ≈2× QHS-2 | ≈2× QHS-2 | ≈2× QHS-2 | 256-bit quantum margin |
 | QHS-6 (planned) | QHS + classical hybrid | Yes | 256 | QHS + classical | QHS + classical | QHS + classical | QHS + classical | migration/compliance |
-| QHS-E | QHS verifier profile | n/a | n/a | QHS-1/2/3 | n/a | n/a | same | bootloader/MCU verifier |
+| QHS-E | QHS verifier profile | n/a | n/a | QHS-1/2/3/3.1 | n/a | n/a | same | bootloader/MCU verifier |
 
 ## 3. Decision guide
 
 1. **Can the key stay stateful and single-writer?**
-   - Yes → QHS-1/2/3.
+   - Yes → QHS-1/2/3/3.1.
    - No → QHS-4 (stateless); this is a major new design, not a parameter tweak.
 
 2. **How many signatures per key?**
@@ -47,7 +47,7 @@ The version family is organized around six axes:
    - More capacity and faster signing → QHS-3.1.
 
 4. **Do you need 256-bit quantum margin?**
-   - No → QHS-1/2/3.
+   - No → QHS-1/2/3/3.1.
    - Yes → QHS-5 (new hash-output profile).
 
 5. **Do you need standards, HSM, or classical hybrid?**
@@ -119,7 +119,7 @@ A hybrid would carry both a QHS signature and a classical signature (for example
 
 ## 8. QHS-E: embedded verifier profile
 
-QHS-E is not a new signature. It is a `no_std` verifier profile of QHS-1/2/3 with:
+QHS-E is not a new signature. It is a `no_std` verifier profile of QHS-1/2/3/3.1 with:
 
 - fixed-size stack usage;
 - no heap;
@@ -128,7 +128,7 @@ QHS-E is not a new signature. It is a `no_std` verifier profile of QHS-1/2/3 wit
 
 ## 9. Release rule
 
-Each version is independently gated:
+Each signature version is independently gated:
 
 1. ADR accepted.
 2. Proof written and reviewed.
@@ -136,3 +136,7 @@ Each version is independently gated:
 4. KAT, unit, integration, attack, Kani, fuzz, timing, mutation, coverage.
 5. 1-hour soak on the exact release commit.
 6. Versioned tag; older versions remain available.
+
+Profiles such as QHS-3.1 share the base signature version, proof, KAT, and
+signature bytes. They still get their own ADR, cache format, tests, timing, and
+release tag.

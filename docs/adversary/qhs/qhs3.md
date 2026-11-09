@@ -7,7 +7,7 @@
 - Visibility: public/private
 - Owner (engineer): Crypto lead
 - Owner (attacker): Red team
-- Status: survived; FAD closed for the production path. 1-hour soak pending.
+- Status: survived; FAD closed for the production path. Combined 1-hour soak passed.
 
 ## Contract
 
@@ -34,7 +34,7 @@
   - A6: key exhaustion.
   - A7: leaf reuse via counter rollback.
   - A8: checksum corruption.
-  - A9: QHS-1/QHS-2/QHS-3 cross-domain confusion.
+  - A9: QHS-1/QHS-2/QHS-3/QHS-3.1 cross-domain confusion.
   - A10: cache poisoning / oversized cache.
   - A11: timing/fault/DoS.
 
@@ -43,12 +43,12 @@
 - Direct unit tests: `qwp-crypto/src/qhs3.rs` (KAT, round-trip, tamper, wrong key/message, exhaustion, cached-vs-sequential equivalence, slice-based keygen).
 - Negative/abuse tests: `qwp-attacks::attack_qhs3`; tamper matrix covers version, algorithm, leaf index, WOTS, auth path, checksum, all-zero, all-0xff.
 - Property/equivalence tests: parallel leaves equal sequential leaves; cached signing equals uncached signing.
-- Fuzz target: in-house parser/verifier fuzz now covers QHS-1/2/3; 1-hour soak pending.
+- Fuzz target: in-house parser/verifier fuzz covers QHS-1/2/3/3.1; combined 1-hour soak 333,637,807 iterations, 0 panics.
 - Formal harness: Kani parser proofs pass (QHS-3 public key, private key, leaf index).
 - Timing harness: keygen ≈0.40–0.44 s, sign ≈1.60–1.70 ms, verify ≈0.39 ms; Welch \|t\| < 4.5.
 - Benchmarks: `qhs3_timing`, `qwp-bench`.
 - Break-log entries: BL-0016.
-- Gap IDs: GAP-QHS-0025 — closed for implementation/evidence; 1h soak is release gate.
+- Gap IDs: GAP-QHS-0025 — closed; combined 1h soak passed.
 
 ## Closure
 

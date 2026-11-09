@@ -7,7 +7,7 @@
 - Visibility: public/private
 - Owner (engineer): Crypto lead
 - Owner (attacker): Red team
-- Status: survived; FAD closed. Same QHS-3 signature format.
+- Status: survived; FAD closed. Same QHS-3 signature format; combined 1-hour soak passed.
 
 ## Contract
 

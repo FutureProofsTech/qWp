@@ -1,6 +1,6 @@
 # QHS-1 Internal Proof Review
 
-**Status:** Internal review passed with stated assumptions; production evidence collected. 1-hour fuzz soak passed; 72-hour soak waived by owner decision (2026-11-06).<br>
+**Status:** QHS-1 release candidate; internal review passed with stated assumptions. 1-hour fuzz soak passed; 72-hour soak waived by owner decision (2026-11-06).<br>
 **Reviewers:** qWp crypto lead (engineer), qWp red team (attacker role).  
 **Related:** `docs/05-qhs1.md`, `crates/qwp-crypto/src/qhs.rs`, GAP-QHS-0021.
 
@@ -72,27 +72,29 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 - Kani: public-key parse, private-key parse, signature leaf-index parse.
 - CI: fmt, clippy, tests, attacks, audit, zero-dependency, safe-Rust gate.
 
-## 6. Verification evidence (collected)
+## 6. Verification evidence
+
+**Snapshot note:** this review was completed for QHS-1 before QHS-2/3/3.1 were added. QHS-1-era numbers are shown with current family totals where useful.
 
 | Evidence | Result |
 |---|---|
-| Unit/integration tests | 83 tests pass (including QHS-1 KAT, domain-context distinctness, cache header/tamper/foreign fallback, entropy fill/debug, selftest aggregation, error paths, and CLI end-to-end) |
-| Attack suite | 6/6 attack groups pass; QHS-1 tamper matrix covers version, algorithm, leaf index, WOTS, auth path, checksum, all-zero, all-0xff |
-| Kani | 6 parser/bounds proofs pass |
+| Unit/integration tests | 142 workspace tests pass now (83 at the QHS-1 review); includes QHS-1 KAT, domain-context distinctness, cache header/tamper/foreign fallback, entropy fill/debug, selftest aggregation, error paths, and CLI end-to-end |
+| Attack suite | 8/8 current attack groups pass (6/6 at the QHS-1 review); QHS-1 tamper matrix covers version, algorithm, leaf index, WOTS, auth path, checksum, all-zero, all-0xff |
+| Kani | 12 current parser/bounds proofs pass (6 at the QHS-1 review) |
 | Miri | `qwp-core` and `qwp-crypto` format tests pass |
-| Fuzz | 13,270,061 iterations / 60s, 0 panics; 1-hour soak 793,945,578 iterations / 3,600s, 0 panics (`docs/evidence/fuzz-soak-1h.txt`) |
+| Fuzz | 13,270,061 iterations / 60s, 0 panics; QHS-1 1-hour soak 793,945,578 iterations / 3,600s, 0 panics (`docs/evidence/fuzz-soak-1h.txt`); combined QHS-1/2/3 soak 333,637,807 iterations / 3,600s, 0 panics (`docs/evidence/fuzz-soak-1h-all.txt`; QHS-3.1 uses the same signature format) |
 | Timing | keygen ≈10–13 ms, sign ≈0.21–0.33 ms, verify ≈0.14 ms; keygen/sign Welch \|t\| < 4.5 |
-| Coverage | core/crypto library lines: braid 100%, polynomial 100%, error 100%, format 100%, qhs 99.50%, BLAKE3 96.69%; overall 85.10% with dev binaries excluded |
-| Mutation | qwp-core 57/57 viable caught; qwp-crypto 100/103 viable caught (2 `Drop` mutants unobservable in safe Rust, 1 equivalent `while count > 1` mutant); qwp-platform 4/4 viable caught; qwp-cli 63/65 viable caught (2 constant-true selftest aggregator mutants) |
+| Coverage | QHS-1 99.50% lines; current family overall 79.82% (85.10% at the QHS-1 review) |
+| Mutation | QHS-1-era: qwp-core 57/57 viable, qwp-crypto 100/103 viable, qwp-platform 4/4 viable, qwp-cli 63/65 viable. Current QHS-3/3.1 mutation: 129 caught, 7 documented equivalents (`docs/11-qhs3-review.md` §6) |
 | Optimization invariance | cached and parallel paths produce identical keys/signatures; QHS-1 KAT hash unchanged |
 | CLI key lock | two concurrent `qhs-sign` processes: one succeeds, one fails with "locked by another process" |
 | CLI key store | `0600` private key, atomic `fsync`+rename, key updated before signature |
 
-## 7. Remaining release obligations
+## 7. Release obligations
 
 | Obligation | Status | Closure |
 |---|---|---|
-| 1-hour pre-soak | **Passed** — 793,945,578 iterations, 0 panics | `./scripts/fuzz.sh 3600`; `docs/evidence/fuzz-soak-1h.txt` |
+| 1-hour fuzz soak | **Passed** — 793,945,578 iterations, 0 panics | `./scripts/fuzz.sh 3600`; `docs/evidence/fuzz-soak-1h.txt` |
 | 72-hour fuzz soak | **Waived** — owner decision 2026-11-06; no pass claimed | `docs/evidence/fuzz-soak-72h-waived.txt` |
 | Independent attacker rotation | Role-separated review complete; second-engineer rotation optional | FAD/ADR signed by engineer and attacker roles |
 | Mutation exceptions | Documented | `Drop` destructors require unsafe observation; `while count > 1` is equivalent; constant-true `selftest`/`qhs_selftest` aggregators are indistinguishable on fixed valid KAT inputs, while their component checks are independently tested |
@@ -102,5 +104,5 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 
 - Engineer review: pass with assumptions.
 - Attacker review: pass for implemented abuse cases and tamper matrix; role-separated sign-off recorded.
-- Release status: **ready for QHS-1 release candidate**; 1h soak passed, 72h waived by owner, zero open production gaps.
+- Release status: **QHS-1 release candidate tagged `qhs1-rc1`**; 1h soak passed, 72h waived by owner, zero open production gaps.
 - No standard fallback.

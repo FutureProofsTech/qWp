@@ -7,7 +7,7 @@
 - Visibility: public/private
 - Owner (engineer): Crypto lead
 - Owner (attacker): Red team
-- Status: survived; FAD closed for the production path. 1-hour soak pending.
+- Status: survived; FAD closed for the production path. Combined 1-hour soak passed.
 
 ## Contract
 
@@ -43,12 +43,12 @@
 - Direct unit tests: `qwp-crypto/src/qhs2.rs` (KAT, round-trip, tamper, wrong key/message, exhaustion, cached-vs-sequential equivalence).
 - Negative/abuse tests: `qwp-attacks::attack_qhs2`; tamper matrix covers version, algorithm, leaf index, WOTS, auth path, checksum, all-zero, all-0xff.
 - Property/equivalence tests: parallel leaves equal sequential leaves; cached signing equals sequential signing.
-- Fuzz target: in-house parser/verifier fuzz now covers QHS-1 and QHS-2; 1-hour soak pending.
+- Fuzz target: in-house parser/verifier fuzz covers QHS-1/2/3/3.1; combined 1-hour soak 333,637,807 iterations, 0 panics.
 - Formal harness: Kani parser proofs pass (QHS-2 public key, private key, leaf index).
 - Timing harness: keygen ≈27–28 ms, sign ≈0.46–0.61 ms, verify ≈0.41 ms; Welch \|t\| < 4.5.
 - Benchmarks: `qhs2_timing`, `qwp-bench`.
 - Break-log entries: BL-0015.
-- Gap IDs: GAP-QHS-0024 — closed for implementation/evidence; 1h soak is release gate.
+- Gap IDs: GAP-QHS-0024 — closed; combined 1h soak passed.
 
 ## Closure
 

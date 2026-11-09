@@ -18,8 +18,8 @@
 | BL-0012 | 2026-11-06 | QHS-1 | Leaf reuse via counter rollback | **Mitigated.** CLI writes updated key with fsync+rename before signature; single-writer lock | GAP-QHS-0020 | **Closed — CLI atomic update + single-writer** |
 | BL-0013 | 2026-11-06 | QHS-1 | Auth path / leaf index tampering | **Mitigated by tests.** Tamper matrix, all-zero/all-0xff, fuzz | GAP-QHS-0022 | **Closed — tamper tests/fuzz** |
 | BL-0014 | 2026-11-06 | QHS-1 leaf cache | Poisoned, truncated, or foreign cache injection | **Mitigated.** Cache is public data; fingerprint+checksum reject corruption; verifier recomputes Merkle root | GAP-QHS-0023 | **Closed — tamper/foreign/truncation tests** |
-| BL-0015 | 2026-11-06 | QHS-2 | Smaller signature parameter review | **No new break.** 45×63 WOTS, 43+2 base-64 digits, 1,704-byte signature; reduction loss ~2^19.47; 128-bit target retained | GAP-QHS-0024 | **Closed — ADR/proof/tests; 1h soak gate** |
-| BL-0016 | 2026-11-06 | QHS-3 | High-capacity height-12 tree review | **No new break.** 4,096 leaves, 1,832-byte signature; reduction loss ~2^21.47; 128-bit target retained; slice API avoids 128 KiB stack frames | GAP-QHS-0025 | **Closed — ADR/proof/tests; 1h soak gate** |
+| BL-0015 | 2026-11-06 | QHS-2 | Smaller signature parameter review | **No new break.** 45×63 WOTS, 43+2 base-64 digits, 1,704-byte signature; reduction loss ~2^19.47; 128-bit target retained | GAP-QHS-0024 | **Closed — ADR/proof/tests; combined 1h soak passed** |
+| BL-0016 | 2026-11-06 | QHS-3 | High-capacity height-12 tree review | **No new break.** 4,096 leaves, 1,832-byte signature; reduction loss ~2^21.47; 128-bit target retained; slice API avoids 128 KiB stack frames | GAP-QHS-0025 | **Closed — ADR/proof/tests; combined 1h soak passed** |
 | BL-0017 | 2026-11-06 | QHS-3.1 tree cache | Poisoned, foreign, or oversized tree cache | **Mitigated.** Public Merkle data; versioned fingerprint + checksum; verifier recomputes root; cache rebuild on mismatch | GAP-QHS-0026 | **Closed — tree/CLI tests; same QHS-3 signature** |
 
 ## Rules

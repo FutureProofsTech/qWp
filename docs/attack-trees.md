@@ -135,7 +135,7 @@ Forge QHS-3
 ├── Leaf reuse / counter rollback              [CLI lock + atomic counter]
 ├── Auth path / leaf index tampering           [attack suite]
 ├── Cache poisoning / oversized cache          [versioned fingerprint + checksum; bounded reads]
-├── QHS-1/QHS-2/QHS-3 cross-version confusion  [versioned formats/contexts; CLI tests]
+├── QHS-1/QHS-2/QHS-3/QHS-3.1 cross-version    [versioned formats/contexts; CLI tests]
 └── Checksum/parser confusion                  [parser tests]
 ```
 

@@ -15,7 +15,7 @@ It is built under three hard constraints:
 | Crate | Role |
 |---|---|
 | `qwp-core` | Braid and polynomial types, fixed layouts, errors |
-| `qwp-crypto` | Private key, public key, signature wrappers; QHS-1 and QHS-2 |
+| `qwp-crypto` | Private key, public key, signature wrappers; QHS-1/2/3/3.1 |
 | `qwp-hash` | In-tree BLAKE3 |
 | `qwp-platform` | Safe Unix entropy adapter |
 | `qwp-cli` | `qwp` command-line interface |

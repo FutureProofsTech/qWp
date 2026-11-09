@@ -1,6 +1,6 @@
 # QHS-2 Internal Proof Review
 
-**Status:** Implemented and reviewed; combined 1-hour soak passed; release candidate ready.<br>
+**Status:** QHS-2 release candidate; internal review passed; combined 1-hour soak passed.<br>
 **Reviewers:** qWp crypto lead (engineer), qWp red team (attacker role).<br>
 **Related:** `docs/07-qhs2.md`, `docs/adr/0003-qhs2.md`, `crates/qwp-crypto/src/qhs2.rs`.
 
@@ -12,7 +12,7 @@
 - Checksum decrease with 43 message digits and 2 checksum digits.
 - Merkle tree unforgeability.
 - Stateful leaf invariant.
-- Domain separation between QHS-1 and QHS-2.
+- Domain separation between QHS-1, QHS-2, QHS-3, and QHS-3.1.
 - Code-to-spec mapping.
 - Parser/bounds proofs.
 - Attack-suite coverage.
@@ -86,17 +86,17 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 | KAT | `159fb7dd8498d70589da6e4ea1c52d00d86ca070e028ebcbcfa30fd083dd9385` |
 | CLI | keygen 0.08 s, sign/verify <0.01 s; signature 1,704 B; cache 8,232 B |
 
-## 7. Remaining release obligations
+## 7. Release obligations
 
 | Obligation | Status | Closure |
 |---|---|---|
 | 1-hour fuzz soak | **Passed** | 333,637,807 iterations, 0 panics; `docs/evidence/fuzz-soak-1h-all.txt` |
-| Mutation | QHS-2 not separately claimed; shared QHS-3/3.1 pass caught 129 non-equivalent mutants | `docs/11-qhs3-review.md` §6 |
+| Mutation | QHS-2 not separately claimed; 99.35% line coverage and full tests. QHS-3/3.1 mutation is separate evidence | `docs/11-qhs3-review.md` §6 |
 | External review | Optional | Evidence only, never a gate |
 
 ## 8. Sign-off
 
 - Engineer review: pass with assumptions.
 - Attacker review: pass for implemented abuse cases and tamper matrix.
-- Release status: **ready for QHS-2 release candidate**; combined 1-hour soak passed, coverage complete.
+- Release status: **QHS-2 release candidate tagged `qhs2-rc1`**; combined 1-hour soak passed, coverage complete.
 - No standard fallback.

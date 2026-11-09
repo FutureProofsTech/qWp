@@ -1,6 +1,6 @@
 # QHS-3 Internal Proof Review
 
-**Status:** Implemented and reviewed; combined 1-hour soak passed; release candidate ready.<br>
+**Status:** QHS-3 / QHS-3.1 release candidates; internal review passed; combined 1-hour soak passed.<br>
 **Reviewers:** qWp crypto lead (engineer), qWp red team (attacker role).<br>
 **Related:** `docs/10-qhs3.md`, `docs/12-qhs31.md`, `docs/adr/0004-qhs3.md`, `docs/adr/0005-qhs31-tree-cache.md`, `crates/qwp-crypto/src/qhs3.rs`.
 
@@ -12,7 +12,7 @@
 - Checksum decrease with 43 message digits and 2 checksum digits.
 - Merkle tree unforgeability over 4,096 leaves (height 12).
 - Stateful leaf invariant.
-- Domain separation between QHS-1, QHS-2, and QHS-3.
+- Domain separation between QHS-1, QHS-2, QHS-3, and QHS-3.1.
 - Code-to-spec mapping.
 - Parser/bounds proofs.
 - Attack-suite coverage.
@@ -39,10 +39,10 @@
 | EUF-CMA for ≤4,096 queries | Pass | Theorem |
 | Stateful counter prevents leaf reuse in the API | Pass (API) | `Qhs3PrivateKey::sign` |
 | Atomic persistence of the counter | Pass (local CLI, single-writer) | `qwp-cli` write_atomic |
-| QHS-1/QHS-2/QHS-3 domain contexts are distinct | Pass | `qhs3.rs` constants + tests |
+| QHS-1/QHS-2/QHS-3/QHS-3.1 domain contexts are distinct | Pass | `qhs3.rs` constants + tests |
 | Code matches the construction | Pass | `qhs3.rs` + tests |
 | Parser/bounds proofs | Pass | Kani harnesses |
-| Fuzz/timing evidence | Pending | 1-hour soak gate |
+| Fuzz/timing evidence | Pass | Combined 1-hour soak: 333,637,807 iterations, 0 panics |
 | Cached leaves are identical to sequential leaves | Pass | unit + parallel-equivalence tests |
 | Cache cannot alter signature semantics | Pass | versioned fingerprint + checksum; verifier recomputes root |
 
@@ -83,7 +83,7 @@
 | Coverage | QHS-3/QHS-3.1 99.17% lines; QHS-1 99.50%; QHS-2 99.35%; overall 79.82% with dev binaries excluded |
 | Mutation | 163 mutants: 129 caught, 27 unviable, 7 documented equivalents (Drop, redundant bounds checks, OR→XOR shift); no non-equivalent viable survivor |
 
-## 7. Remaining release obligations
+## 7. Release obligations
 
 | Obligation | Status | Closure |
 |---|---|---|
@@ -95,5 +95,5 @@
 
 - Engineer review: pass with assumptions.
 - Attacker review: pass for implemented abuse cases and tamper matrix.
-- Release status: **ready for QHS-3 / QHS-3.1 release candidate**; combined 1-hour soak passed.
+- Release status: **QHS-3 / QHS-3.1 release candidates tagged `qhs3-rc1` / `qhs31-rc1`**; combined 1-hour soak passed.
 - No standard fallback.

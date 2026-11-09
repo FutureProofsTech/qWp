@@ -12,6 +12,7 @@ fuzz: seconds=3600 iterations=333637807 panics=0
 exit=0
 
 Coverage: QHS-1, QHS-2, and QHS-3 signature parsing/verification.
+QHS-3.1 uses the identical QHS-3 signature format.
 QHS-3.1 uses the identical QHS-3 signature format; its tree cache is covered
 by CLI tests.
 

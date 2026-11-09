@@ -304,8 +304,9 @@ offset  size  field
 8228    4     checksum       // BLAKE3(first 8228 bytes)[0..4]
 ```
 
-QHS-1 and QHS-2 caches are not interchangeable: the header and fingerprint
-context differ, and a mismatched cache is ignored and recomputed.
+QHS-1, QHS-2, QHS-3, and QHS-3.1 caches are not interchangeable: the header,
+length, and fingerprint context differ, and a mismatched cache is ignored and
+recomputed.
 
 ### 10.11 QHS-3 public key (64 bytes)
 
