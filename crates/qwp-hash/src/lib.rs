@@ -73,7 +73,7 @@ extern crate std;
 
 pub mod blake3;
 
-pub use blake3::{Hasher, derive_key32, hash32};
+pub use blake3::{DeriveKey, Hasher, derive_key32, hash32};
 
 use core::fmt;
 use core::mem::size_of;

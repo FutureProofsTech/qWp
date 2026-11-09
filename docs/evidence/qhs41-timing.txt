@@ -1,0 +1,20 @@
+qWp QHS-4.1 timing evidence
+===========================
+
+Date: 2026-11-09
+Command: cargo run -q -p qwp-bench --release --bin qhs41_timing
+
+Result:
+qhs41-keygen: mean_a=96407927ns mean_b=96093173ns t=0.194
+qhs41-sign-sequential: mean_a=814731860ns mean_b=802691814ns t=1.225
+qhs41-sign-parallel:   mean_a=110530745ns mean_b=107115849ns t=1.802 speedup=7.43x
+qhs41-verify: mean=1573963ns/op
+timing: ok (threshold |t| < 4.5)
+
+Interpretation:
+- Sequential QHS-4 sign: ≈0.815 s.
+- Parallel QHS-4.1 sign: ≈0.110 s; speedup ≈7.4×.
+- Keygen ≈0.096 s; verify ≈1.57 ms.
+- Every parallel signature is checked for byte equality with the sequential
+  signature before timing.
+- Welch |t| < 4.5 for sequential and parallel signing across two seeds.

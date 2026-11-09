@@ -65,6 +65,10 @@
 | QHS-4 WOTS/FORS/hypertree internals (`message_digits`, `wots_sign`, `wots_verify`, `tree_root_and_auth`, `fors_root_and_auth`, `fors_public_key`, `fors_verify`, `climb_path`) | `qwp-crypto` | `qhs/qhs4.md` | `qwp-attacks/qhs4` | Survived — KAT + tamper + fuzz |
 | QHS-4 CLI keygen/sign/verify | `qwp-cli` | `qhs/qhs4.md` | `qwp-cli` tests | Survived — key bytes/mtime unchanged; no cache/state |
 | `qhs4_timing` | `qwp-bench` | `qhs/qhs4.md` | timing harness | Survived — \|t\| < 4.5 |
+| `qhs4_sign_parallel` | `qwp-platform` | `qhs/qhs41.md` | `qwp-platform` tests | Survived — byte-equivalence + timing |
+| `qhs4_signing_plan` / `qhs4_leaf` / `qhs4_fors_leaf` / tree builders / `qhs4_sign_with_trees` | `qwp-crypto` | `qhs/qhs41.md` | `qwp-attacks/qhs41` | Survived — equivalence + wrong-plan/tree tests |
+| QHS-4.1 CLI `qhs41-*` | `qwp-cli` | `qhs/qhs41.md` | `qwp-cli` tests | Survived — both verifiers; key unchanged; no cache/state |
+| `qhs41_timing` | `qwp-bench` | `qhs/qhs41.md` | timing harness | Survived — speedup 7.4×; \|t\| < 4.5 |
 
 ## Status meanings
 

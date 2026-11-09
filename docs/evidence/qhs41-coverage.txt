@@ -1,0 +1,19 @@
+qWp QHS-4.1 coverage evidence
+=============================
+
+Date: 2026-11-09
+Command: cargo llvm-cov --release -p qwp-crypto --lib --summary-only
+
+Result:
+- qhs4.rs: 99.28% lines (1,391 lines, 10 missed); 95.26% regions;
+  100% functions executed.
+- qwp-crypto total: 99.15% lines; 95.30% regions; 99.38% functions.
+
+The QHS-4.1 public leaf/tree APIs and `qhs4_sign_with_trees` are covered by the
+debug helper tests and the release equivalence test. The platform parallel
+signer is covered by:
+
+  cargo test --release -p qwp-platform qhs4_parallel_sign_matches_sequential
+
+which compares the parallel signature byte-for-byte with the sequential
+signature.

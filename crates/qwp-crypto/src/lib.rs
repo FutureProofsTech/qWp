@@ -96,6 +96,10 @@ pub use qhs3::{
     qhs3_keygen_from_leaves, qhs3_leaf,
 };
 pub use qhs4::{
-    QHS4_FORS_BYTES, QHS4_PRIVATE_KEY_BYTES, QHS4_PUBLIC_KEY_BYTES, QHS4_SIGNATURE_BYTES,
-    QHS4_TOTAL_HEIGHT, Qhs4PrivateKey, Qhs4PublicKey, Qhs4Signature, keygen as qhs4_keygen,
+    QHS4_FORS_BYTES, QHS4_FORS_HEIGHT, QHS4_FORS_LEAVES, QHS4_FORS_TREES, QHS4_LAYERS,
+    QHS4_LEAF_COUNT, QHS4_PRIVATE_KEY_BYTES, QHS4_PUBLIC_KEY_BYTES, QHS4_SIGNATURE_BYTES,
+    QHS4_TOTAL_HEIGHT, QHS4_TREE_HEIGHT, Qhs4Contexts, Qhs4ForsTree, Qhs4PrivateKey, Qhs4PublicKey,
+    Qhs4Signature, Qhs4SigningPlan, Qhs4Tree, keygen as qhs4_keygen, qhs4_fors_leaf,
+    qhs4_fors_root_and_auth_from_leaves, qhs4_leaf, qhs4_sign_with_trees, qhs4_signing_plan,
+    qhs4_tree_root_and_auth_from_leaves, qhs4_wots_public_key,
 };

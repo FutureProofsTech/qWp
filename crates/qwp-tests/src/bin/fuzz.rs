@@ -18,7 +18,7 @@ use qwp_crypto::{
     QhsPublicKey, QhsSignature, qhs_keygen, qhs2_keygen, qhs3_auth_path_from_tree, qhs3_build_tree,
     qhs3_keygen_from_leaves, qhs4_keygen,
 };
-use qwp_platform::qhs3_leaves_parallel;
+use qwp_platform::{qhs3_leaves_parallel, qhs4_sign_parallel};
 
 struct Rng(u64);
 
@@ -175,7 +175,7 @@ fn main() {
             eprintln!("fuzz: qhs4 keygen failed");
             std::process::exit(2);
         };
-        let Ok(valid_signature4) = private_key4.sign(b"fuzz-seed-qhs4") else {
+        let Ok(valid_signature4) = qhs4_sign_parallel(&private_key4, b"fuzz-seed-qhs4") else {
             eprintln!("fuzz: qhs4 seed sign failed");
             std::process::exit(2);
         };
@@ -204,7 +204,7 @@ fn main() {
             let length = usize::try_from(rng.next() % 257).unwrap_or(0);
             let mut message = [0_u8; 256];
             rng.fill(&mut message[..length]);
-            let Ok(signature) = private_key4.sign(&message[..length]) else {
+            let Ok(signature) = qhs4_sign_parallel(private_key4, &message[..length]) else {
                 eprintln!("fuzz: random qhs4 sign failed");
                 std::process::exit(2);
             };

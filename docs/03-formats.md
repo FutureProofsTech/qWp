@@ -1,6 +1,6 @@
 # qWp Format Specification (Phase 0)
 
-**Status:** Foundation formats frozen; production signatures are QHS-1/2/3/3.1 (ADR-0002–0005) and QHS-4 (ADR-0006). The 160-byte container is legacy research v0.
+**Status:** Foundation formats frozen; production signatures are QHS-1/2/3/3.1 (ADR-0002–0005), QHS-4 (ADR-0006), and the QHS-4.1 fast-signing profile (ADR-0007, same QHS-4 formats). The 160-byte container is legacy research v0.
 
 **Rule:** Every format is versioned, canonical, fixed-size, and little-endian. No external crates.
 
@@ -503,9 +503,18 @@ QHS-4 has no counter, no public-leaf cache, and no key state guard. The CLI
 It does not create `.cache`, `.treecache`, or `.state` files and does not update
 the key file. This is the intended stateless profile.
 
+### 10.23 QHS-4.1 fast-signing profile
+
+QHS-4.1 is a performance profile of QHS-4, not a new format. It uses the same
+68-byte keys, the same 18,216-byte signature, the same header `[4, 4, 64, 0]`,
+and the same checksum. The `qhs41-*` CLI commands use the parallel signer; the
+`qhs4-*` commands remain the sequential reference. `qhs4-verify` and
+`qhs41-verify` accept both profiles. There is no cache or state file.
+
 ## 11. Open items
 
 No open production format items. QHS-1, QHS-2, QHS-3, QHS-3.1, QHS-4, the
-QHS-3.1 tree cache, and the key state guard are frozen and version-separated.
-The legacy 160-byte v0 container remains research-only and is not used for
-production signing or verification.
+QHS-4.1 fast-signing profile (same QHS-4 formats), the QHS-3.1 tree cache, and
+the key state guard are frozen and version-separated. The legacy 160-byte v0
+container remains research-only and is not used for production signing or
+verification.

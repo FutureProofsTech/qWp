@@ -1,0 +1,34 @@
+qWp QHS-4.1 mutation evidence
+=============================
+
+Date: 2026-11-09
+Command:
+  cargo mutants -p qwp-platform --file crates/qwp-platform/src/lib.rs \
+    --in-place --timeout 60 \
+    --cargo-test-arg qhs4_parallel_sign_verifies \
+    --output mutants-qhs41-platform.out
+
+Result:
+- 18 mutants tested in 28s.
+- 6 caught.
+- 10 missed.
+- 2 unviable.
+- 0 timeouts.
+
+QHS-4.1-specific results:
+- `qhs4_sign_parallel -> Ok(Default::default())` was caught (invalid signature).
+- The hypertree/FORS leaf-total constant arithmetic was caught.
+- `parallel_fill -> Ok(())` was caught (unfilled leaves produce an invalid signature).
+- The only QHS-4.1-specific missed mutant is the redundant guard
+  `output.is_empty() || threads == 0` -> `&&` in `parallel_fill`. With the
+  actual non-empty output and positive thread count the guard is unreachable,
+  so the mutant is equivalent for this call site.
+
+The other missed mutants are the existing `HostEntropy` and QHS-1/2/3 parallel
+leaf functions. They are outside the QHS-4.1 test filter and are covered by the
+existing platform tests/evidence; they are not QHS-4.1 code.
+
+The new QHS-4 crypto assembly/leaf APIs are covered by the release
+byte-equivalence test (`sign_with_trees_matches_sequential`). The underlying
+hash primitives are unchanged from QHS-4, whose targeted mutation run caught
+93/93 non-equivalent viable mutants with 6 documented equivalents.

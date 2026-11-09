@@ -429,13 +429,53 @@ pub fn hash32(input: &[u8]) -> Hash32 {
     hash32_with_key(IV, 0, input)
 }
 
+/// A reusable BLAKE3 derive-key context.
+///
+/// The context hash is computed once. Reusing the value avoids repeating that
+/// work for every material hash, while producing exactly the same output as
+/// [`derive_key32`].
+#[derive(Clone, Copy)]
+pub struct DeriveKey {
+    key: [u32; 8],
+}
+
+impl DeriveKey {
+    /// Creates a reusable derive-key context.
+    #[must_use]
+    #[inline]
+    pub fn new(context: &[u8]) -> Self {
+        let context_hash = hash32_with_key(IV, DERIVE_KEY_CONTEXT, context);
+        Self {
+            key: words_from_hash(context_hash),
+        }
+    }
+
+    /// Computes a 32-byte derive-key output for `material`.
+    #[must_use]
+    #[inline]
+    pub fn hash32(&self, material: &[u8]) -> Hash32 {
+        hash32_with_key(self.key, DERIVE_KEY_MATERIAL, material)
+    }
+
+    /// Creates a streaming hasher with this context key.
+    #[inline]
+    pub const fn hasher(&self) -> Hasher {
+        Hasher::new_with_key(self.key, DERIVE_KEY_MATERIAL)
+    }
+}
+
+impl fmt::Debug for DeriveKey {
+    #[inline]
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.debug_struct("DeriveKey").finish_non_exhaustive()
+    }
+}
+
 /// Computes a 32-byte BLAKE3 derive-key output.
 #[must_use]
 #[inline]
 pub fn derive_key32(context: &[u8], material: &[u8]) -> Hash32 {
-    let context_hash = hash32_with_key(IV, DERIVE_KEY_CONTEXT, context);
-    let key = words_from_hash(context_hash);
-    hash32_with_key(key, DERIVE_KEY_MATERIAL, material)
+    DeriveKey::new(context).hash32(material)
 }
 
 #[cfg(test)]
@@ -475,6 +515,47 @@ mod tests {
             hex(derive_key32(context, b"").to_bytes()),
             "391aca889ad402be0b8a4b52f7d3ee4b40e226882a905e8ef9fa7dbaab5b5e0a"
         );
+    }
+
+    #[test]
+    fn derive_key_reuse_matches_one_shot() {
+        let contexts: [&[u8]; 3] = [
+            b"qWp QHS-4 chain",
+            b"qWp QHS-4 wots secret",
+            b"qWp test context",
+        ];
+        let materials: [&[u8]; 3] = [
+            b"",
+            b"0123456789abcdef0123456789abcdef",
+            b"a longer material used to exercise the streaming path",
+        ];
+        for context in contexts {
+            let key = super::DeriveKey::new(context);
+            for material in materials {
+                assert_eq!(key.hash32(material), derive_key32(context, material));
+            }
+        }
+    }
+
+    #[test]
+    fn derive_key_streaming_matches_one_shot() {
+        let context = b"qWp QHS-4 wots secret";
+        let key = super::DeriveKey::new(context);
+        let mut hasher = key.hasher();
+        hasher.update(b"part-one");
+        hasher.update(b"part-two");
+        assert_eq!(
+            hasher.finalize(),
+            derive_key32(context, b"part-onepart-two")
+        );
+    }
+
+    #[test]
+    fn derive_key_debug_is_redacted() {
+        let key = super::DeriveKey::new(b"qWp test");
+        let debug = std::format!("{key:?}");
+        assert!(debug.contains("DeriveKey"));
+        assert!(!debug.contains("key"));
     }
 
     #[test]

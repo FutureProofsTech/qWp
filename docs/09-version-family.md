@@ -24,7 +24,8 @@ The version family is organized around six axes:
 | **QHS-2** | b=6, h=8 | Yes | 256 | 1,704 B | 27–28 ms | 0.46–0.61 ms | 0.41 ms | compact firmware/release signing |
 | **QHS-3** | b=6, h=12 | Yes | 4,096 | 1,832 B | ≈0.40–0.44 s | ≈1.60–1.70 ms | ≈0.39 ms | high-volume release pipelines |
 | **QHS-3.1** | b=6, h=12, tree cache | Yes | 4,096 | 1,832 B | ≈0.40–0.41 s | **≈0.35–0.36 ms** | ≈0.39 ms | high-volume signing with fast sign |
-| **QHS-4** | stateless hypertree/FORS | No | ≤2^20 at 128-bit target | 18,216 B | ≈0.19 s | ≈1.51 s | ≈3.0 ms | concurrent/stateless signing |
+| **QHS-4** | stateless hypertree/FORS | No | ≤2^20 at 128-bit target | 18,216 B | ≈0.10 s | ≈0.81 s | ≈1.6 ms | concurrent/stateless signing |
+| **QHS-4.1** | QHS-4 + parallel trees | No | ≤2^20 at 128-bit target | 18,216 B | ≈0.10 s | **≈0.11 s** | ≈1.6 ms | stateless signing with fast sign |
 | QHS-5 (planned) | 512-bit hash, h=8 | Yes | 256 | ≈3.4 KB | ≈2× QHS-2 | ≈2× QHS-2 | ≈2× QHS-2 | 256-bit quantum margin |
 | QHS-6 (planned) | QHS + classical hybrid | Yes | 256 | QHS + classical | QHS + classical | QHS + classical | QHS + classical | migration/compliance |
 | QHS-E | QHS verifier profile | n/a | n/a | QHS-1/2/3/3.1 | n/a | n/a | same | bootloader/MCU verifier |
@@ -46,6 +47,7 @@ The version family is organized around six axes:
    - Size → QHS-2.
    - Both, with more capacity → QHS-3.
    - More capacity and faster signing → QHS-3.1.
+   - Stateless with fast signing → QHS-4.1.
 
 4. **Do you need 256-bit quantum margin?**
    - No → QHS-1/2/3/3.1.
@@ -114,8 +116,16 @@ large signature and slower signing. The proof and limits are in
 `docs/13-qhs4.md`; the ADR is `docs/adr/0006-qhs4-stateless.md`. The QHS-4
 1-hour soak passed with 91,191,782 iterations and 0 panics.
 
-QHS-4 does not replace QHS-1/2/3/3.1. All versions remain available and
-version-separated.
+QHS-4.1 is the fast-signing profile of QHS-4. It uses the same 68-byte keys,
+the same 18,216-byte signature, the same proof, and the same `q ≤ 2^20` bound.
+Only the implementation changes: reusable BLAKE3 derive-key contexts and
+parallel hypertree/FORS tree generation. Signing drops from ≈0.81 s to ≈0.11 s
+on the reference host (≈7.4×); the sequential `Qhs4PrivateKey::sign` remains the
+reference and fallback. The `qhs41-*` CLI commands use the parallel path, and
+`qhs4-verify` / `qhs41-verify` accept the same signatures.
+
+QHS-4.1 does not replace QHS-1/2/3/3.1 or QHS-4. All versions remain available
+and version-separated.
 
 ## 6. QHS-5: 256-bit quantum margin (planned)
 
@@ -153,6 +163,6 @@ Each signature version is independently gated:
 5. 1-hour soak on the exact release commit.
 6. Versioned tag; older versions remain available.
 
-Profiles such as QHS-3.1 share the base signature version, proof, KAT, and
-signature bytes. They still get their own ADR, cache format, tests, timing, and
-release tag.
+Profiles such as QHS-3.1 and QHS-4.1 share the base signature version, proof,
+KAT, and signature bytes. They still get their own ADR, implementation tests,
+timing, and release tag.

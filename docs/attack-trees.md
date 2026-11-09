@@ -2,7 +2,7 @@
 
 **Rule:** Every critical asset has an attack tree; every leaf maps to an abuse case, attack harness, and gap if unresolved.
 
-**Scope:** §1–§6 cover the legacy braid research path. §7–§11 cover the production QHS-1/2/3/3.1/4 signatures.
+**Scope:** §1–§6 cover the legacy braid research path. §7–§12 cover the production QHS-1/2/3/3.1/4 and QHS-4.1 signatures.
 
 ## 1. Signature forgery
 
@@ -170,4 +170,15 @@ Forge QHS-4
 ├── Cross-version confusion                     [68-byte keys, 18,216-byte signature, header]
 ├── Stateless key mutation                      [CLI test: key bytes/mtime unchanged]
 └── Timing/fault/DoS                            [Welch t-test; fixed loops]
+```
+
+## 12. QHS-4.1 parallel fast-signing profile
+
+```
+Attack QHS-4.1
+├── Parallel/sequential divergence               [byte-equality tests; KAT]
+├── Wrong/mismatched plan or tree                [sign_with_trees re-derives plan; selected path checks]
+├── Worker failure                               [join error -> InternalFailure]
+├── Timing/scheduling                            [Welch |t| < 4.5]
+└── Signature semantics                          [same QHS-4 signature/proof/format]
 ```

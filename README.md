@@ -8,7 +8,7 @@ It is built under three hard constraints:
 2. **Zero external crates** — no dependencies; only `core`/`std` from the pinned toolchain.
 3. **No hidden gaps** — every function gets an adversary dossier and attack harness; every known gap is tracked until closed.
 
-> **Status: QHS-1/2/3/3.1 release candidates; QHS-4 implemented with local evidence; zero open production gaps.** Signatures are **QHS-1** (2,408 bytes, 256/key), **QHS-2** (1,704 bytes, 256/key), **QHS-3 / QHS-3.1** (1,832 bytes, 4,096/key), or **QHS-4** (18,216 bytes, stateless, 68-byte keys). QHS-1 passed its 1-hour soak; the combined QHS-1/2/3 1-hour soak passed with 360,181,413 iterations and 0 panics. The QHS-1 72-hour soak was waived by owner decision (2026-11-06). QHS-3.1 uses the same QHS-3 signature format. QHS-4 has no counter, cache, or state guard; its 1-hour soak passed with 91,191,782 iterations and 0 panics. The original topological `P·M·P⁻¹` construction is a confirmed break and is retained only as research. See `docs/05-qhs1.md`, `docs/07-qhs2.md`, `docs/10-qhs3.md`, `docs/12-qhs31.md`, `docs/13-qhs4.md`, and `docs/gap-register.md`.
+> **Status: QHS-1/2/3/3.1 release candidates; QHS-4 tagged; QHS-4.1 fast profile implemented; zero open production gaps.** Signatures are **QHS-1** (2,408 bytes, 256/key), **QHS-2** (1,704 bytes, 256/key), **QHS-3 / QHS-3.1** (1,832 bytes, 4,096/key), **QHS-4** (18,216 bytes, stateless, 68-byte keys), or **QHS-4.1** (same QHS-4 keys/signature, parallel fast signing). QHS-1 passed its 1-hour soak; the combined QHS-1/2/3 1-hour soak passed with 360,181,413 iterations and 0 panics. The QHS-1 72-hour soak was waived by owner decision (2026-11-06). QHS-3.1 uses the same QHS-3 signature format. QHS-4 has no counter, cache, or state guard; its 1-hour soak passed with 91,191,782 iterations and 0 panics. QHS-4.1 uses the same signature and proof; its 1-hour soak is pending. The original topological `P·M·P⁻¹` construction is a confirmed break and is retained only as research. See `docs/05-qhs1.md`, `docs/07-qhs2.md`, `docs/10-qhs3.md`, `docs/12-qhs31.md`, `docs/13-qhs4.md`, `docs/14-qhs41.md`, and `docs/gap-register.md`.
 
 ## Workspace
 
@@ -64,15 +64,19 @@ cargo run -p qwp-cli --bin qwp -- qhs31-verify public31.key message.txt message3
 cargo run -p qwp-cli --bin qwp -- qhs4-keygen public4.key private4.key
 cargo run -p qwp-cli --bin qwp -- qhs4-sign private4.key message.txt message4.sig
 cargo run -p qwp-cli --bin qwp -- qhs4-verify public4.key message.txt message4.sig
+
+cargo run -p qwp-cli --bin qwp -- qhs41-keygen public41.key private41.key
+cargo run -p qwp-cli --bin qwp -- qhs41-sign private41.key message.txt message41.sig
+cargo run -p qwp-cli --bin qwp -- qhs41-verify public41.key message.txt message41.sig
 ```
 
 The QHS-1/2/3/3.1 private key is stateful: each signature consumes one leaf and the CLI atomically updates the key counter with `fsync` + rename before writing the signature. The private key file is created with mode `0600` on Unix. Do not copy, roll back, or use the same key concurrently from multiple processes.
 
-QHS-4 is the stateless exception: `qhs4-sign` reads the key and writes only the signature. It creates no cache, tree cache, or state guard, and it does not modify the private key. The key file is still protected by mode `0600`.
+QHS-4 and QHS-4.1 are the stateless exception: `qhs4-sign` and `qhs41-sign` read the key and write only the signature. They create no cache, tree cache, or state guard, and do not modify the private key. The key file is still protected by mode `0600`.
 
 `qhs-keygen` and `qhs2-keygen` write an 8,260-byte cache (mode `0600`); `qhs3-keygen` writes a 131,140-byte leaf cache; `qhs31-keygen` writes a 262,180-byte tree cache. The cache contains only public Merkle data, bound to the key by a versioned fingerprint and keyed MAC. If the cache is missing, corrupt, from another key, or from another QHS version, the CLI recomputes it.
 
-Each QHS-1/2/3/3.1 key also gets a keyed `<private-key>.state` guard (38 bytes, mode `0600`). If the guard counter is ahead of the key counter, `qhs-sign` refuses to sign and reports a rollback. This catches accidental restoration of an old key backup; it is not a hardware monotonic counter. QHS-4 has no state guard.
+Each QHS-1/2/3/3.1 key also gets a keyed `<private-key>.state` guard (38 bytes, mode `0600`). If the guard counter is ahead of the key counter, `qhs-sign` refuses to sign and reports a rollback. This catches accidental restoration of an old key backup; it is not a hardware monotonic counter. QHS-4 and QHS-4.1 have no state guard.
 
 On the 16-thread reference host:
 
@@ -82,7 +86,8 @@ On the 16-thread reference host:
 | QHS-2 | 1,704 B | ≈27–28 ms | ≈0.46–0.61 ms | ≈0.41 ms |
 | QHS-3 | 1,832 B | ≈0.40–0.44 s | ≈1.60–1.70 ms | ≈0.39 ms |
 | QHS-3.1 | 1,832 B | ≈0.40–0.41 s | **≈0.35–0.36 ms** | ≈0.39 ms |
-| QHS-4 | 18,216 B | ≈0.19 s | stateless ≈1.51 s | ≈3.0 ms |
+| QHS-4 | 18,216 B | ≈0.10 s | sequential ≈0.81 s | ≈1.6 ms |
+| QHS-4.1 | 18,216 B | ≈0.10 s | **parallel ≈0.11 s** | ≈1.6 ms |
 
 ## Doctrine and registers
 
@@ -98,12 +103,14 @@ On the 16-thread reference host:
 - `docs/11-qhs3-review.md` — QHS-3 internal proof review and evidence
 - `docs/12-qhs31.md` — QHS-3.1 tree-cache signing profile
 - `docs/13-qhs4.md` — QHS-4 stateless hypertree/FORS construction and proof
+- `docs/14-qhs41.md` — QHS-4.1 parallel fast-signing profile
 - `docs/09-version-family.md` — QHS version family and use-case matrix
 - `docs/adr/0002-qhs1.md` — QHS-1 acceptance
 - `docs/adr/0003-qhs2.md` — QHS-2 smaller-signature acceptance
 - `docs/adr/0004-qhs3.md` — QHS-3 high-capacity acceptance
 - `docs/adr/0005-qhs31-tree-cache.md` — QHS-3.1 tree-cache profile
 - `docs/adr/0006-qhs4-stateless.md` — QHS-4 stateless hypertree/FORS acceptance
+- `docs/adr/0007-qhs41-fast.md` — QHS-4.1 parallel fast-signing profile
 - `docs/adr/0001-signature-paradigm.md` — superseded signature paradigm decision
 - `docs/gap-register.md` — every open gap
 - `docs/traceability.md` — requirement traceability
@@ -115,4 +122,4 @@ On the 16-thread reference host:
 
 ## Warning
 
-This project is not standard and not externally audited. QHS-1, QHS-2, QHS-3, QHS-3.1, and QHS-4 are closed with internal proofs and evidence, and the production gap register is empty. The combined QHS-1/2/3/3.1 1-hour soak passed with 360,181,413 iterations and 0 panics; the QHS-4 1-hour soak passed with 91,191,782 iterations and 0 panics. The 72-hour soak was waived by owner decision for QHS-1. Do not use qWp for real security without an independent review of your deployment.
+This project is not standard and not externally audited. QHS-1, QHS-2, QHS-3, QHS-3.1, QHS-4, and QHS-4.1 are closed with internal proofs and evidence, and the production gap register is empty. The combined QHS-1/2/3/3.1 1-hour soak passed with 360,181,413 iterations and 0 panics; the QHS-4 1-hour soak passed with 91,191,782 iterations and 0 panics; the QHS-4.1 soak is pending. The 72-hour soak was waived by owner decision for QHS-1. Do not use qWp for real security without an independent review of your deployment.

@@ -8,7 +8,7 @@ use core::fmt;
 use core::mem::size_of;
 
 use qwp_core::CryptoError;
-use qwp_hash::{Hasher, derive_key32};
+use qwp_hash::{DeriveKey, Hasher, derive_key32};
 
 /// Number of base-64 message digits.
 const MESSAGE_DIGITS: usize = 43;
@@ -75,6 +75,18 @@ pub const QHS4_SIGNATURE_BYTES: usize = CHECKSUM_OFFSET + CHECKSUM_BYTES;
 pub const QHS4_TOTAL_HEIGHT: usize = TOTAL_HEIGHT;
 /// QHS-4 FORS signature size.
 pub const QHS4_FORS_BYTES: usize = FORS_SIGNATURE_BYTES;
+/// QHS-4 hypertree layers.
+pub const QHS4_LAYERS: usize = LAYERS;
+/// QHS-4 leaves per hypertree subtree.
+pub const QHS4_LEAF_COUNT: usize = LEAF_COUNT;
+/// QHS-4 hypertree subtree height.
+pub const QHS4_TREE_HEIGHT: usize = TREE_HEIGHT;
+/// QHS-4 FORS trees.
+pub const QHS4_FORS_TREES: usize = FORS_TREES;
+/// QHS-4 FORS leaves per tree.
+pub const QHS4_FORS_LEAVES: usize = FORS_LEAVES;
+/// QHS-4 FORS tree height.
+pub const QHS4_FORS_HEIGHT: usize = FORS_HEIGHT;
 
 const SK_SEED_CONTEXT: &[u8] = b"qWp QHS-4 sk seed";
 const PK_SEED_CONTEXT: &[u8] = b"qWp QHS-4 pk seed";
@@ -92,6 +104,299 @@ const FORS_LEAF_CONTEXT: &[u8] = b"qWp QHS-4 fors leaf";
 const FORS_NODE_CONTEXT: &[u8] = b"qWp QHS-4 fors node";
 const FORS_PK_CONTEXT: &[u8] = b"qWp QHS-4 fors-pk";
 const CHECKSUM_CONTEXT: &[u8] = b"qWp QHS-4 signature-checksum";
+
+/// Reusable BLAKE3 derive-key contexts for QHS-4 tree and signature work.
+///
+/// Creating this value once avoids repeating the BLAKE3 context hash for every
+/// WOTS chain and secret derivation. It contains no secret material.
+#[derive(Debug, Clone, Copy)]
+pub struct Qhs4Contexts {
+    chain: DeriveKey,
+    wots_secret: DeriveKey,
+    wots_pk: DeriveKey,
+    leaf: DeriveKey,
+    node: DeriveKey,
+    fors_secret: DeriveKey,
+    fors_leaf: DeriveKey,
+    fors_node: DeriveKey,
+    fors_pk: DeriveKey,
+    wots_message: DeriveKey,
+    checksum: DeriveKey,
+}
+
+impl Default for Qhs4Contexts {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Qhs4Contexts {
+    /// Creates the QHS-4 context set.
+    #[must_use]
+    #[inline]
+    pub fn new() -> Self {
+        Self {
+            chain: DeriveKey::new(CHAIN_CONTEXT),
+            wots_secret: DeriveKey::new(WOTS_SECRET_CONTEXT),
+            wots_pk: DeriveKey::new(WOTS_PK_CONTEXT),
+            leaf: DeriveKey::new(LEAF_CONTEXT),
+            node: DeriveKey::new(NODE_CONTEXT),
+            fors_secret: DeriveKey::new(FORS_SECRET_CONTEXT),
+            fors_leaf: DeriveKey::new(FORS_LEAF_CONTEXT),
+            fors_node: DeriveKey::new(FORS_NODE_CONTEXT),
+            fors_pk: DeriveKey::new(FORS_PK_CONTEXT),
+            wots_message: DeriveKey::new(WOTS_MESSAGE_CONTEXT),
+            checksum: DeriveKey::new(CHECKSUM_CONTEXT),
+        }
+    }
+}
+
+/// A precomputed QHS-4 hypertree layer: root and authentication path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Qhs4Tree {
+    root: [u8; 32],
+    auth_path: [[u8; 32]; TREE_HEIGHT],
+}
+
+impl Qhs4Tree {
+    /// Creates a tree from its root and authentication path.
+    #[must_use]
+    #[inline]
+    pub const fn new(root: [u8; 32], auth_path: [[u8; 32]; TREE_HEIGHT]) -> Self {
+        Self { root, auth_path }
+    }
+
+    /// Returns the tree root.
+    #[must_use]
+    #[inline]
+    pub const fn root(&self) -> [u8; 32] {
+        self.root
+    }
+
+    /// Returns the authentication path.
+    #[must_use]
+    #[inline]
+    pub const fn auth_path(&self) -> &[[u8; 32]; TREE_HEIGHT] {
+        &self.auth_path
+    }
+}
+
+/// A precomputed QHS-4 FORS tree: root and authentication path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Qhs4ForsTree {
+    root: [u8; 32],
+    auth_path: [[u8; 32]; FORS_HEIGHT],
+}
+
+impl Qhs4ForsTree {
+    /// Creates a FORS tree from its root and authentication path.
+    #[must_use]
+    #[inline]
+    pub const fn new(root: [u8; 32], auth_path: [[u8; 32]; FORS_HEIGHT]) -> Self {
+        Self { root, auth_path }
+    }
+
+    /// Returns the tree root.
+    #[must_use]
+    #[inline]
+    pub const fn root(&self) -> [u8; 32] {
+        self.root
+    }
+
+    /// Returns the authentication path.
+    #[must_use]
+    #[inline]
+    pub const fn auth_path(&self) -> &[[u8; 32]; FORS_HEIGHT] {
+        &self.auth_path
+    }
+}
+
+/// A message-specific QHS-4 signing plan.
+///
+/// The plan records the randomizer, FORS digest, 64-bit path, and the layer
+/// tree/leaf positions. It is public so a host parallel signer can compute the
+/// tree leaves without re-deriving the plan for every worker.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Qhs4SigningPlan {
+    randomizer: [u8; 32],
+    fors_digest: [u8; 32],
+    tree_index: u64,
+    bottom_tree: u64,
+    bottom_leaf: u8,
+    tree_indices: [u64; LAYERS],
+    leaf_indices: [u8; LAYERS],
+}
+
+impl Qhs4SigningPlan {
+    fn new(sk_seed: &[u8; 32], pk_seed: &[u8; 32], message: &[u8]) -> Self {
+        let randomizer = derive_randomizer(sk_seed, message);
+        let fors_digest = derive_fors_digest(&randomizer, pk_seed, message);
+        let tree_index = derive_tree_index(&randomizer, pk_seed, message);
+        let bottom_leaf = u8::try_from(tree_index & 0xff).unwrap_or(0);
+        let bottom_tree = tree_index.checked_shr(8).unwrap_or(0);
+        let mut tree_indices = [0_u64; LAYERS];
+        let mut leaf_indices = [0_u8; LAYERS];
+        for layer in 0..LAYERS {
+            let shift = layer_shift(layer);
+            let leaf_index =
+                u8::try_from(tree_index.checked_shr(shift).unwrap_or(0) & 0xff).unwrap_or(0);
+            let tree_index_l = if layer == LAYERS - 1 {
+                0
+            } else {
+                tree_index
+                    .checked_shr(shift.checked_add(8).unwrap_or(0))
+                    .unwrap_or(0)
+            };
+            if let Some(slot) = tree_indices.get_mut(layer) {
+                *slot = tree_index_l;
+            }
+            if let Some(slot) = leaf_indices.get_mut(layer) {
+                *slot = leaf_index;
+            }
+        }
+        Self {
+            randomizer,
+            fors_digest,
+            tree_index,
+            bottom_tree,
+            bottom_leaf,
+            tree_indices,
+            leaf_indices,
+        }
+    }
+
+    /// Returns the randomizer.
+    #[must_use]
+    #[inline]
+    pub const fn randomizer(&self) -> [u8; 32] {
+        self.randomizer
+    }
+
+    /// Returns the FORS digest.
+    #[must_use]
+    #[inline]
+    pub const fn fors_digest(&self) -> [u8; 32] {
+        self.fors_digest
+    }
+
+    /// Returns the 64-bit hypertree path.
+    #[must_use]
+    #[inline]
+    pub const fn tree_index(&self) -> u64 {
+        self.tree_index
+    }
+
+    /// Returns the bottom tree index.
+    #[must_use]
+    #[inline]
+    pub const fn bottom_tree(&self) -> u64 {
+        self.bottom_tree
+    }
+
+    /// Returns the bottom leaf index.
+    #[must_use]
+    #[inline]
+    pub const fn bottom_leaf(&self) -> u8 {
+        self.bottom_leaf
+    }
+
+    /// Returns the per-layer tree indices.
+    #[must_use]
+    #[inline]
+    pub const fn tree_indices(&self) -> &[u64; LAYERS] {
+        &self.tree_indices
+    }
+
+    /// Returns the per-layer leaf indices.
+    #[must_use]
+    #[inline]
+    pub const fn leaf_indices(&self) -> &[u8; LAYERS] {
+        &self.leaf_indices
+    }
+}
+
+/// Derives a QHS-4 signing plan from a private key and message.
+#[must_use]
+#[inline]
+pub fn qhs4_signing_plan(private_key: &Qhs4PrivateKey, message: &[u8]) -> Qhs4SigningPlan {
+    Qhs4SigningPlan::new(private_key.sk_seed(), private_key.pk_seed(), message)
+}
+
+/// Computes a QHS-4 WOTS public key for one hypertree leaf.
+#[must_use]
+#[inline]
+pub fn qhs4_wots_public_key(
+    sk_seed: &[u8; 32],
+    pk_seed: &[u8; 32],
+    layer: u8,
+    tree_index: u64,
+    leaf_index: u8,
+    contexts: &Qhs4Contexts,
+) -> [u8; 32] {
+    wots_pk_hash(sk_seed, pk_seed, layer, tree_index, leaf_index, contexts)
+}
+
+/// Computes a QHS-4 hypertree leaf.
+#[must_use]
+#[inline]
+pub fn qhs4_leaf(
+    sk_seed: &[u8; 32],
+    pk_seed: &[u8; 32],
+    layer: u8,
+    tree_index: u64,
+    leaf_index: u8,
+    contexts: &Qhs4Contexts,
+) -> [u8; 32] {
+    let wots_pk = wots_pk_hash(sk_seed, pk_seed, layer, tree_index, leaf_index, contexts);
+    leaf_hash(layer, tree_index, leaf_index, &wots_pk, contexts)
+}
+
+/// Computes a QHS-4 FORS leaf.
+#[must_use]
+#[inline]
+pub fn qhs4_fors_leaf(
+    sk_seed: &[u8; 32],
+    pk_seed: &[u8; 32],
+    tree_index: u64,
+    leaf_index: u8,
+    fors_tree: u8,
+    fors_leaf: u8,
+    contexts: &Qhs4Contexts,
+) -> [u8; 32] {
+    let secret = fors_secret(
+        sk_seed, pk_seed, tree_index, leaf_index, fors_tree, fors_leaf, contexts,
+    );
+    fors_leaf_hash(fors_tree, fors_leaf, &secret, contexts)
+}
+
+/// Builds a QHS-4 hypertree root and auth path from precomputed leaves.
+///
+/// # Errors
+///
+/// Returns an internal error if the fixed-size layout is malformed.
+#[inline]
+pub fn qhs4_tree_root_and_auth_from_leaves(
+    leaves: &[[u8; 32]; LEAF_COUNT],
+    leaf_index: u8,
+    contexts: &Qhs4Contexts,
+) -> Result<([u8; 32], [[u8; 32]; TREE_HEIGHT]), CryptoError> {
+    tree_from_leaves(leaves, leaf_index, contexts)
+}
+
+/// Builds a QHS-4 FORS root and auth path from precomputed leaves.
+///
+/// # Errors
+///
+/// Returns an internal error if the fixed-size layout is malformed.
+#[inline]
+pub fn qhs4_fors_root_and_auth_from_leaves(
+    leaves: &[[u8; 32]; FORS_LEAVES],
+    selected: u8,
+    contexts: &Qhs4Contexts,
+) -> Result<([u8; 32], [[u8; 32]; FORS_HEIGHT]), CryptoError> {
+    fors_tree_from_leaves(leaves, selected, contexts)
+}
 
 /// A QHS-4 public key: `PK.seed` and a hypertree root.
 #[repr(C)]
@@ -180,10 +485,11 @@ impl Qhs4PublicKey {
         if header != KEY_HEADER.as_slice() {
             return Err(CryptoError::VerificationFailed);
         }
+        let contexts = Qhs4Contexts::new();
         let body = bytes
             .get(..CHECKSUM_BODY_BYTES)
             .ok_or(CryptoError::VerificationFailed)?;
-        let expected_checksum = signature_checksum(body)?;
+        let expected_checksum = signature_checksum(body, &contexts)?;
         let actual_checksum = bytes
             .get(CHECKSUM_OFFSET..QHS4_SIGNATURE_BYTES)
             .ok_or(CryptoError::VerificationFailed)?;
@@ -203,6 +509,7 @@ impl Qhs4PublicKey {
             bytes
                 .get(FORS_OFFSET..LAYER_OFFSET)
                 .ok_or(CryptoError::VerificationFailed)?,
+            &contexts,
         )?;
 
         let mut previous_root = fors_pk;
@@ -232,14 +539,15 @@ impl Qhs4PublicKey {
             let auth_path = bytes
                 .get(wots_end..layer_end)
                 .ok_or(CryptoError::VerificationFailed)?;
-            let wots_pk = wots_verify(wots_signature, &previous_root)?;
+            let wots_pk = wots_verify(wots_signature, &previous_root, &contexts)?;
             let leaf = leaf_hash(
                 u8::try_from(layer).unwrap_or(0),
                 tree_index_l,
                 leaf_index,
                 &wots_pk,
+                &contexts,
             );
-            previous_root = climb_path(leaf, auth_path, leaf_index, false)?;
+            previous_root = climb_path(leaf, auth_path, leaf_index, false, &contexts)?;
         }
 
         if previous_root == self.root() {
@@ -350,8 +658,15 @@ impl Qhs4PrivateKey {
         let tree_index = derive_tree_index(&randomizer, &self.pk_seed, message);
         let bottom_leaf = u8::try_from(tree_index & 0xff).unwrap_or(0);
         let bottom_tree = tree_index.checked_shr(8).unwrap_or(0);
+        let contexts = Qhs4Contexts::new();
 
-        let fors_pk = fors_public_key(&self.sk_seed, &self.pk_seed, bottom_tree, bottom_leaf)?;
+        let fors_pk = fors_public_key(
+            &self.sk_seed,
+            &self.pk_seed,
+            bottom_tree,
+            bottom_leaf,
+            &contexts,
+        )?;
         let mut signature = Qhs4Signature {
             bytes: [0_u8; QHS4_SIGNATURE_BYTES],
         };
@@ -363,6 +678,7 @@ impl Qhs4PrivateKey {
             bottom_tree,
             bottom_leaf,
             &fors_digest,
+            &contexts,
         )?;
         write_hypertree(
             &mut signature,
@@ -370,8 +686,9 @@ impl Qhs4PrivateKey {
             &self.pk_seed,
             tree_index,
             fors_pk,
+            &contexts,
         )?;
-        write_checksum(&mut signature)?;
+        write_checksum(&mut signature, &contexts)?;
         Ok(signature)
     }
 }
@@ -397,6 +714,7 @@ fn write_fors_signature(
     bottom_tree: u64,
     bottom_leaf: u8,
     fors_digest: &[u8; 32],
+    contexts: &Qhs4Contexts,
 ) -> Result<(), CryptoError> {
     for fors_tree in 0..FORS_TREES {
         let tree_u8 = u8::try_from(fors_tree).unwrap_or(0);
@@ -410,6 +728,7 @@ fn write_fors_signature(
             bottom_leaf,
             tree_u8,
             selected,
+            contexts,
         );
         let (_, auth_path) = fors_root_and_auth(
             sk_seed,
@@ -418,6 +737,7 @@ fn write_fors_signature(
             bottom_leaf,
             tree_u8,
             selected,
+            contexts,
         )?;
         let offset = FORS_OFFSET
             .checked_add(fors_tree.checked_mul(FORS_ENTRY_BYTES).unwrap_or(0))
@@ -455,6 +775,7 @@ fn write_hypertree(
     pk_seed: &[u8; 32],
     tree_index: u64,
     fors_pk: [u8; 32],
+    contexts: &Qhs4Contexts,
 ) -> Result<(), CryptoError> {
     let mut previous_root = fors_pk;
     for layer in 0..LAYERS {
@@ -476,9 +797,16 @@ fn write_hypertree(
             tree_index_l,
             leaf_index,
             &previous_root,
+            contexts,
         )?;
-        let (root, auth_path) =
-            tree_root_and_auth(sk_seed, pk_seed, layer_u8, tree_index_l, leaf_index)?;
+        let (root, auth_path) = tree_root_and_auth(
+            sk_seed,
+            pk_seed,
+            layer_u8,
+            tree_index_l,
+            leaf_index,
+            contexts,
+        )?;
         let offset = LAYER_OFFSET
             .checked_add(layer.checked_mul(LAYER_BYTES).unwrap_or(0))
             .ok_or(CryptoError::InvalidLength)?;
@@ -510,18 +838,264 @@ fn write_hypertree(
     Ok(())
 }
 
-fn write_checksum(signature: &mut Qhs4Signature) -> Result<(), CryptoError> {
+fn write_checksum(
+    signature: &mut Qhs4Signature,
+    contexts: &Qhs4Contexts,
+) -> Result<(), CryptoError> {
     let body = signature
         .bytes
         .get(..CHECKSUM_BODY_BYTES)
         .ok_or(CryptoError::InvalidLength)?;
-    let checksum = signature_checksum(body)?;
+    let checksum = signature_checksum(body, contexts)?;
     let slot = signature
         .bytes
         .get_mut(CHECKSUM_OFFSET..QHS4_SIGNATURE_BYTES)
         .ok_or(CryptoError::InvalidLength)?;
     slot.copy_from_slice(&checksum);
     Ok(())
+}
+
+fn auth_path_bytes(path: &[[u8; 32]]) -> Result<[u8; AUTH_PATH_BYTES], CryptoError> {
+    if path.len() != TREE_HEIGHT {
+        return Err(CryptoError::InternalFailure);
+    }
+    let mut bytes = [0_u8; AUTH_PATH_BYTES];
+    for (destination, source) in bytes.as_chunks_mut::<32>().0.iter_mut().zip(path.iter()) {
+        destination.copy_from_slice(source);
+    }
+    Ok(bytes)
+}
+
+fn fors_public_key_from_trees(
+    sk_seed: &[u8; 32],
+    pk_seed: &[u8; 32],
+    plan: &Qhs4SigningPlan,
+    fors: &[Qhs4ForsTree; FORS_TREES],
+    contexts: &Qhs4Contexts,
+) -> Result<[u8; 32], CryptoError> {
+    let mut hasher = contexts.fors_pk.hasher();
+    for (tree_index, tree) in fors.iter().enumerate() {
+        let selected = *plan
+            .fors_digest
+            .get(tree_index)
+            .ok_or(CryptoError::InternalFailure)?;
+        let tree_u8 = u8::try_from(tree_index).map_err(|_| CryptoError::InternalFailure)?;
+        let secret = fors_secret(
+            sk_seed,
+            pk_seed,
+            plan.bottom_tree,
+            plan.bottom_leaf,
+            tree_u8,
+            selected,
+            contexts,
+        );
+        let leaf = fors_leaf_hash(tree_u8, selected, &secret, contexts);
+        let auth = auth_path_bytes(tree.auth_path())?;
+        let root = climb_path(leaf, &auth, selected, true, contexts)?;
+        if root != tree.root() {
+            return Err(CryptoError::InternalFailure);
+        }
+        hasher.update(&root);
+    }
+    Ok(hasher.finalize().to_bytes())
+}
+
+fn verify_hypertree_trees(
+    sk_seed: &[u8; 32],
+    pk_seed: &[u8; 32],
+    plan: &Qhs4SigningPlan,
+    hypertree: &[Qhs4Tree; LAYERS],
+    contexts: &Qhs4Contexts,
+) -> Result<(), CryptoError> {
+    for (layer, tree) in hypertree.iter().enumerate() {
+        let layer_u8 = u8::try_from(layer).map_err(|_| CryptoError::InternalFailure)?;
+        let tree_index_l = *plan
+            .tree_indices
+            .get(layer)
+            .ok_or(CryptoError::InternalFailure)?;
+        let leaf_index = *plan
+            .leaf_indices
+            .get(layer)
+            .ok_or(CryptoError::InternalFailure)?;
+        let wots_pk = wots_pk_hash(
+            sk_seed,
+            pk_seed,
+            layer_u8,
+            tree_index_l,
+            leaf_index,
+            contexts,
+        );
+        let leaf = leaf_hash(layer_u8, tree_index_l, leaf_index, &wots_pk, contexts);
+        let auth = auth_path_bytes(tree.auth_path())?;
+        let root = climb_path(leaf, &auth, leaf_index, false, contexts)?;
+        if root != tree.root() {
+            return Err(CryptoError::InternalFailure);
+        }
+    }
+    Ok(())
+}
+
+fn write_fors_from_trees(
+    signature: &mut Qhs4Signature,
+    sk_seed: &[u8; 32],
+    pk_seed: &[u8; 32],
+    plan: &Qhs4SigningPlan,
+    fors: &[Qhs4ForsTree; FORS_TREES],
+    contexts: &Qhs4Contexts,
+) -> Result<(), CryptoError> {
+    for (tree_index, tree) in fors.iter().enumerate() {
+        let selected = *plan
+            .fors_digest
+            .get(tree_index)
+            .ok_or(CryptoError::InternalFailure)?;
+        let tree_u8 = u8::try_from(tree_index).map_err(|_| CryptoError::InternalFailure)?;
+        let secret = fors_secret(
+            sk_seed,
+            pk_seed,
+            plan.bottom_tree,
+            plan.bottom_leaf,
+            tree_u8,
+            selected,
+            contexts,
+        );
+        let offset = FORS_OFFSET
+            .checked_add(tree_index.checked_mul(FORS_ENTRY_BYTES).unwrap_or(0))
+            .ok_or(CryptoError::InternalFailure)?;
+        let secret_end = offset
+            .checked_add(FORS_SECRET_BYTES)
+            .ok_or(CryptoError::InternalFailure)?;
+        let entry_end = offset
+            .checked_add(FORS_ENTRY_BYTES)
+            .ok_or(CryptoError::InternalFailure)?;
+        let secret_slot = signature
+            .bytes
+            .get_mut(offset..secret_end)
+            .ok_or(CryptoError::InternalFailure)?;
+        secret_slot.copy_from_slice(&secret);
+        let auth_slot = signature
+            .bytes
+            .get_mut(secret_end..entry_end)
+            .ok_or(CryptoError::InternalFailure)?;
+        for (destination, source) in auth_slot
+            .as_chunks_mut::<32>()
+            .0
+            .iter_mut()
+            .zip(tree.auth_path().iter())
+        {
+            destination.copy_from_slice(source);
+        }
+    }
+    Ok(())
+}
+
+fn write_hypertree_from_trees(
+    signature: &mut Qhs4Signature,
+    sk_seed: &[u8; 32],
+    pk_seed: &[u8; 32],
+    plan: &Qhs4SigningPlan,
+    hypertree: &[Qhs4Tree; LAYERS],
+    fors_pk: [u8; 32],
+    contexts: &Qhs4Contexts,
+) -> Result<(), CryptoError> {
+    let mut previous_root = fors_pk;
+    for (layer, tree) in hypertree.iter().enumerate() {
+        let layer_u8 = u8::try_from(layer).map_err(|_| CryptoError::InternalFailure)?;
+        let tree_index_l = *plan
+            .tree_indices
+            .get(layer)
+            .ok_or(CryptoError::InternalFailure)?;
+        let leaf_index = *plan
+            .leaf_indices
+            .get(layer)
+            .ok_or(CryptoError::InternalFailure)?;
+        let wots_signature = wots_sign(
+            sk_seed,
+            pk_seed,
+            layer_u8,
+            tree_index_l,
+            leaf_index,
+            &previous_root,
+            contexts,
+        )?;
+        let offset = LAYER_OFFSET
+            .checked_add(layer.checked_mul(LAYER_BYTES).unwrap_or(0))
+            .ok_or(CryptoError::InternalFailure)?;
+        let wots_end = offset
+            .checked_add(WOTS_SIGNATURE_BYTES)
+            .ok_or(CryptoError::InternalFailure)?;
+        let layer_end = offset
+            .checked_add(LAYER_BYTES)
+            .ok_or(CryptoError::InternalFailure)?;
+        let wots_slot = signature
+            .bytes
+            .get_mut(offset..wots_end)
+            .ok_or(CryptoError::InternalFailure)?;
+        wots_slot.copy_from_slice(&wots_signature);
+        let auth_slot = signature
+            .bytes
+            .get_mut(wots_end..layer_end)
+            .ok_or(CryptoError::InternalFailure)?;
+        for (destination, source) in auth_slot
+            .as_chunks_mut::<32>()
+            .0
+            .iter_mut()
+            .zip(tree.auth_path().iter())
+        {
+            destination.copy_from_slice(source);
+        }
+        previous_root = tree.root();
+    }
+    Ok(())
+}
+
+/// Assembles a QHS-4 signature from precomputed hypertree and FORS trees.
+///
+/// The trees must be derived from the same private key and message. The
+/// function re-derives the plan and checks the selected leaf paths before
+/// writing the signature, so a mismatched tree is rejected.
+///
+/// # Errors
+///
+/// Returns an internal error if the plan or a tree does not match the key and
+/// message.
+#[inline]
+#[allow(
+    clippy::large_stack_arrays,
+    reason = "the fixed QHS-4 signature is 18,216 bytes and this crate is no_std"
+)]
+pub fn qhs4_sign_with_trees(
+    private_key: &Qhs4PrivateKey,
+    message: &[u8],
+    plan: &Qhs4SigningPlan,
+    hypertree: &[Qhs4Tree; LAYERS],
+    fors: &[Qhs4ForsTree; FORS_TREES],
+) -> Result<Qhs4Signature, CryptoError> {
+    let expected = Qhs4SigningPlan::new(private_key.sk_seed(), private_key.pk_seed(), message);
+    if expected != *plan {
+        return Err(CryptoError::InternalFailure);
+    }
+    let contexts = Qhs4Contexts::new();
+    let sk_seed = private_key.sk_seed();
+    let pk_seed = private_key.pk_seed();
+    let fors_pk = fors_public_key_from_trees(sk_seed, pk_seed, plan, fors, &contexts)?;
+    verify_hypertree_trees(sk_seed, pk_seed, plan, hypertree, &contexts)?;
+
+    let mut signature = Qhs4Signature {
+        bytes: [0_u8; QHS4_SIGNATURE_BYTES],
+    };
+    write_header(&mut signature, &plan.randomizer)?;
+    write_fors_from_trees(&mut signature, sk_seed, pk_seed, plan, fors, &contexts)?;
+    write_hypertree_from_trees(
+        &mut signature,
+        sk_seed,
+        pk_seed,
+        plan,
+        hypertree,
+        fors_pk,
+        &contexts,
+    )?;
+    write_checksum(&mut signature, &contexts)?;
+    Ok(signature)
 }
 
 impl Drop for Qhs4PrivateKey {
@@ -593,7 +1167,8 @@ impl Qhs4Signature {
 pub fn keygen(seed: &[u8; 32]) -> Result<(Qhs4PrivateKey, Qhs4PublicKey), CryptoError> {
     let sk_seed = derive_key32(SK_SEED_CONTEXT, seed).to_bytes();
     let pk_seed = derive_key32(PK_SEED_CONTEXT, seed).to_bytes();
-    let (root, _) = tree_root_and_auth(&sk_seed, &pk_seed, 7, 0, 0)?;
+    let contexts = Qhs4Contexts::new();
+    let (root, _) = tree_root_and_auth(&sk_seed, &pk_seed, 7, 0, 0, &contexts)?;
     Ok((
         Qhs4PrivateKey::from_parts(sk_seed, pk_seed),
         Qhs4PublicKey::from_root(pk_seed, root),
@@ -642,8 +1217,9 @@ fn wots_secret(
     tree_index: u64,
     leaf_index: u8,
     chain_index: u8,
+    contexts: &Qhs4Contexts,
 ) -> [u8; 32] {
-    let mut hasher = Hasher::new_derive_key(WOTS_SECRET_CONTEXT);
+    let mut hasher = contexts.wots_secret.hasher();
     hasher.update(sk_seed);
     hasher.update(pk_seed);
     hasher.update(&[layer]);
@@ -652,8 +1228,8 @@ fn wots_secret(
     hasher.finalize().to_bytes()
 }
 
-fn chain_hash(value: &[u8; 32]) -> [u8; 32] {
-    derive_key32(CHAIN_CONTEXT, value).to_bytes()
+fn chain_hash(value: &[u8; 32], contexts: &Qhs4Contexts) -> [u8; 32] {
+    contexts.chain.hash32(value).to_bytes()
 }
 
 fn wots_pk_hash(
@@ -662,21 +1238,30 @@ fn wots_pk_hash(
     layer: u8,
     tree_index: u64,
     leaf_index: u8,
+    contexts: &Qhs4Contexts,
 ) -> [u8; 32] {
-    let mut hasher = Hasher::new_derive_key(WOTS_PK_CONTEXT);
+    let mut hasher = contexts.wots_pk.hasher();
     for chain_index in 0..WOTS_CHAINS {
         let chain_u8 = u8::try_from(chain_index).unwrap_or(0);
-        let mut value = wots_secret(sk_seed, pk_seed, layer, tree_index, leaf_index, chain_u8);
+        let mut value = wots_secret(
+            sk_seed, pk_seed, layer, tree_index, leaf_index, chain_u8, contexts,
+        );
         for _ in 0..WOTS_CHAIN_LEN {
-            value = chain_hash(&value);
+            value = chain_hash(&value, contexts);
         }
         hasher.update(&value);
     }
     hasher.finalize().to_bytes()
 }
 
-fn leaf_hash(layer: u8, tree_index: u64, leaf_index: u8, wots_pk: &[u8; 32]) -> [u8; 32] {
-    let mut hasher = Hasher::new_derive_key(LEAF_CONTEXT);
+fn leaf_hash(
+    layer: u8,
+    tree_index: u64,
+    leaf_index: u8,
+    wots_pk: &[u8; 32],
+    contexts: &Qhs4Contexts,
+) -> [u8; 32] {
+    let mut hasher = contexts.leaf.hasher();
     hasher.update(&[layer]);
     hasher.update(&tree_index.to_le_bytes());
     hasher.update(&[leaf_index]);
@@ -684,7 +1269,7 @@ fn leaf_hash(layer: u8, tree_index: u64, leaf_index: u8, wots_pk: &[u8; 32]) -> 
     hasher.finalize().to_bytes()
 }
 
-fn node_hash(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
+fn node_hash(left: &[u8; 32], right: &[u8; 32], contexts: &Qhs4Contexts) -> [u8; 32] {
     let mut input = [0_u8; 64];
     if let Some(slot) = input.get_mut(0..32) {
         slot.copy_from_slice(left);
@@ -692,7 +1277,7 @@ fn node_hash(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
     if let Some(slot) = input.get_mut(32..64) {
         slot.copy_from_slice(right);
     }
-    derive_key32(NODE_CONTEXT, &input).to_bytes()
+    contexts.node.hash32(&input).to_bytes()
 }
 
 fn tree_root_and_auth(
@@ -701,14 +1286,23 @@ fn tree_root_and_auth(
     layer: u8,
     tree_index: u64,
     leaf_index: u8,
+    contexts: &Qhs4Contexts,
 ) -> Result<([u8; 32], [[u8; 32]; TREE_HEIGHT]), CryptoError> {
-    let mut nodes = [[0_u8; 32]; LEAF_COUNT];
-    for (index, slot) in nodes.iter_mut().enumerate() {
+    let mut leaves = [[0_u8; 32]; LEAF_COUNT];
+    for (index, slot) in leaves.iter_mut().enumerate() {
         let leaf = u8::try_from(index).map_err(|_| CryptoError::InvalidLength)?;
-        let wots_pk = wots_pk_hash(sk_seed, pk_seed, layer, tree_index, leaf);
-        *slot = leaf_hash(layer, tree_index, leaf, &wots_pk);
+        let wots_pk = wots_pk_hash(sk_seed, pk_seed, layer, tree_index, leaf, contexts);
+        *slot = leaf_hash(layer, tree_index, leaf, &wots_pk, contexts);
     }
+    tree_from_leaves(&leaves, leaf_index, contexts)
+}
 
+fn tree_from_leaves(
+    leaves: &[[u8; 32]; LEAF_COUNT],
+    leaf_index: u8,
+    contexts: &Qhs4Contexts,
+) -> Result<([u8; 32], [[u8; 32]; TREE_HEIGHT]), CryptoError> {
+    let mut nodes = *leaves;
     let mut path = [[0_u8; 32]; TREE_HEIGHT];
     let mut count = LEAF_COUNT;
     for level in 0..TREE_HEIGHT {
@@ -724,7 +1318,7 @@ fn tree_root_and_auth(
             let right_index = left_index.checked_add(1).unwrap_or(0);
             let left = *nodes.get(left_index).ok_or(CryptoError::InvalidLength)?;
             let right = *nodes.get(right_index).ok_or(CryptoError::InvalidLength)?;
-            let parent = node_hash(&left, &right);
+            let parent = node_hash(&left, &right, contexts);
             if let Some(slot) = nodes.get_mut(index) {
                 *slot = parent;
             }
@@ -741,6 +1335,7 @@ fn climb_path(
     auth_path: &[u8],
     leaf_index: u8,
     fors: bool,
+    contexts: &Qhs4Contexts,
 ) -> Result<[u8; 32], CryptoError> {
     if auth_path.len() != AUTH_PATH_BYTES {
         return Err(CryptoError::InvalidLength);
@@ -750,14 +1345,14 @@ fn climb_path(
         let bit = usize::from(leaf_index).checked_shr(level_u32).unwrap_or(0) & 1;
         node = if bit == 0 {
             if fors {
-                fors_node_hash(&node, sibling)
+                fors_node_hash(&node, sibling, contexts)
             } else {
-                node_hash(&node, sibling)
+                node_hash(&node, sibling, contexts)
             }
         } else if fors {
-            fors_node_hash(sibling, &node)
+            fors_node_hash(sibling, &node, contexts)
         } else {
-            node_hash(sibling, &node)
+            node_hash(sibling, &node, contexts)
         };
     }
     Ok(node)
@@ -770,8 +1365,9 @@ fn fors_secret(
     leaf_index: u8,
     fors_tree: u8,
     fors_leaf: u8,
+    contexts: &Qhs4Contexts,
 ) -> [u8; 32] {
-    let mut hasher = Hasher::new_derive_key(FORS_SECRET_CONTEXT);
+    let mut hasher = contexts.fors_secret.hasher();
     hasher.update(sk_seed);
     hasher.update(pk_seed);
     hasher.update(&tree_index.to_le_bytes());
@@ -779,14 +1375,19 @@ fn fors_secret(
     hasher.finalize().to_bytes()
 }
 
-fn fors_leaf_hash(fors_tree: u8, fors_leaf: u8, secret: &[u8; 32]) -> [u8; 32] {
-    let mut hasher = Hasher::new_derive_key(FORS_LEAF_CONTEXT);
+fn fors_leaf_hash(
+    fors_tree: u8,
+    fors_leaf: u8,
+    secret: &[u8; 32],
+    contexts: &Qhs4Contexts,
+) -> [u8; 32] {
+    let mut hasher = contexts.fors_leaf.hasher();
     hasher.update(&[fors_tree, fors_leaf]);
     hasher.update(secret);
     hasher.finalize().to_bytes()
 }
 
-fn fors_node_hash(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
+fn fors_node_hash(left: &[u8; 32], right: &[u8; 32], contexts: &Qhs4Contexts) -> [u8; 32] {
     let mut input = [0_u8; 64];
     if let Some(slot) = input.get_mut(0..32) {
         slot.copy_from_slice(left);
@@ -794,7 +1395,7 @@ fn fors_node_hash(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
     if let Some(slot) = input.get_mut(32..64) {
         slot.copy_from_slice(right);
     }
-    derive_key32(FORS_NODE_CONTEXT, &input).to_bytes()
+    contexts.fors_node.hash32(&input).to_bytes()
 }
 
 fn fors_root_and_auth(
@@ -804,14 +1405,25 @@ fn fors_root_and_auth(
     leaf_index: u8,
     fors_tree: u8,
     selected: u8,
+    contexts: &Qhs4Contexts,
 ) -> Result<([u8; 32], [[u8; 32]; FORS_HEIGHT]), CryptoError> {
-    let mut nodes = [[0_u8; 32]; FORS_LEAVES];
-    for (index, slot) in nodes.iter_mut().enumerate() {
+    let mut leaves = [[0_u8; 32]; FORS_LEAVES];
+    for (index, slot) in leaves.iter_mut().enumerate() {
         let leaf = u8::try_from(index).map_err(|_| CryptoError::InvalidLength)?;
-        let secret = fors_secret(sk_seed, pk_seed, tree_index, leaf_index, fors_tree, leaf);
-        *slot = fors_leaf_hash(fors_tree, leaf, &secret);
+        let secret = fors_secret(
+            sk_seed, pk_seed, tree_index, leaf_index, fors_tree, leaf, contexts,
+        );
+        *slot = fors_leaf_hash(fors_tree, leaf, &secret, contexts);
     }
+    fors_tree_from_leaves(&leaves, selected, contexts)
+}
 
+fn fors_tree_from_leaves(
+    leaves: &[[u8; 32]; FORS_LEAVES],
+    selected: u8,
+    contexts: &Qhs4Contexts,
+) -> Result<([u8; 32], [[u8; 32]; FORS_HEIGHT]), CryptoError> {
+    let mut nodes = *leaves;
     let mut path = [[0_u8; 32]; FORS_HEIGHT];
     let mut count = FORS_LEAVES;
     for level in 0..FORS_HEIGHT {
@@ -827,7 +1439,7 @@ fn fors_root_and_auth(
             let right_index = left_index.checked_add(1).unwrap_or(0);
             let left = *nodes.get(left_index).ok_or(CryptoError::InvalidLength)?;
             let right = *nodes.get(right_index).ok_or(CryptoError::InvalidLength)?;
-            let parent = fors_node_hash(&left, &right);
+            let parent = fors_node_hash(&left, &right, contexts);
             if let Some(slot) = nodes.get_mut(index) {
                 *slot = parent;
             }
@@ -844,21 +1456,28 @@ fn fors_public_key(
     pk_seed: &[u8; 32],
     tree_index: u64,
     leaf_index: u8,
+    contexts: &Qhs4Contexts,
 ) -> Result<[u8; 32], CryptoError> {
-    let mut hasher = Hasher::new_derive_key(FORS_PK_CONTEXT);
+    let mut hasher = contexts.fors_pk.hasher();
     for fors_tree in 0..FORS_TREES {
         let tree_u8 = u8::try_from(fors_tree).unwrap_or(0);
-        let (root, _) = fors_root_and_auth(sk_seed, pk_seed, tree_index, leaf_index, tree_u8, 0)?;
+        let (root, _) = fors_root_and_auth(
+            sk_seed, pk_seed, tree_index, leaf_index, tree_u8, 0, contexts,
+        )?;
         hasher.update(&root);
     }
     Ok(hasher.finalize().to_bytes())
 }
 
-fn fors_verify(digest: &[u8; 32], signature: &[u8]) -> Result<[u8; 32], CryptoError> {
+fn fors_verify(
+    digest: &[u8; 32],
+    signature: &[u8],
+    contexts: &Qhs4Contexts,
+) -> Result<[u8; 32], CryptoError> {
     if signature.len() != FORS_SIGNATURE_BYTES {
         return Err(CryptoError::VerificationFailed);
     }
-    let mut hasher = Hasher::new_derive_key(FORS_PK_CONTEXT);
+    let mut hasher = contexts.fors_pk.hasher();
     for fors_tree in 0..FORS_TREES {
         let selected = *digest
             .get(fors_tree)
@@ -879,15 +1498,20 @@ fn fors_verify(digest: &[u8; 32], signature: &[u8]) -> Result<[u8; 32], CryptoEr
         let auth_path = signature
             .get(secret_end..entry_end)
             .ok_or(CryptoError::VerificationFailed)?;
-        let leaf = fors_leaf_hash(u8::try_from(fors_tree).unwrap_or(0), selected, &secret);
-        let root = climb_path(leaf, auth_path, selected, true)?;
+        let leaf = fors_leaf_hash(
+            u8::try_from(fors_tree).unwrap_or(0),
+            selected,
+            &secret,
+            contexts,
+        );
+        let root = climb_path(leaf, auth_path, selected, true, contexts)?;
         hasher.update(&root);
     }
     Ok(hasher.finalize().to_bytes())
 }
 
-fn message_digits(message: &[u8; 32]) -> [u8; WOTS_CHAINS] {
-    let digest = derive_key32(WOTS_MESSAGE_CONTEXT, message).to_bytes();
+fn message_digits(message: &[u8; 32], contexts: &Qhs4Contexts) -> [u8; WOTS_CHAINS] {
+    let digest = contexts.wots_message.hash32(message).to_bytes();
     let mut digits = [0_u8; WOTS_CHAINS];
 
     // 43 base-64 digits encode the 256-bit digest with two leading zero bits.
@@ -939,8 +1563,9 @@ fn wots_sign(
     tree_index: u64,
     leaf_index: u8,
     message: &[u8; 32],
+    contexts: &Qhs4Contexts,
 ) -> Result<[u8; WOTS_SIGNATURE_BYTES], CryptoError> {
-    let digits = message_digits(message);
+    let digits = message_digits(message, contexts);
     let mut signature = [0_u8; WOTS_SIGNATURE_BYTES];
     for (chain_index, (slot, digit)) in signature
         .as_chunks_mut::<32>()
@@ -950,35 +1575,44 @@ fn wots_sign(
         .enumerate()
     {
         let chain_u8 = u8::try_from(chain_index).map_err(|_| CryptoError::InvalidLength)?;
-        let mut value = wots_secret(sk_seed, pk_seed, layer, tree_index, leaf_index, chain_u8);
+        let mut value = wots_secret(
+            sk_seed, pk_seed, layer, tree_index, leaf_index, chain_u8, contexts,
+        );
         for _ in 0..*digit {
-            value = chain_hash(&value);
+            value = chain_hash(&value, contexts);
         }
         slot.copy_from_slice(&value);
     }
     Ok(signature)
 }
 
-fn wots_verify(signature: &[u8], message: &[u8; 32]) -> Result<[u8; 32], CryptoError> {
+fn wots_verify(
+    signature: &[u8],
+    message: &[u8; 32],
+    contexts: &Qhs4Contexts,
+) -> Result<[u8; 32], CryptoError> {
     if signature.len() != WOTS_SIGNATURE_BYTES {
         return Err(CryptoError::VerificationFailed);
     }
-    let digits = message_digits(message);
-    let mut hasher = Hasher::new_derive_key(WOTS_PK_CONTEXT);
+    let digits = message_digits(message, contexts);
+    let mut hasher = contexts.wots_pk.hasher();
     for (slot, digit) in signature.as_chunks::<32>().0.iter().zip(digits.iter()) {
         let mut value = [0_u8; 32];
         value.copy_from_slice(slot);
         let steps = WOTS_CHAIN_LEN.saturating_sub(*digit);
         for _ in 0..steps {
-            value = chain_hash(&value);
+            value = chain_hash(&value, contexts);
         }
         hasher.update(&value);
     }
     Ok(hasher.finalize().to_bytes())
 }
 
-fn signature_checksum(body: &[u8]) -> Result<[u8; CHECKSUM_BYTES], CryptoError> {
-    let hash = derive_key32(CHECKSUM_CONTEXT, body);
+fn signature_checksum(
+    body: &[u8],
+    contexts: &Qhs4Contexts,
+) -> Result<[u8; CHECKSUM_BYTES], CryptoError> {
+    let hash = contexts.checksum.hash32(body);
     let mut checksum = [0_u8; CHECKSUM_BYTES];
     let source = hash
         .as_bytes()
@@ -1100,7 +1734,7 @@ mod tests {
             header.copy_from_slice(&[3, 4, 64, 0]);
         }
         let body = bytes.get(..super::CHECKSUM_BODY_BYTES).unwrap();
-        let checksum = super::signature_checksum(body).unwrap();
+        let checksum = super::signature_checksum(body, &super::Qhs4Contexts::new()).unwrap();
         if let Some(slot) = bytes.get_mut(super::CHECKSUM_OFFSET..) {
             slot.copy_from_slice(&checksum);
         }
@@ -1141,7 +1775,7 @@ mod tests {
     #[test]
     fn message_digits_shape_and_checksum() {
         let message = [0x42_u8; 32];
-        let digits = super::message_digits(&message);
+        let digits = super::message_digits(&message, &super::Qhs4Contexts::new());
         assert_eq!(digits.len(), WOTS_CHAINS);
         assert!(digits.first().is_some_and(|digit| *digit < 16));
         assert!(digits.iter().all(|digit| *digit < 64));
@@ -1160,23 +1794,60 @@ mod tests {
     }
 
     #[test]
+    fn public_leaf_helpers_are_deterministic() {
+        let contexts = super::Qhs4Contexts::default();
+        let sk_seed = [1_u8; 32];
+        let pk_seed = [2_u8; 32];
+        let wots_pk = super::qhs4_wots_public_key(&sk_seed, &pk_seed, 0, 0, 0, &contexts);
+        let leaf = super::qhs4_leaf(&sk_seed, &pk_seed, 0, 0, 0, &contexts);
+        let fors_leaf = super::qhs4_fors_leaf(&sk_seed, &pk_seed, 0, 0, 0, 0, &contexts);
+        assert_eq!(
+            wots_pk,
+            super::qhs4_wots_public_key(&sk_seed, &pk_seed, 0, 0, 0, &contexts)
+        );
+        assert_eq!(
+            leaf,
+            super::qhs4_leaf(&sk_seed, &pk_seed, 0, 0, 0, &contexts)
+        );
+        assert_eq!(
+            fors_leaf,
+            super::qhs4_fors_leaf(&sk_seed, &pk_seed, 0, 0, 0, 0, &contexts)
+        );
+        assert_ne!(wots_pk, [0_u8; 32]);
+        assert_ne!(leaf, [0_u8; 32]);
+        assert_ne!(fors_leaf, [0_u8; 32]);
+        assert_ne!(wots_pk, leaf);
+    }
+
+    #[test]
+    fn auth_path_bytes_rejects_wrong_length() {
+        assert!(super::auth_path_bytes(&[]).is_err());
+        assert!(super::auth_path_bytes(&[[0_u8; 32]; 7]).is_err());
+        assert!(super::auth_path_bytes(&[[0_u8; 32]; 8]).is_ok());
+    }
+
+    #[test]
     fn wots_verify_rejects_wrong_length() {
-        assert!(super::wots_verify(&[], &[0_u8; 32]).is_err());
+        assert!(super::wots_verify(&[], &[0_u8; 32], &super::Qhs4Contexts::new()).is_err());
     }
 
     #[test]
     fn fors_verify_rejects_wrong_length() {
-        assert!(super::fors_verify(&[0_u8; 32], &[]).is_err());
+        assert!(super::fors_verify(&[0_u8; 32], &[], &super::Qhs4Contexts::new()).is_err());
     }
 
     #[test]
     fn climb_path_rejects_wrong_length() {
-        assert!(super::climb_path([0_u8; 32], &[], 0, false).is_err());
+        assert!(super::climb_path([0_u8; 32], &[], 0, false, &super::Qhs4Contexts::new()).is_err());
     }
 
     #[cfg(not(debug_assertions))]
     mod release {
-        use crate::qhs4::{Qhs4Signature, keygen};
+        use crate::qhs4::{
+            FORS_LEAVES, FORS_TREES, LAYERS, LEAF_COUNT, Qhs4Contexts, Qhs4ForsTree, Qhs4Signature,
+            Qhs4Tree, keygen, qhs4_fors_leaf, qhs4_fors_root_and_auth_from_leaves, qhs4_leaf,
+            qhs4_sign_with_trees, qhs4_signing_plan, qhs4_tree_root_and_auth_from_leaves,
+        };
         use qwp_core::CryptoError;
         use qwp_hash::hash32;
 
@@ -1196,6 +1867,87 @@ mod tests {
             let second = private_key.sign(b"deterministic").unwrap();
             assert_eq!(first, second);
             assert_eq!(public_key.verify(b"deterministic", &first), Ok(()));
+        }
+
+        #[test]
+        fn sign_with_trees_matches_sequential() {
+            let (private_key, public_key) = keygen(&SEED).unwrap();
+            let message = b"qWp QHS-4.1 equivalence";
+            let sequential = private_key.sign(message).unwrap();
+            let plan = qhs4_signing_plan(&private_key, message);
+            let contexts = Qhs4Contexts::new();
+
+            let mut hypertree = [Qhs4Tree::new([0_u8; 32], [[0_u8; 32]; 8]); LAYERS];
+            for layer in 0..LAYERS {
+                let tree_index_l = *plan.tree_indices().get(layer).unwrap();
+                let leaf_index = *plan.leaf_indices().get(layer).unwrap();
+                let mut leaves = [[0_u8; 32]; LEAF_COUNT];
+                for (index, slot) in leaves.iter_mut().enumerate() {
+                    let leaf = u8::try_from(index).unwrap();
+                    *slot = qhs4_leaf(
+                        private_key.sk_seed(),
+                        private_key.pk_seed(),
+                        u8::try_from(layer).unwrap(),
+                        tree_index_l,
+                        leaf,
+                        &contexts,
+                    );
+                }
+                let (root, auth_path) =
+                    qhs4_tree_root_and_auth_from_leaves(&leaves, leaf_index, &contexts).unwrap();
+                hypertree[layer] = Qhs4Tree::new(root, auth_path);
+            }
+
+            let mut fors = [Qhs4ForsTree::new([0_u8; 32], [[0_u8; 32]; 8]); FORS_TREES];
+            for tree in 0..FORS_TREES {
+                let selected = *plan.fors_digest().get(tree).unwrap();
+                let mut leaves = [[0_u8; 32]; FORS_LEAVES];
+                for (index, slot) in leaves.iter_mut().enumerate() {
+                    let leaf = u8::try_from(index).unwrap();
+                    *slot = qhs4_fors_leaf(
+                        private_key.sk_seed(),
+                        private_key.pk_seed(),
+                        plan.bottom_tree(),
+                        plan.bottom_leaf(),
+                        u8::try_from(tree).unwrap(),
+                        leaf,
+                        &contexts,
+                    );
+                }
+                let (root, auth_path) =
+                    qhs4_fors_root_and_auth_from_leaves(&leaves, selected, &contexts).unwrap();
+                fors[tree] = Qhs4ForsTree::new(root, auth_path);
+            }
+
+            let assembled =
+                qhs4_sign_with_trees(&private_key, message, &plan, &hypertree, &fors).unwrap();
+            assert_eq!(assembled, sequential);
+            assert_eq!(public_key.verify(message, &assembled), Ok(()));
+
+            let plan_again = qhs4_signing_plan(&private_key, message);
+            assert_eq!(plan, plan_again);
+            assert_eq!(plan.randomizer(), plan_again.randomizer());
+            assert_eq!(plan.tree_index(), plan_again.tree_index());
+
+            let mut wrong_hypertree = hypertree;
+            wrong_hypertree[0] = Qhs4Tree::new([1_u8; 32], *hypertree[0].auth_path());
+            assert_eq!(
+                qhs4_sign_with_trees(&private_key, message, &plan, &wrong_hypertree, &fors),
+                Err(CryptoError::InternalFailure)
+            );
+
+            let mut wrong_fors = fors;
+            wrong_fors[0] = Qhs4ForsTree::new([1_u8; 32], *fors[0].auth_path());
+            assert_eq!(
+                qhs4_sign_with_trees(&private_key, message, &plan, &hypertree, &wrong_fors),
+                Err(CryptoError::InternalFailure)
+            );
+
+            let wrong_plan = qhs4_signing_plan(&private_key, b"wrong");
+            assert_eq!(
+                qhs4_sign_with_trees(&private_key, message, &wrong_plan, &hypertree, &fors),
+                Err(CryptoError::InternalFailure)
+            );
         }
 
         #[test]
