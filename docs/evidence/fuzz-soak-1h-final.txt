@@ -1,0 +1,22 @@
+qWp final 1-hour fuzz soak evidence
+===================================
+
+Date: 2026-11-09
+Commit: 4eef2b244cc2b6cd6d449ef7a65ec4d83339d897
+Command: taskset -c 1 ./target/release/fuzz 3600
+Start (UTC): 2026-11-09T10:33:16Z
+End (UTC):   2026-11-09T11:33:16Z
+
+Raw driver output:
+fuzz: seconds=3600 iterations=360181413 panics=0
+exit=0
+
+Scope:
+- Random-seed keygen for QHS-1, QHS-2, QHS-3.
+- Random-message sign/verify for QHS-1/2/3.
+- QHS-3.1 tree-cache auth-path signing.
+- Random signature/public-key/private-key parsing and verification.
+- Random message lengths 0..=256.
+- QHS-1/2/3 signature formats; QHS-3.1 uses the identical QHS-3 format.
+
+Result: PASS. Exactly 3,600 seconds, zero panics, driver exit 0.

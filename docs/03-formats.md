@@ -142,6 +142,7 @@ It detects accidental corruption only; it is not authentication.
 | QHS-3 WOTS chains | 45 |
 | QHS-3 WOTS chain length | 63 |
 | QHS-3.1 tree cache | 262,180 |
+| Key state guard | 38 |
 
 ## 10. QHS production formats
 

@@ -43,7 +43,7 @@
 - Direct unit tests: `qwp-crypto/src/qhs3.rs` (KAT, round-trip, tamper, wrong key/message, exhaustion, cached-vs-sequential equivalence, slice-based keygen).
 - Negative/abuse tests: `qwp-attacks::attack_qhs3`; tamper matrix covers version, algorithm, leaf index, WOTS, auth path, checksum, all-zero, all-0xff.
 - Property/equivalence tests: parallel leaves equal sequential leaves; cached signing equals uncached signing.
-- Fuzz target: in-house parser/verifier fuzz covers QHS-1/2/3/3.1; combined 1-hour soak 333,637,807 iterations, 0 panics.
+- Fuzz target: in-house fuzz covers random-seed keygen, random-message sign/verify, parser/verifier, and QHS-3.1 tree signing; combined 1-hour soak 360,181,413 iterations, 0 panics.
 - Formal harness: Kani parser proofs pass (QHS-3 public key, private key, leaf index).
 - Timing harness: keygen ≈0.40–0.44 s, sign ≈1.60–1.70 ms, verify ≈0.39 ms; Welch \|t\| < 4.5.
 - Benchmarks: `qhs3_timing`, `qwp-bench`.

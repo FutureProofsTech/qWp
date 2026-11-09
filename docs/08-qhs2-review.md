@@ -44,7 +44,7 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 | QHS-1/QHS-2 domain contexts are distinct | Pass | `qhs2.rs` constants + tests |
 | Code matches the construction | Pass | `qhs2.rs` + tests |
 | Parser/bounds proofs | Pass | Kani harnesses |
-| Fuzz/timing evidence | Pass | Combined 1-hour soak, 333,637,807 iterations, 0 panics |
+| Fuzz/timing evidence | Pass | Combined 1-hour soak, 360,181,413 iterations, 0 panics |
 | Cached leaves are identical to sequential leaves | Pass | unit + parallel-equivalence tests |
 | Cache cannot alter signature semantics | Pass | cache fingerprint + keyed MAC validation; verifier recomputes root |
 
@@ -82,7 +82,7 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 | Miri | `qwp-core` and `qwp-crypto` format tests pass |
 | Timing | keygen ≈27–28 ms, sign ≈0.46–0.61 ms, verify ≈0.41 ms; Welch \|t\| < 4.5 |
 | Coverage | QHS-2 99.35% lines; QHS-1 99.50%; QHS-3 99.17%; overall 79.24% with dev binaries excluded |
-| Fuzz | Combined 1-hour soak: 333,637,807 iterations, 0 panics (`docs/evidence/fuzz-soak-1h-all.txt`) |
+| Fuzz | Combined 1-hour soak: 360,181,413 iterations, 0 panics. Driver covers random-seed keygen, random-message sign/verify, parser/verifier, and QHS-3.1 tree signing (`docs/evidence/fuzz-soak-1h-final.txt`) |
 | KAT | `159fb7dd8498d70589da6e4ea1c52d00d86ca070e028ebcbcfa30fd083dd9385` |
 | CLI | keygen 0.08 s, sign/verify <0.01 s; signature 1,704 B; cache 8,260 B; keyed state guard |
 | Mutation | QHS-2: 117 mutants, 88 caught, 26 unviable, 3 documented equivalents (`Drop`, `while count > 1`, OR→XOR shift). CLI: 150 mutants, 138 caught, 6 unviable, 6 documented equivalents; no non-equivalent viable survivor |
@@ -91,7 +91,7 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 
 | Obligation | Status | Closure |
 |---|---|---|
-| 1-hour fuzz soak | **Passed** | 333,637,807 iterations, 0 panics; `docs/evidence/fuzz-soak-1h-all.txt` |
+| 1-hour fuzz soak | **Passed** | 360,181,413 iterations, 0 panics; `docs/evidence/fuzz-soak-1h-final.txt` |
 | Mutation | **Complete** — QHS-2 88/88 non-equivalent viable caught; CLI 138/144 non-equivalent viable caught; documented equivalents | QHS-2 and CLI mutation runs |
 | External review | Optional | Evidence only, never a gate |
 

@@ -42,7 +42,7 @@
 - Direct unit tests: `qwp-crypto/src/qhs.rs` (KAT, round-trip, tamper, wrong key/message, exhaustion, cached-vs-sequential equivalence).
 - Negative/abuse tests: `qwp-attacks::attack_qhs1`; tamper matrix covers version, algorithm, leaf index, WOTS, auth path, checksum, all-zero, all-0xff.
 - Property/equivalence tests: parallel leaves equal sequential leaves; cached signing equals sequential signing.
-- Fuzz target: in-house parser/verifier fuzz, 13,270,061 iterations / 60s, 0 panics; 1-hour soak 793,945,578 iterations / 3,600s, 0 panics; 72-hour soak waived by owner (no pass claimed).
+- Fuzz target: in-house fuzz covers random-seed keygen, random-message sign/verify, parser/verifier, and QHS-3.1 tree signing; 13,270,061 iterations / 60s, 0 panics; QHS-1 1-hour soak 793,945,578 iterations; final combined 1-hour soak 360,181,413 iterations, 0 panics; 72-hour soak waived by owner (no pass claimed).
 - Formal harness: Kani parser proofs pass (public key, private key, leaf index). WOTS/Merkle security is the written reduction in `docs/05-qhs1.md`, not a machine-checked proof.
 - Timing harness: keygen ≈10–13 ms, sign ≈0.21–0.33 ms, verify ≈0.14 ms; keygen/sign Welch \|t\| < 4.5.
 - Benchmarks: `qwp-timing`, `qwp-bench`.

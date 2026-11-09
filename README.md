@@ -8,7 +8,7 @@ It is built under three hard constraints:
 2. **Zero external crates** — no dependencies; only `core`/`std` from the pinned toolchain.
 3. **No hidden gaps** — every function gets an adversary dossier and attack harness; every known gap is tracked until closed.
 
-> **Status: QHS-1/2/3/3.1 release candidates; zero open production gaps.** Signatures are **QHS-1** (2,408 bytes, 256/key), **QHS-2** (1,704 bytes, 256/key), or **QHS-3 / QHS-3.1** (1,832 bytes, 4,096/key), all with 64-byte keys. QHS-1 passed its 1-hour soak; the combined QHS-1/2/3 1-hour soak passed with 333,637,807 iterations and 0 panics. The QHS-1 72-hour soak was waived by owner decision (2026-11-06). QHS-3.1 uses the same QHS-3 signature format. The original topological `P·M·P⁻¹` construction is a confirmed break and is retained only as research. See `docs/05-qhs1.md`, `docs/07-qhs2.md`, `docs/10-qhs3.md`, `docs/12-qhs31.md`, and `docs/gap-register.md`.
+> **Status: QHS-1/2/3/3.1 release candidates; zero open production gaps.** Signatures are **QHS-1** (2,408 bytes, 256/key), **QHS-2** (1,704 bytes, 256/key), or **QHS-3 / QHS-3.1** (1,832 bytes, 4,096/key), all with 64-byte keys. QHS-1 passed its 1-hour soak; the combined QHS-1/2/3 1-hour soak passed with 360,181,413 iterations and 0 panics. The QHS-1 72-hour soak was waived by owner decision (2026-11-06). QHS-3.1 uses the same QHS-3 signature format. The original topological `P·M·P⁻¹` construction is a confirmed break and is retained only as research. See `docs/05-qhs1.md`, `docs/07-qhs2.md`, `docs/10-qhs3.md`, `docs/12-qhs31.md`, and `docs/gap-register.md`.
 
 ## Workspace
 
@@ -105,4 +105,4 @@ On the 16-thread reference host:
 
 ## Warning
 
-This project is not standard and not externally audited. QHS-1, QHS-2, QHS-3, and QHS-3.1 are closed with internal proofs and evidence, and the production gap register is empty. The combined 1-hour fuzz soak passed with 333,637,807 iterations and 0 panics. The 72-hour soak was waived by owner decision for QHS-1. Do not use qWp for real security without an independent review of your deployment.
+This project is not standard and not externally audited. QHS-1, QHS-2, QHS-3, and QHS-3.1 are closed with internal proofs and evidence, and the production gap register is empty. The combined 1-hour fuzz soak passed with 360,181,413 iterations and 0 panics. The 72-hour soak was waived by owner decision for QHS-1. Do not use qWp for real security without an independent review of your deployment.

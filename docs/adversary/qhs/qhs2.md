@@ -43,7 +43,7 @@
 - Direct unit tests: `qwp-crypto/src/qhs2.rs` (KAT, round-trip, tamper, wrong key/message, exhaustion, cached-vs-sequential equivalence).
 - Negative/abuse tests: `qwp-attacks::attack_qhs2`; tamper matrix covers version, algorithm, leaf index, WOTS, auth path, checksum, all-zero, all-0xff.
 - Property/equivalence tests: parallel leaves equal sequential leaves; cached signing equals sequential signing.
-- Fuzz target: in-house parser/verifier fuzz covers QHS-1/2/3/3.1; combined 1-hour soak 333,637,807 iterations, 0 panics.
+- Fuzz target: in-house fuzz covers random-seed keygen, random-message sign/verify, parser/verifier, and QHS-3.1 tree signing; combined 1-hour soak 360,181,413 iterations, 0 panics.
 - Formal harness: Kani parser proofs pass (QHS-2 public key, private key, leaf index).
 - Timing harness: keygen ≈27–28 ms, sign ≈0.46–0.61 ms, verify ≈0.41 ms; Welch \|t\| < 4.5.
 - Benchmarks: `qhs2_timing`, `qwp-bench`.

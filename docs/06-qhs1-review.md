@@ -82,7 +82,7 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 | Attack suite | 8/8 current attack groups pass (6/6 at the QHS-1 review); QHS-1 tamper matrix covers version, algorithm, leaf index, WOTS, auth path, checksum, all-zero, all-0xff |
 | Kani | 12 current parser/bounds proofs pass (6 at the QHS-1 review) |
 | Miri | `qwp-core` and `qwp-crypto` format tests pass |
-| Fuzz | 13,270,061 iterations / 60s, 0 panics; QHS-1 1-hour soak 793,945,578 iterations / 3,600s, 0 panics (`docs/evidence/fuzz-soak-1h.txt`); combined QHS-1/2/3 soak 333,637,807 iterations / 3,600s, 0 panics (`docs/evidence/fuzz-soak-1h-all.txt`; QHS-3.1 uses the same signature format) |
+| Fuzz | 13,270,061 iterations / 60s, 0 panics; QHS-1 1-hour soak 793,945,578 iterations; final combined soak 360,181,413 iterations / 3,600s, 0 panics. Final driver covers random-seed keygen, random-message sign/verify, parser/verifier, and QHS-3.1 tree signing (`docs/evidence/fuzz-soak-1h-final.txt`) |
 | Timing | keygen ≈10–13 ms, sign ≈0.21–0.33 ms, verify ≈0.14 ms; keygen/sign Welch \|t\| < 4.5 |
 | Coverage | QHS-1 99.50% lines; current family overall 79.24% (85.10% at the QHS-1 review) |
 | Mutation | QHS-1-era: qwp-core 57/57 viable, qwp-crypto 100/103 viable, qwp-platform 4/4 viable, qwp-cli 63/65 viable. Current: QHS-3/3.1 129 caught; CLI 138 caught with 6 documented equivalents (`docs/11-qhs3-review.md` §6) |

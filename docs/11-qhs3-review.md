@@ -42,7 +42,7 @@
 | QHS-1/QHS-2/QHS-3/QHS-3.1 domain contexts are distinct | Pass | `qhs3.rs` constants + tests |
 | Code matches the construction | Pass | `qhs3.rs` + tests |
 | Parser/bounds proofs | Pass | Kani harnesses |
-| Fuzz/timing evidence | Pass | Combined 1-hour soak: 333,637,807 iterations, 0 panics |
+| Fuzz/timing evidence | Pass | Combined 1-hour soak: 360,181,413 iterations, 0 panics; driver covers random keygen/sign/messages and QHS-3.1 tree signing |
 | Cached leaves are identical to sequential leaves | Pass | unit + parallel-equivalence tests |
 | Cache cannot alter signature semantics | Pass | versioned fingerprint + keyed MAC; verifier recomputes root |
 
@@ -87,7 +87,7 @@
 
 | Obligation | Status | Closure |
 |---|---|---|
-| 1-hour fuzz soak | **Passed** | 333,637,807 iterations, 0 panics; `docs/evidence/fuzz-soak-1h-all.txt` |
+| 1-hour fuzz soak | **Passed** | 360,181,413 iterations, 0 panics; `docs/evidence/fuzz-soak-1h-final.txt` |
 | Mutation/coverage | Complete | QHS-3 mutation 129 caught; CLI mutation 138 caught; coverage recorded below |
 | External review | Optional | Evidence only, never a gate |
 
