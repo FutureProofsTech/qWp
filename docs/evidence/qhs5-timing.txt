@@ -1,0 +1,28 @@
+qWp QHS-5 timing evidence
+=========================
+
+Date: 2026-11-09
+Command: cargo run -q -p qwp-bench --release --bin qhs5_timing
+
+Result (reusable derive-key contexts):
+qhs5-keygen-sequential: mean_a=608544005ns mean_b=607178724ns t=0.507
+qhs5-keygen-parallel:   mean_a=85696780ns mean_b=87301348ns t=-0.699 speedup=7.03x
+qhs5-sign-sequential:   mean_a=617755378ns mean_b=619220510ns t=-0.197
+qhs5-sign-cached:       mean_a=1536852ns mean_b=1517954ns t=0.166 speedup=404.93x
+qhs5-verify: mean=1195400ns/op
+timing: ok (threshold |t| < 4.5)
+
+Interpretation:
+- Sequential keygen ≈0.61 s; parallel leaf keygen ≈0.09 s (≈7.0×).
+- Uncached sign ≈0.62 s; cached-leaf sign ≈1.5 ms (≈405×).
+- Verify ≈1.2 ms.
+- Seed A/B samples are interleaved for the long sequential measurements to
+  avoid frequency-drift false positives.
+- Signature size: 6,216 bytes; keys: 72 bytes; cache: 16,452 bytes.
+
+Optimization:
+The 512-bit mode precomputes each derive-key context once and reuses it for
+every chain, leaf, node, message, and checksum hash. This is byte-identical to
+the one-shot construction: the same context key and the same `0x00`/`0x01`
+half tags are used. The QHS-5 KAT hash is unchanged. Measured improvement over
+the one-shot implementation: keygen ≈35%, cached sign ≈29%, verify ≈34%.

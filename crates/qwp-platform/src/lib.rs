@@ -78,14 +78,14 @@ use std::io::Read;
 use qwp_core::CryptoError;
 use qwp_crypto::{
     QHS_LEAF_COUNT, QHS2_LEAF_COUNT, QHS3_LEAF_COUNT, QHS4_FORS_HEIGHT, QHS4_FORS_LEAVES,
-    QHS4_FORS_TREES, QHS4_LAYERS, QHS4_LEAF_COUNT, QHS4_TREE_HEIGHT, QHS42_FORS_HEIGHT,
-    QHS42_FORS_LEAVES, QHS42_FORS_TREES, QHS42_LAYERS, QHS42_LEAF_COUNT, QHS42_TREE_HEIGHT,
-    Qhs4Contexts, Qhs4ForsTree, Qhs4PrivateKey, Qhs4Signature, Qhs4Tree, Qhs42Contexts,
-    Qhs42ForsTree, Qhs42PrivateKey, Qhs42Signature, Qhs42Tree, qhs_leaf, qhs2_leaf, qhs3_leaf,
-    qhs4_fors_leaf, qhs4_fors_root_and_auth_from_leaves, qhs4_leaf, qhs4_sign_with_trees,
-    qhs4_signing_plan, qhs4_tree_root_and_auth_from_leaves, qhs42_fors_leaf,
-    qhs42_fors_root_and_auth_from_leaves, qhs42_leaf, qhs42_sign_with_trees, qhs42_signing_plan,
-    qhs42_tree_root_and_auth_from_leaves,
+    QHS4_FORS_TREES, QHS4_LAYERS, QHS4_LEAF_COUNT, QHS4_TREE_HEIGHT, QHS5_LEAF_COUNT,
+    QHS42_FORS_HEIGHT, QHS42_FORS_LEAVES, QHS42_FORS_TREES, QHS42_LAYERS, QHS42_LEAF_COUNT,
+    QHS42_TREE_HEIGHT, Qhs4Contexts, Qhs4ForsTree, Qhs4PrivateKey, Qhs4Signature, Qhs4Tree,
+    Qhs42Contexts, Qhs42ForsTree, Qhs42PrivateKey, Qhs42Signature, Qhs42Tree, qhs_leaf, qhs2_leaf,
+    qhs3_leaf, qhs4_fors_leaf, qhs4_fors_root_and_auth_from_leaves, qhs4_leaf,
+    qhs4_sign_with_trees, qhs4_signing_plan, qhs4_tree_root_and_auth_from_leaves, qhs5_leaf,
+    qhs42_fors_leaf, qhs42_fors_root_and_auth_from_leaves, qhs42_leaf, qhs42_sign_with_trees,
+    qhs42_signing_plan, qhs42_tree_root_and_auth_from_leaves,
 };
 
 const QHS4_HYPERTREE_LEAF_TOTAL: usize = QHS4_LAYERS * QHS4_LEAF_COUNT;
@@ -203,6 +203,44 @@ pub fn qhs2_leaves_parallel(seed: &[u8; 32]) -> Result<[[u8; 32]; QHS2_LEAF_COUN
                     let index = u16::try_from(base.checked_add(offset).unwrap_or(0))
                         .map_err(|_| CryptoError::InvalidLength)?;
                     *slot = qhs2_leaf(seed, index)?;
+                }
+                Ok(())
+            }));
+        }
+        for handle in handles {
+            handle.join().map_err(|_| CryptoError::InternalFailure)??;
+        }
+        Ok(())
+    })?;
+
+    Ok(leaves)
+}
+
+/// Computes QHS-5 Merkle leaves in parallel on the host.
+///
+/// This is a performance API. The leaves are identical to the sequential
+/// derivation and contain no secret WOTS values.
+///
+/// # Errors
+///
+/// Returns an internal error if a worker fails or a leaf index is invalid.
+#[inline]
+pub fn qhs5_leaves_parallel(seed: &[u8; 64]) -> Result<[[u8; 64]; QHS5_LEAF_COUNT], CryptoError> {
+    let mut leaves = [[0_u8; 64]; QHS5_LEAF_COUNT];
+    let threads = std::thread::available_parallelism()
+        .map_or(1, std::num::NonZero::get)
+        .min(16);
+    let chunk_size = QHS5_LEAF_COUNT.div_ceil(threads);
+
+    std::thread::scope(|scope| -> Result<(), CryptoError> {
+        let mut handles = Vec::new();
+        for (chunk_index, chunk) in leaves.chunks_mut(chunk_size).enumerate() {
+            let base = chunk_index.checked_mul(chunk_size).unwrap_or(0);
+            handles.push(scope.spawn(move || -> Result<(), CryptoError> {
+                for (offset, slot) in chunk.iter_mut().enumerate() {
+                    let index = u16::try_from(base.checked_add(offset).unwrap_or(0))
+                        .map_err(|_| CryptoError::InvalidLength)?;
+                    *slot = qhs5_leaf(seed, index)?;
                 }
                 Ok(())
             }));
@@ -475,7 +513,7 @@ pub fn qhs42_sign_parallel(
 mod tests {
     use super::{
         HostEntropy, qhs_leaves_parallel, qhs2_leaves_parallel, qhs3_leaves_parallel,
-        qhs4_sign_parallel, qhs42_sign_parallel,
+        qhs4_sign_parallel, qhs5_leaves_parallel, qhs42_sign_parallel,
     };
 
     #[test]
@@ -487,6 +525,10 @@ mod tests {
         let sequential2 = qwp_crypto::qhs2_leaves(&seed).unwrap();
         let parallel2 = qhs2_leaves_parallel(&seed).unwrap();
         assert_eq!(sequential2, parallel2);
+        let seed5 = [7_u8; 64];
+        let sequential5 = qwp_crypto::qhs5_leaves(&seed5).unwrap();
+        let parallel5 = qhs5_leaves_parallel(&seed5).unwrap();
+        assert_eq!(sequential5, parallel5);
 
         let parallel3 = qhs3_leaves_parallel(&seed).unwrap();
         for index in [0_usize, 1, 42, 255, 256, 1024, 2048, 4095] {

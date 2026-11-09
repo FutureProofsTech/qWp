@@ -1,0 +1,28 @@
+qWp QHS-5 coverage evidence
+===========================
+
+Date: 2026-11-09
+Command: cargo llvm-cov --release -p qwp-crypto --lib --summary-only
+
+Result:
+- qhs5.rs: 99.74% lines (776 lines, 2 missed); 96.02% regions;
+  100% functions executed.
+- qwp-crypto total: 99.28% lines; 95.49% regions; 99.60% functions.
+
+Raw summary:
+Filename                      Regions    Missed Regions     Cover   Functions  Missed Functions  Executed       Lines      Missed Lines     Cover
+format.rs                         175                 0   100.00%          24                 0   100.00%         104                 0   100.00%
+qhs.rs                           1288                67    94.80%          59                 1   98.31%         602                 6    99.00%
+qhs2.rs                          1305                66    94.94%          60                 1   98.33%         611                 7    98.85%
+qhs3.rs                          1762                79    95.52%          77                 0   100.00%         841                 7    99.17%
+qhs4.rs                          2511               119    95.26%         102                 0   100.00%        1386                10    99.28%
+qhs42.rs                         2749               119    95.67%         101                 0   100.00%        1485                10    99.33%
+qhs5.rs                          1607                64    96.02%          75                 0   100.00%         776                 2    99.74%
+TOTAL                           11397               514    95.49%         498                 2    99.60%        5805                42    99.28%
+
+Notes:
+- The two missed lines are non-executable closing-brace regions: one defensive
+  fixed-size layout branch in `build_signature`, and one test-loop closing brace
+  after an early `break`.
+- The release suite includes the QHS-5 integration KAT and all unit tests.
+- All 75 QHS-5 functions were executed.

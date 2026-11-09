@@ -75,6 +75,12 @@
 | `qhs42_sign_parallel` | `qwp-platform` | `qhs/qhs42.md` | `qwp-platform` tests | Survived — byte-equivalence + verify |
 | QHS-4.2 CLI `qhs42-*` | `qwp-cli` | `qhs/qhs42.md` | `qwp-cli` tests | Survived — key unchanged; no cache/state |
 | `qhs42_timing` | `qwp-bench` | `qhs/qhs42.md` | timing harness | Survived — \|t\| < 4.5 |
+| `qhs5_keygen` / `Qhs5PrivateKey::sign` / `Qhs5PublicKey::verify` | `qwp-crypto` | `qhs/qhs5.md` | `qwp-attacks/qhs5` | Survived — KAT + attack + timing |
+| `Qhs5PrivateKey` / `Qhs5PublicKey` / `Qhs5Signature` accessors | `qwp-crypto` | `qhs/qhs5.md` | `qwp-attacks/qhs5` | Survived — unit + Kani + fuzz |
+| QHS-5 WOTS/Merkle internals and 512-bit hash mode | `qwp-crypto`, `qwp-hash` | `qhs/qhs5.md` | `qwp-attacks/qhs5` | Survived — KAT + digit reconstruction + fuzz |
+| `qhs5_leaves_parallel` | `qwp-platform` | `qhs/qhs5.md` | `qwp-platform` tests | Survived — leaf equivalence + verify |
+| QHS-5 CLI `qhs5-*`, leaf cache, state guard | `qwp-cli` | `qhs/qhs5.md` | `qwp-cli` tests | Survived — cache/rollback/cross-version tests |
+| `qhs5_timing` | `qwp-bench` | `qhs/qhs5.md` | timing harness | Survived — \|t\| < 4.5 |
 
 ## Status meanings
 

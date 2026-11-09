@@ -1,0 +1,31 @@
+qWp QHS-5 mutation evidence
+===========================
+
+Date: 2026-11-09
+Command:
+  cargo mutants -p qwp-crypto --file crates/qwp-crypto/src/qhs5.rs \
+    --in-place --timeout 180 --cargo-test-arg qhs5 --profile release \
+    --output mutants-qhs5.out
+
+Result:
+- 129 mutants tested in 17m.
+- 94 caught.
+- 32 unviable (compile failures; not security-relevant).
+- 3 missed.
+- 0 timeouts.
+
+Missed mutants:
+- `replace <impl Drop for Qhs5PrivateKey>::drop with ()`: best-effort
+  zeroization is not observable in safe Rust; documented limitation (BL-0007).
+- `replace > with >= in merkle_root`: equivalent. When `count == 1`, the loop
+  body computes `half == 0`, performs no writes, sets `count = 0`, and the final
+  `nodes.first()` still returns the root.
+- `replace | with ^ in message_digits`: equivalent. After
+  `value.wrapping_shl(1)`, the low bit is zero, so OR and XOR with `bit` are
+  identical.
+
+The first mutation run found two message-digit boundary mutants
+(`<` -> `==` and `<` -> `<=`). A new exact-value test
+(`message_digits_leading_zero_bits_are_enforced`) forces a digest whose top bit
+is one and checks the leading-zero-bit mapping; both mutants are now caught.
+No non-equivalent viable survivor remains.

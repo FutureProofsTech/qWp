@@ -1,0 +1,22 @@
+qWp QHS-5 60-second fuzz evidence
+=================================
+
+Date: 2026-11-09
+Command: cargo run -q -p qwp-tests --release --bin fuzz -- 60
+
+Result:
+fuzz: seconds=60 iterations=675142 panics=0
+
+Scope:
+- QHS-1/2/3 random-seed keygen and random-message sign/verify.
+- QHS-3.1 tree-cache signing.
+- QHS-4.1 parallel QHS-4 signing.
+- QHS-4.2 compact parallel keygen/sign/verify and random-message signatures.
+- QHS-5 512-bit keygen/sign/verify and two random-message signatures.
+- QHS-1/2/3/4/4.2/5 random public-key/private-key/signature parsing and
+  verification.
+- QHS-4, QHS-4.2, and QHS-5 valid signature verification every 1,000 loop
+  iterations.
+- Random message lengths 0..=256.
+
+Result: PASS, 0 panics.

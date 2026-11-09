@@ -1,6 +1,6 @@
 # qWp Format Specification (Phase 0)
 
-**Status:** Foundation formats frozen; production signatures are QHS-1/2/3/3.1 (ADR-0002–0005), QHS-4 (ADR-0006), and the QHS-4.1 fast-signing profile (ADR-0007, same QHS-4 formats). The 160-byte container is legacy research v0.
+**Status:** Foundation formats frozen; production signatures are QHS-1/2/3/3.1 (ADR-0002–0005), QHS-4 (ADR-0006), the QHS-4.1 fast-signing profile (ADR-0007, same QHS-4 formats), QHS-4.2 compact (ADR-0008), and QHS-5 512-bit (ADR-0009). The 160-byte container is legacy research v0.
 
 **Rule:** Every format is versioned, canonical, fixed-size, and little-endian. No external crates.
 
@@ -162,6 +162,19 @@ It detects accidental corruption only; it is not authentication.
 | QHS-4.2 WOTS chain length | 255 |
 | QHS-4.2 hypertree layers | 7 |
 | QHS-4.2 FORS trees | 17 |
+| `QHS5_PUBLIC_KEY_BYTES` | 72 |
+| `QHS5_PRIVATE_KEY_BYTES` | 72 |
+| `QHS5_SIGNATURE_BYTES` | 6,216 |
+| `QHS5_MAX_SIGNATURES` | 256 |
+| `QHS5_LEAF_COUNT` | 256 |
+| `QHS5_LEAF_BYTES` | 64 |
+| QHS-5 WOTS chains | 89 (86 message + 3 checksum) |
+| QHS-5 WOTS chain length | 63 |
+| QHS-5 message digits | 86 base-64 |
+| QHS-5 checksum digits | 3 base-64 |
+| QHS-5 Merkle height | 8 |
+| QHS-5 leaf cache | 16,452 |
+| QHS-5 state guard | 38 |
 
 ## 10. QHS production formats
 
@@ -582,10 +595,103 @@ QHS-4.2 has no counter, no public-leaf cache, and no key state guard. The CLI
 and writes only the 14,344-byte signature. It creates no `.cache`,
 `.treecache`, or `.state` files and does not update the key file.
 
+### 10.29 QHS-5 public key (72 bytes)
+
+```
+offset  size  field
+0       1     version        // 6
+1       1     algorithm      // 6 = QHS-5
+2       1     height         // 8
+3       1     reserved       // 0
+4       64    merkle_root
+68      4     reserved       // 0
+```
+
+Canonical rules:
+
+- Header is exactly `[6, 6, 8, 0]`.
+- Bytes 68..72 are zero.
+
+### 10.30 QHS-5 private key (72 bytes)
+
+```
+offset  size  field
+0       1     version        // 6
+1       1     algorithm      // 6
+2       1     height         // 8
+3       1     reserved       // 0
+4       64    seed
+68      2     next_leaf      // little-endian, 0..=256
+70      2     reserved       // 0
+```
+
+The private key is stateful. `next_leaf` is the next Merkle leaf to consume.
+The CLI persists the updated key and the state guard before releasing the
+signature.
+
+### 10.31 QHS-5 signature (6,216 bytes)
+
+```
+offset   size    field
+0        1       version        // 6
+1        1       algorithm      // 6 = QHS-5
+2        2       leaf_index     // little-endian, 0..=255
+4        5696    wots_signature // 89 chains × 64 bytes
+5700     512     auth_path      // 8 nodes × 64 bytes
+6212     4       checksum       // 512-bit-mode BLAKE3, first 4 bytes
+```
+
+Canonical rules:
+
+- Header is exactly `[6, 6, leaf_index LE]`.
+- `leaf_index < 256`.
+- The checksum matches the first 6,212 bytes.
+- No non-canonical trailing data.
+
+### 10.32 QHS-5 checksum
+
+```
+H64_ctx("qWp QHS-5 signature-checksum", first 6212 bytes)[0..4]
+```
+
+`H64_ctx` is the 512-bit derive-key mode:
+
+```
+H64_ctx(c, x) = H32_ctx(c, 0x00 || x) || H32_ctx(c, 0x01 || x)
+```
+
+### 10.33 QHS-5 leaf cache (16,452 bytes, optional)
+
+```
+offset   size    field
+0        4       header          // [6, 6, 8, 2]
+4        32      fingerprint     // H32_ctx("qWp QHS-5 cache fingerprint", seed)
+36       16384   leaves          // 256 × 64
+16420    32      mac             // keyed BLAKE3 over bytes 0..16420
+```
+
+The cache contains only public Merkle leaves. The MAC key is
+`H32_ctx("qWp QHS-5 cache mac", seed)`. A missing, corrupt, or foreign cache is
+ignored and the leaves are recomputed.
+
+### 10.34 QHS-5 state guard (38 bytes, optional)
+
+```
+offset  size  field
+0       4     key header      // [6, 6, 8, 0]
+4       2     counter         // little-endian, 0..=256
+6       32    mac             // keyed BLAKE3 over bytes 0..6
+```
+
+The MAC key is `H32_ctx("qWp QHS-5 key state guard", seed)`. A guard counter
+greater than the key counter is treated as rollback and signing is refused.
+Restoring the key and guard together is not detectable without a hardware
+monotonic counter.
+
 ## 11. Open items
 
 No open production format items. QHS-1, QHS-2, QHS-3, QHS-3.1, QHS-4, the
-QHS-4.1 fast-signing profile (same QHS-4 formats), QHS-4.2 compact, the
-QHS-3.1 tree cache, and the key state guard are frozen and version-separated.
-The legacy 160-byte v0 container remains research-only and is not used for
-production signing or verification.
+QHS-4.1 fast-signing profile (same QHS-4 formats), QHS-4.2 compact, QHS-5
+512-bit, the QHS-3.1 tree cache, the QHS-5 leaf cache, and the key state guard
+are frozen and version-separated. The legacy 160-byte v0 container remains
+research-only and is not used for production signing or verification.

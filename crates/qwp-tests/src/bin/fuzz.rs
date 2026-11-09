@@ -13,11 +13,13 @@ use qwp_crypto::{
     QHS_PRIVATE_KEY_BYTES, QHS_PUBLIC_KEY_BYTES, QHS_SIGNATURE_BYTES, QHS2_PRIVATE_KEY_BYTES,
     QHS2_PUBLIC_KEY_BYTES, QHS2_SIGNATURE_BYTES, QHS3_PRIVATE_KEY_BYTES, QHS3_PUBLIC_KEY_BYTES,
     QHS3_SIGNATURE_BYTES, QHS3_TREE_NODES, QHS4_PRIVATE_KEY_BYTES, QHS4_PUBLIC_KEY_BYTES,
-    QHS4_SIGNATURE_BYTES, QHS42_PRIVATE_KEY_BYTES, QHS42_PUBLIC_KEY_BYTES, QHS42_SIGNATURE_BYTES,
-    Qhs2PrivateKey, Qhs2PublicKey, Qhs2Signature, Qhs3PrivateKey, Qhs3PublicKey, Qhs3Signature,
-    Qhs4PrivateKey, Qhs4PublicKey, Qhs4Signature, Qhs42PrivateKey, Qhs42PublicKey, Qhs42Signature,
-    QhsPrivateKey, QhsPublicKey, QhsSignature, qhs_keygen, qhs2_keygen, qhs3_auth_path_from_tree,
-    qhs3_build_tree, qhs3_keygen_from_leaves, qhs4_keygen, qhs42_keygen,
+    QHS4_SIGNATURE_BYTES, QHS5_PRIVATE_KEY_BYTES, QHS5_PUBLIC_KEY_BYTES, QHS5_SIGNATURE_BYTES,
+    QHS42_PRIVATE_KEY_BYTES, QHS42_PUBLIC_KEY_BYTES, QHS42_SIGNATURE_BYTES, Qhs2PrivateKey,
+    Qhs2PublicKey, Qhs2Signature, Qhs3PrivateKey, Qhs3PublicKey, Qhs3Signature, Qhs4PrivateKey,
+    Qhs4PublicKey, Qhs4Signature, Qhs5PrivateKey, Qhs5PublicKey, Qhs5Signature, Qhs42PrivateKey,
+    Qhs42PublicKey, Qhs42Signature, QhsPrivateKey, QhsPublicKey, QhsSignature, qhs_keygen,
+    qhs2_keygen, qhs3_auth_path_from_tree, qhs3_build_tree, qhs3_keygen_from_leaves, qhs4_keygen,
+    qhs5_keygen, qhs42_keygen,
 };
 use qwp_platform::{qhs3_leaves_parallel, qhs4_sign_parallel, qhs42_sign_parallel};
 
@@ -259,6 +261,58 @@ fn main() {
             }
         }
     }
+    let qhs5_keys = if seconds >= 30 {
+        let seed5 = [7_u8; 64];
+        let Ok((mut private_key5, public_key5)) = qhs5_keygen(&seed5) else {
+            eprintln!("fuzz: qhs5 keygen failed");
+            std::process::exit(2);
+        };
+        let Ok(valid_signature5) = private_key5.sign(b"fuzz-seed-qhs5") else {
+            eprintln!("fuzz: qhs5 seed sign failed");
+            std::process::exit(2);
+        };
+        if public_key5
+            .verify(b"fuzz-seed-qhs5", &valid_signature5)
+            .is_err()
+        {
+            eprintln!("fuzz: qhs5 seed verify failed");
+            std::process::exit(2);
+        }
+        Some((private_key5, public_key5, valid_signature5))
+    } else {
+        None
+    };
+    let fallback_public5 = Qhs5PublicKey::from_root([0_u8; 64]);
+    let fallback_signature5 = Qhs5Signature::from_bytes([0_u8; QHS5_SIGNATURE_BYTES]);
+    let (public_key5, valid_signature5) = qhs5_keys
+        .as_ref()
+        .map_or((&fallback_public5, &fallback_signature5), |keys| {
+            (&keys.1, &keys.2)
+        });
+    if let Some((private_key5, _, _)) = &qhs5_keys
+        && seconds >= 60
+    {
+        let mut private_key5 = match Qhs5PrivateKey::from_bytes(&private_key5.to_bytes()) {
+            Ok(key) => key,
+            Err(_) => {
+                eprintln!("fuzz: qhs5 key reparse failed");
+                std::process::exit(2);
+            }
+        };
+        for _ in 0..2 {
+            let length = usize::try_from(rng.next() % 257).unwrap_or(0);
+            let mut message = [0_u8; 256];
+            rng.fill(&mut message[..length]);
+            let Ok(signature) = private_key5.sign(&message[..length]) else {
+                eprintln!("fuzz: random qhs5 sign failed");
+                std::process::exit(2);
+            };
+            if public_key5.verify(&message[..length], &signature).is_err() {
+                eprintln!("fuzz: random qhs5 verify failed");
+                std::process::exit(2);
+            }
+        }
+    }
     random_rounds(&mut rng);
 
     let mut iterations: u64 = 0;
@@ -347,6 +401,22 @@ fn main() {
             let short_length42 = usize::try_from(rng.next() % signature_limit).unwrap_or(0);
             let _ = Qhs42Signature::from_slice(&signature42.as_bytes()[..short_length42]);
 
+            let mut public_bytes5 = [0_u8; QHS5_PUBLIC_KEY_BYTES];
+            rng.fill(&mut public_bytes5);
+            let _ = Qhs5PublicKey::from_bytes(&public_bytes5);
+
+            let mut private_bytes5 = [0_u8; QHS5_PRIVATE_KEY_BYTES];
+            rng.fill(&mut private_bytes5);
+            let _ = Qhs5PrivateKey::from_bytes(&private_bytes5);
+
+            let mut signature_bytes5 = [0_u8; QHS5_SIGNATURE_BYTES];
+            rng.fill(&mut signature_bytes5);
+            let signature5 = Qhs5Signature::from_bytes(signature_bytes5);
+            let signature_limit5 =
+                u64::try_from(QHS5_SIGNATURE_BYTES.saturating_add(1)).unwrap_or(u64::MAX);
+            let short_length5 = usize::try_from(rng.next() % signature_limit5).unwrap_or(0);
+            let _ = Qhs5Signature::from_slice(&signature5.as_bytes()[..short_length5]);
+
             let length = usize::try_from(rng.next() % 257).unwrap_or(0);
             let mut message = [0_u8; 256];
             rng.fill(&mut message[..length]);
@@ -356,9 +426,11 @@ fn main() {
             let _ = public_key3.verify(message, &signature3);
             let _ = public_key4.verify(message, &signature4);
             let _ = public_key42.verify(message, &signature42);
+            let _ = public_key5.verify(message, &signature5);
             if iterations.is_multiple_of(1_000) {
                 let _ = public_key4.verify(b"fuzz-seed-qhs4", valid_signature4);
                 let _ = public_key42.verify(b"fuzz-seed-qhs42", valid_signature42);
+                let _ = public_key5.verify(b"fuzz-seed-qhs5", valid_signature5);
             }
         }));
         if result.is_err() {

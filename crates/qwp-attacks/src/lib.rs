@@ -74,10 +74,10 @@ use std::path::Path;
 use qwp_core::{BRAID_BYTES, Braid, CryptoError, MAX_CROSSINGS, Polynomial};
 use qwp_crypto::{
     PrivateKey, PublicKey, QHS_MAX_SIGNATURES, QHS2_MAX_SIGNATURES, QHS3_MAX_SIGNATURES,
-    QHS4_SIGNATURE_BYTES, Qhs2PrivateKey, Qhs2Signature, Qhs3PrivateKey, Qhs3PublicKey,
-    Qhs3Signature, Qhs4PublicKey, Qhs4Signature, Qhs42PublicKey, Qhs42Signature, QhsPrivateKey,
-    QhsSignature, Signature, qhs_keygen, qhs2_keygen, qhs3_keygen_from_leaves, qhs4_keygen,
-    qhs42_keygen,
+    QHS4_SIGNATURE_BYTES, QHS5_MAX_SIGNATURES, Qhs2PrivateKey, Qhs2Signature, Qhs3PrivateKey,
+    Qhs3PublicKey, Qhs3Signature, Qhs4PublicKey, Qhs4Signature, Qhs5PrivateKey, Qhs5Signature,
+    Qhs42PublicKey, Qhs42Signature, QhsPrivateKey, QhsSignature, Signature, qhs_keygen,
+    qhs2_keygen, qhs3_keygen_from_leaves, qhs4_keygen, qhs5_keygen, qhs42_keygen,
 };
 use qwp_hash::hash32;
 use qwp_platform::{HostEntropy, qhs3_leaves_parallel, qhs4_sign_parallel, qhs42_sign_parallel};
@@ -150,6 +150,7 @@ pub fn run_all() -> AttackReport {
         attack_qhs4(),
         attack_qhs41(),
         attack_qhs42(),
+        attack_qhs5(),
     ];
     let passed = checks.iter().filter(|result| **result).count();
     let failed = checks.len().saturating_sub(passed);
@@ -639,12 +640,85 @@ pub fn attack_qhs42() -> bool {
     equivalent && accepted && wrong_message && stateless && tampered_rejected && wrong_key
 }
 
+/// Attacks QHS-5 with wrong messages, tampering, wrong keys, and exhaustion.
+#[must_use]
+#[inline]
+#[allow(
+    clippy::large_stack_arrays,
+    reason = "the fixed QHS-5 signature is 6,216 bytes"
+)]
+pub fn attack_qhs5() -> bool {
+    let seed = [7_u8; 64];
+    let Ok((mut private_key, public_key)) = qhs5_keygen(&seed) else {
+        return false;
+    };
+    let Ok(signature) = private_key.sign(b"qhs5-attack-message") else {
+        return false;
+    };
+    let accepted = public_key
+        .verify(b"qhs5-attack-message", &signature)
+        .is_ok();
+    let wrong_message = public_key
+        .verify(b"qhs5-wrong-message", &signature)
+        .is_err();
+    let counter_advanced = private_key.next_leaf() == 1;
+
+    let tamper_offsets = [0_usize, 1, 2, 3, 4, 5_699, 5_700, 6_211, 6_215];
+    let mut tampered_rejected = true;
+    for offset in tamper_offsets {
+        let mut tampered_bytes = signature.to_bytes();
+        if let Some(byte) = tampered_bytes.get_mut(offset) {
+            *byte ^= 1;
+        }
+        let tampered = Qhs5Signature::from_bytes(tampered_bytes);
+        if public_key.verify(b"qhs5-attack-message", &tampered).is_ok() {
+            tampered_rejected = false;
+            break;
+        }
+    }
+    let zero_rejected = public_key
+        .verify(
+            b"qhs5-attack-message",
+            &Qhs5Signature::from_bytes([0_u8; qwp_crypto::QHS5_SIGNATURE_BYTES]),
+        )
+        .is_err();
+    let ff_rejected = public_key
+        .verify(
+            b"qhs5-attack-message",
+            &Qhs5Signature::from_bytes([0xff_u8; qwp_crypto::QHS5_SIGNATURE_BYTES]),
+        )
+        .is_err();
+
+    let Ok((_, other_public_key)) = qhs5_keygen(&[9_u8; 64]) else {
+        return false;
+    };
+    let wrong_key = other_public_key
+        .verify(b"qhs5-attack-message", &signature)
+        .is_err();
+
+    let mut key_bytes = private_key.to_bytes();
+    if let Some(slot) = key_bytes.get_mut(68..70) {
+        slot.copy_from_slice(&QHS5_MAX_SIGNATURES.to_le_bytes());
+    }
+    let exhausted_ok = Qhs5PrivateKey::from_bytes(&key_bytes)
+        .is_ok_and(|mut exhausted| exhausted.sign(b"message") == Err(CryptoError::KeyExhausted));
+
+    accepted
+        && wrong_message
+        && counter_advanced
+        && tampered_rejected
+        && wrong_key
+        && exhausted_ok
+        && zero_rejected
+        && ff_rejected
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         attack_braid_parser, attack_entropy, attack_hash_vectors, attack_key_formats,
         attack_polynomial_round_trip, attack_qhs1, attack_qhs2, attack_qhs3, attack_qhs4,
-        attack_qhs41, attack_qhs42, audit, run_all,
+        attack_qhs5, attack_qhs41, attack_qhs42, audit, run_all,
     };
 
     #[test]
@@ -660,6 +734,7 @@ mod tests {
         assert!(attack_qhs4());
         assert!(attack_qhs41());
         assert!(attack_qhs42());
+        assert!(attack_qhs5());
         assert!(run_all().is_ok());
     }
 

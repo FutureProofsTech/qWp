@@ -3,8 +3,8 @@
 use qwp_core::{Braid, Polynomial};
 use qwp_crypto::{
     Qhs2PrivateKey, Qhs2PublicKey, Qhs2Signature, Qhs3PrivateKey, Qhs3PublicKey, Qhs3Signature,
-    Qhs4PrivateKey, Qhs4PublicKey, Qhs4Signature, Qhs42PrivateKey, Qhs42PublicKey, Qhs42Signature,
-    QhsPrivateKey, QhsPublicKey, QhsSignature,
+    Qhs4PrivateKey, Qhs4PublicKey, Qhs4Signature, Qhs5PrivateKey, Qhs5PublicKey, Qhs5Signature,
+    Qhs42PrivateKey, Qhs42PublicKey, Qhs42Signature, QhsPrivateKey, QhsPublicKey, QhsSignature,
 };
 
 #[kani::proof]
@@ -126,4 +126,25 @@ fn qhs42_signature_from_slice_checks_length() {
     kani::assume(length <= bytes.len());
     let result = Qhs42Signature::from_slice(&bytes[..length]);
     assert_eq!(result.is_ok(), length == qwp_crypto::QHS42_SIGNATURE_BYTES);
+}
+
+#[kani::proof]
+fn qhs5_public_key_parse_never_panics() {
+    let bytes: [u8; qwp_crypto::QHS5_PUBLIC_KEY_BYTES] = kani::any();
+    let _result = Qhs5PublicKey::from_bytes(&bytes);
+}
+
+#[kani::proof]
+fn qhs5_private_key_parse_never_panics() {
+    let bytes: [u8; qwp_crypto::QHS5_PRIVATE_KEY_BYTES] = kani::any();
+    let _result = Qhs5PrivateKey::from_bytes(&bytes);
+}
+
+#[kani::proof]
+fn qhs5_signature_from_slice_checks_length() {
+    let bytes = [0_u8; qwp_crypto::QHS5_SIGNATURE_BYTES];
+    let length: usize = kani::any();
+    kani::assume(length <= bytes.len());
+    let result = Qhs5Signature::from_slice(&bytes[..length]);
+    assert_eq!(result.is_ok(), length == qwp_crypto::QHS5_SIGNATURE_BYTES);
 }

@@ -2,7 +2,7 @@
 
 **Rule:** Every critical asset has an attack tree; every leaf maps to an abuse case, attack harness, and gap if unresolved.
 
-**Scope:** §1–§6 cover the legacy braid research path. §7–§13 cover the production QHS-1/2/3/3.1/4, QHS-4.1, and QHS-4.2 signatures.
+**Scope:** §1–§6 cover the legacy braid research path. §7–§14 cover the production QHS-1/2/3/3.1/4, QHS-4.1, QHS-4.2, and QHS-5 signatures.
 
 ## 1. Signature forgery
 
@@ -183,18 +183,19 @@ Attack QHS-4.1
 └── Signature semantics                          [same QHS-4 signature/proof/format]
 ```
 
-## 13. QHS-4.2 compact signature
+## 14. QHS-5 512-bit stateful signature
 
 ```
-Forge QHS-4.2
-├── FORS few-time forgery
-│   ├── Hit a used bottom leaf (56-bit idx)     [q/2^56 = 2^-36 at q=2^20]
-│   └── Hit 17 revealed leaves                   [(γ/256)^17]
-├── WOTS fixed-message forgery                   [34×255 loss; preimage ~2^243]
-├── Hypertree path reuse                         [2^-17 · 2^-119 = 2^-136]
-├── Merkle/FORS collision                        [128-bit hash collision bound]
-├── Auth path/header/checksum tampering          [attack suite; Kani length proof]
+Forge QHS-5
+├── Message-digit collision                      [86 base-64 digits bind 512 bits; ~2^256]
+├── WOTS one-time forgery                        [89×63 loss; preimage ~2^499.5]
+├── Checksum manipulation                        [3 base-64 digits; C = Σ(63 − d_k)]
+├── Merkle collision                             [512-bit output; ~2^256 classical / 2^128 quantum]
+├── Merkle second preimage                       [~2^512 classical]
+├── Leaf reuse / counter rollback                [state guard; guard > key refused]
+├── Auth path/header/checksum tampering          [attack suite; Kani parser proofs]
 ├── Wrong message/key                            [attack suite]
-├── Cross-version with QHS-4/4.1                 [header [5,5,56,0]; 14,344-byte length]
-└── Timing/fault/DoS                             [Welch t-test; parallel sign]
+├── Cross-version with QHS-1/2/3/4/4.2           [header [6,6,8,0]; 6,216-byte length]
+├── Cache corruption / foreign cache             [fingerprint + keyed MAC; recompute]
+└── Timing/fault/DoS                             [Welch |t| < 4.5; cached-leaf signing]
 ```

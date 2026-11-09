@@ -10,10 +10,10 @@
 The version family is organized around six axes:
 
 1. **Stateful vs stateless** — can the signer keep a monotonic counter and never clone the key?
-2. **Signatures per key** — 256 (QHS-1/2), 4,096 (QHS-3/3.1), or 2^20 (QHS-4 at the 128-bit target).
-3. **Signature size** — 1.3–3.4 KB for hash-based stateful variants; 7–30 KB for stateless.
+2. **Signatures per key** — 256 (QHS-1/2/5), 4,096 (QHS-3/3.1), or 2^20 (QHS-4 at the 128-bit target).
+3. **Signature size** — 1.3–6.3 KB for hash-based stateful variants; 7–30 KB for stateless.
 4. **Signing latency** — offline signing can tolerate hundreds of milliseconds; interactive services cannot.
-5. **Quantum margin** — 128-bit classical / 64-bit quantum baseline; optional 256-bit quantum margin.
+5. **Quantum margin** — 128-bit classical / 64-bit quantum baseline; QHS-5 raises this to 256-bit classical / ~128-bit quantum.
 6. **Verifier profile** — server, bootloader, MCU, or long-term archive.
 
 ## 2. Version matrix
@@ -27,7 +27,7 @@ The version family is organized around six axes:
 | **QHS-4** | stateless hypertree/FORS | No | ≤2^20 at 128-bit target | 18,216 B | ≈0.10 s | ≈0.81 s | ≈1.6 ms | concurrent/stateless signing |
 | **QHS-4.1** | QHS-4 + parallel trees | No | ≤2^20 at 128-bit target | 18,216 B | ≈0.10 s | **≈0.11 s** | ≈1.6 ms | stateless signing with fast sign |
 | **QHS-4.2** | compact WOTS/FORS/hypertree | No | ≤2^20 at 128-bit target | **14,344 B** | ≈0.30 s | ≈0.27 s | ≈4.0 ms | compact stateless signatures |
-| QHS-5 (planned) | 512-bit hash, h=8 | Yes | 256 | ≈3.4 KB | ≈2× QHS-2 | ≈2× QHS-2 | ≈2× QHS-2 | 256-bit quantum margin |
+| **QHS-5** | 512-bit hash, 89×63 WOTS, h=8 | Yes | 256 | **6,216 B** | ≈0.09 s parallel / ≈0.61 s sequential | **≈1.5 ms cached** / ≈0.62 s uncached | ≈1.2 ms | 256-bit classical / ~128-bit quantum margin |
 | QHS-6 (planned) | QHS + classical hybrid | Yes | 256 | QHS + classical | QHS + classical | QHS + classical | QHS + classical | migration/compliance |
 | QHS-E | QHS verifier profile | n/a | n/a | QHS-1/2/3/3.1 | n/a | n/a | same | bootloader/MCU verifier |
 
@@ -51,9 +51,9 @@ The version family is organized around six axes:
    - Stateless with fast signing → QHS-4.1.
    - Stateless with a smaller signature → QHS-4.2.
 
-4. **Do you need 256-bit quantum margin?**
-   - No → QHS-1/2/3/3.1.
-   - Yes → QHS-5 (new hash-output profile).
+4. **Do you need a 256-bit classical / ~128-bit quantum margin?**
+   - No → QHS-1/2/3/3.1/4/4.2.
+   - Yes, stateful and single-writer → QHS-5 (512-bit hash profile).
 
 5. **Do you need standards, HSM, or classical hybrid?**
    - Hybrid → QHS-6.
@@ -142,15 +142,29 @@ QHS-4.2 1-hour soak passed with 56,556,913 iterations and 0 panics.
 QHS-4.2 does not replace QHS-1/2/3/3.1, QHS-4, or QHS-4.1. All versions remain
 available and version-separated.
 
-## 6. QHS-5: 256-bit quantum margin (planned)
+## 6. QHS-5: 512-bit hash profile
 
-QHS-5 would use a 512-bit hash output (or a 512-bit mode built from BLAKE3 XOF):
+QHS-5 is the 512-bit-hash stateful profile. It uses:
 
-- WOTS chains: 45 × 64 B = 2,880 B;
-- auth path: 8 × 64 B = 512 B;
-- signature: ≈3,400 B;
-- roughly 2× hashing cost;
-- 256-bit classical / 128-bit quantum margin.
+- `H64(x) = H32(0x00 || x) || H32(0x01 || x)`;
+- 89 WOTS chains × 63 steps (86 message digits + 3 checksum digits, base 64);
+- a height-8 Merkle tree with 256 signatures per key;
+- 64-byte chain values and Merkle nodes;
+- 72-byte public/private keys and 6,216-byte signatures;
+- header `[6, 6, 8, 0]` for keys and `[6, 6, leaf_index LE]` for signatures.
+
+The signature binds the full 512-bit message digest: 86 base-64 digits encode
+516 bits with four leading zero bits. The checksum is `Σ(63 − d_k)` over the 86
+message digits, encoded in three base-64 digits. The security target is
+**256-bit classical / ~128-bit quantum** for 256 signatures per key.
+
+Measured: parallel keygen ≈0.09 s (≈7.0× faster than sequential), cached-leaf
+sign ≈1.5 ms, uncached sign ≈0.62 s, verify ≈1.2 ms. The CLI writes a
+16,452-byte public-leaf cache and a 38-byte key state guard.
+
+QHS-5 is a new format, not a profile of any earlier version. Its signatures and
+keys are version-separated by the `[6, 6, 8, 0]` key header and the 6,216-byte
+signature length. QHS-5 does not replace QHS-1/2/3/3.1/4/4.1/4.2.
 
 This requires a 64-byte hash mode and a new proof/format version.
 

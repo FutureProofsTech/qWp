@@ -73,7 +73,9 @@ extern crate std;
 
 pub mod blake3;
 
-pub use blake3::{DeriveKey, Hasher, derive_key32, hash32};
+pub use blake3::{
+    DeriveKey, DeriveKey64, Hasher, Hasher64, derive_key32, derive_key64, hash32, hash64,
+};
 
 use core::fmt;
 use core::mem::size_of;
@@ -127,6 +129,70 @@ impl fmt::Debug for Hash32 {
 }
 
 const _: [(); 32] = [(); size_of::<Hash32>()];
+
+/// A 64-byte hash output.
+#[repr(C)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct Hash64 {
+    bytes: [u8; 64],
+}
+
+impl Hash64 {
+    /// Creates a hash from exactly 64 bytes.
+    #[must_use]
+    #[inline]
+    pub const fn from_bytes(bytes: [u8; 64]) -> Self {
+        Self { bytes }
+    }
+
+    /// Creates a hash from two 32-byte halves.
+    #[must_use]
+    #[inline]
+    pub fn from_parts(left: [u8; 32], right: [u8; 32]) -> Self {
+        let mut bytes = [0_u8; 64];
+        if let Some(slot) = bytes.get_mut(0..32) {
+            slot.copy_from_slice(&left);
+        }
+        if let Some(slot) = bytes.get_mut(32..64) {
+            slot.copy_from_slice(&right);
+        }
+        Self { bytes }
+    }
+
+    /// Returns the exact 64-byte representation.
+    #[must_use]
+    #[inline]
+    pub const fn to_bytes(self) -> [u8; 64] {
+        self.bytes
+    }
+
+    /// Returns a reference to the hash bytes.
+    #[must_use]
+    #[inline]
+    pub const fn as_bytes(&self) -> &[u8; 64] {
+        &self.bytes
+    }
+
+    /// Returns `true` when every byte is zero.
+    #[must_use]
+    #[inline]
+    pub fn is_zero(&self) -> bool {
+        self.bytes.iter().all(|byte| *byte == 0)
+    }
+}
+
+impl fmt::Debug for Hash64 {
+    #[inline]
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("Hash64(")?;
+        for byte in &self.bytes {
+            write!(formatter, "{byte:02x}")?;
+        }
+        formatter.write_str(")")
+    }
+}
+
+const _: [(); 64] = [(); size_of::<Hash64>()];
 
 #[cfg(test)]
 mod tests {

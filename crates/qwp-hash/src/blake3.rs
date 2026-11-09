@@ -11,7 +11,7 @@
 
 use core::fmt;
 
-use crate::Hash32;
+use crate::{Hash32, Hash64};
 
 const BLOCK_LEN: usize = 64;
 const CHUNK_LEN: usize = 1024;
@@ -471,6 +471,54 @@ impl fmt::Debug for DeriveKey {
     }
 }
 
+/// A reusable BLAKE3 derive-key context for 512-bit outputs.
+///
+/// The context hash is computed once and reused for both 32-byte halves. The
+/// output is exactly the same as [`derive_key64`].
+#[derive(Clone, Copy)]
+pub struct DeriveKey64 {
+    key: DeriveKey,
+}
+
+impl DeriveKey64 {
+    /// Creates a reusable 512-bit derive-key context.
+    #[must_use]
+    #[inline]
+    pub fn new(context: &[u8]) -> Self {
+        Self {
+            key: DeriveKey::new(context),
+        }
+    }
+
+    /// Computes a 64-byte derive-key output for `material`.
+    #[must_use]
+    #[inline]
+    pub fn hash64(&self, material: &[u8]) -> Hash64 {
+        let mut hasher = self.hasher();
+        hasher.update(material);
+        hasher.finalize()
+    }
+
+    /// Creates a streaming 512-bit hasher with this context key.
+    #[inline]
+    pub fn hasher(&self) -> Hasher64 {
+        let mut left = self.key.hasher();
+        left.update(&[0x00]);
+        let mut right = self.key.hasher();
+        right.update(&[0x01]);
+        Hasher64 { left, right }
+    }
+}
+
+impl fmt::Debug for DeriveKey64 {
+    #[inline]
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("DeriveKey64")
+            .finish_non_exhaustive()
+    }
+}
+
 /// Computes a 32-byte BLAKE3 derive-key output.
 #[must_use]
 #[inline]
@@ -478,10 +526,85 @@ pub fn derive_key32(context: &[u8], material: &[u8]) -> Hash32 {
     DeriveKey::new(context).hash32(material)
 }
 
+/// A streaming 512-bit BLAKE3-mode hasher.
+///
+/// The 512-bit mode is `H32(0x00 || x) || H32(0x01 || x)`: two independent
+/// BLAKE3 instances with distinct one-byte domain tags.
+#[must_use = "a hasher does nothing until update/finalize is called"]
+pub struct Hasher64 {
+    left: Hasher,
+    right: Hasher,
+}
+
+impl Hasher64 {
+    /// Creates a new 512-bit hasher.
+    #[inline]
+    pub fn new() -> Self {
+        let mut left = Hasher::new();
+        left.update(&[0x00]);
+        let mut right = Hasher::new();
+        right.update(&[0x01]);
+        Self { left, right }
+    }
+
+    /// Creates a new 512-bit derive-key hasher for `context`.
+    #[inline]
+    pub fn new_derive_key(context: &[u8]) -> Self {
+        DeriveKey64::new(context).hasher()
+    }
+
+    /// Updates both halves with the same input.
+    #[inline]
+    pub fn update(&mut self, input: &[u8]) {
+        self.left.update(input);
+        self.right.update(input);
+    }
+
+    /// Finalizes into a 64-byte hash.
+    #[must_use]
+    #[inline]
+    pub fn finalize(self) -> Hash64 {
+        Hash64::from_parts(
+            self.left.finalize().to_bytes(),
+            self.right.finalize().to_bytes(),
+        )
+    }
+}
+
+impl Default for Hasher64 {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl fmt::Debug for Hasher64 {
+    #[inline]
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.debug_struct("Hasher64").finish_non_exhaustive()
+    }
+}
+
+/// Computes a 64-byte BLAKE3-mode output.
+#[must_use]
+#[inline]
+pub fn hash64(input: &[u8]) -> Hash64 {
+    let mut hasher = Hasher64::new();
+    hasher.update(input);
+    hasher.finalize()
+}
+
+/// Computes a 64-byte BLAKE3 derive-key-mode output.
+#[must_use]
+#[inline]
+pub fn derive_key64(context: &[u8], material: &[u8]) -> Hash64 {
+    DeriveKey64::new(context).hash64(material)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{derive_key32, hash32};
-    use crate::Hash32;
+    use crate::{Hash32, Hash64};
 
     fn hex(bytes: [u8; 32]) -> std::string::String {
         let mut output = std::string::String::new();
@@ -556,6 +679,65 @@ mod tests {
         let debug = std::format!("{key:?}");
         assert!(debug.contains("DeriveKey"));
         assert!(!debug.contains("key"));
+    }
+
+    #[test]
+    fn hash64_halves_match_tagged_hashes() {
+        let input = b"qWp 512-bit mode";
+        let mut left = super::Hasher::new();
+        left.update(&[0x00]);
+        left.update(input);
+        let mut right = super::Hasher::new();
+        right.update(&[0x01]);
+        right.update(input);
+        assert_eq!(
+            super::hash64(input),
+            Hash64::from_parts(left.finalize().to_bytes(), right.finalize().to_bytes())
+        );
+    }
+
+    #[test]
+    fn derive_key64_reuse_matches_one_shot() {
+        let context = b"qWp QHS-5 reuse";
+        let material = b"material";
+        let expected = super::derive_key64(context, material);
+        let reusable = super::DeriveKey64::new(context);
+        assert_eq!(reusable.hash64(material), expected);
+        let mut hasher = reusable.hasher();
+        hasher.update(b"mate");
+        hasher.update(b"rial");
+        assert_eq!(hasher.finalize(), expected);
+    }
+
+    #[test]
+    fn derive_key64_halves_match_tagged_hashes() {
+        let context = b"qWp QHS-5 test";
+        let material = b"abc";
+        let mut left = super::Hasher::new_derive_key(context);
+        left.update(&[0x00]);
+        left.update(material);
+        let mut right = super::Hasher::new_derive_key(context);
+        right.update(&[0x01]);
+        right.update(material);
+        assert_eq!(
+            super::derive_key64(context, material),
+            Hash64::from_parts(left.finalize().to_bytes(), right.finalize().to_bytes())
+        );
+    }
+
+    #[test]
+    fn hasher64_streaming_matches_one_shot() {
+        let mut hasher = super::Hasher64::new();
+        hasher.update(b"part-one");
+        hasher.update(b"part-two");
+        assert_eq!(hasher.finalize(), super::hash64(b"part-onepart-two"));
+    }
+
+    #[test]
+    fn hash64_debug_is_hex() {
+        let hash = Hash64::from_bytes([0xab; 64]);
+        let debug = std::format!("{hash:?}");
+        assert!(debug.starts_with("Hash64(abab"));
     }
 
     #[test]
