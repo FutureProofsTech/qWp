@@ -7,7 +7,7 @@
 - Visibility: public/private
 - Owner (engineer): Crypto lead
 - Owner (attacker): Red team
-- Status: survived; FAD closed for the local production path. 1-hour soak pending.
+- Status: survived; FAD closed for the local production path. 1-hour soak passed: 56,556,913 iterations, 0 panics (`docs/evidence/qhs42-fuzz-soak-1h.txt`).
 
 ## Contract
 
@@ -55,17 +55,22 @@
   message-digit shape/checksum, public leaf helpers.
 - Fuzz target: in-house fuzz covers random QHS-4.2 public/private/signature
   parsing, random verifier inputs, valid signature checks, and random-message
-  signing on longer runs.
+  signing on longer runs. 60-second run: 853,000 iterations, 0 panics;
+  1-hour soak: 56,556,913 iterations, 0 panics.
 - Formal harness: Kani parser proofs pass (`qhs42_public_key_parse_never_panics`,
   `qhs42_private_key_parse_never_panics`,
-  `qhs42_signature_from_slice_checks_length`).
+  `qhs42_signature_from_slice_checks_length`); 18/18 workspace total.
 - Timing harness: keygen ≈0.30 s, sequential sign ≈2.08 s, parallel sign
   ≈0.27 s, verify ≈4.0 ms; Welch `|t| < 4.5`.
+- Coverage: 99.33% lines in `qhs42.rs`.
+- Mutation: 187 mutants, 130 caught, 48 unviable, 9 missed (8 release-only
+  `sign_with_trees` assembly paths covered by release/platform equivalence; 1
+  best-effort `Drop`); `docs/evidence/qhs42-mutation.txt`.
 - CLI tests: keygen/sign/verify end-to-end; private key bytes/mtime unchanged;
   no `.cache`, `.treecache`, or `.state` files; read-only private key signing
   succeeds; QHS-4 verifier rejects the 14,344-byte signature.
 - Break-log entries: BL-0024, BL-0025.
-- Gap IDs: GAP-QHS-0030 — closed; 1-hour soak pending.
+- Gap IDs: GAP-QHS-0030 — closed; 1-hour soak passed (56,556,913 iterations, 0 panics).
 
 ## Closure
 

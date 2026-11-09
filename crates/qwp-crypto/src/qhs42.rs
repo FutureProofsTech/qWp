@@ -1617,11 +1617,12 @@ mod tests {
     )]
 
     use super::{
-        CHAIN_CONTEXT, CHECKSUM_CONTEXT, FORS_DIGEST_CONTEXT, FORS_LEAF_CONTEXT, FORS_NODE_CONTEXT,
-        FORS_PK_CONTEXT, FORS_SECRET_CONTEXT, LEAF_CONTEXT, MESSAGE_DIGITS, NODE_CONTEXT,
-        PK_SEED_CONTEXT, QHS42_FORS_BYTES, QHS42_SIGNATURE_BYTES, Qhs42PrivateKey, Qhs42PublicKey,
-        Qhs42Signature, RANDOMIZER_CONTEXT, SK_SEED_CONTEXT, TREE_INDEX_CONTEXT, WOTS_CHAINS,
-        WOTS_MESSAGE_CONTEXT, WOTS_PK_CONTEXT, WOTS_SECRET_CONTEXT,
+        CHAIN_CONTEXT, CHECKSUM_CONTEXT, FORS_DIGEST_CONTEXT, FORS_LEAF_CONTEXT, FORS_LEAVES,
+        FORS_NODE_CONTEXT, FORS_PK_CONTEXT, FORS_SECRET_CONTEXT, LAYERS, LEAF_CONTEXT, LEAF_COUNT,
+        MESSAGE_DIGITS, NODE_CONTEXT, PK_SEED_CONTEXT, QHS42_FORS_BYTES, QHS42_SIGNATURE_BYTES,
+        Qhs42PrivateKey, Qhs42PublicKey, Qhs42Signature, RANDOMIZER_CONTEXT, SK_SEED_CONTEXT,
+        TREE_INDEX_CONTEXT, WOTS_CHAINS, WOTS_MESSAGE_CONTEXT, WOTS_PK_CONTEXT,
+        WOTS_SECRET_CONTEXT,
     };
     use core::mem::size_of;
     use qwp_core::CryptoError;
@@ -1772,6 +1773,111 @@ mod tests {
             digits.get(MESSAGE_DIGITS + 1),
             Some(&u8::try_from(checksum & 0xff).unwrap())
         );
+    }
+
+    #[test]
+    fn public_api_kat_values() {
+        let contexts = super::Qhs42Contexts::new();
+        let sk = [1_u8; 32];
+        let pk = [2_u8; 32];
+        let wots = super::qhs42_wots_public_key(&sk, &pk, 0, 0, 0, &contexts);
+        let leaf = super::qhs42_leaf(&sk, &pk, 0, 0, 0, &contexts);
+        let fors_leaf = super::qhs42_fors_leaf(&sk, &pk, 0, 0, 0, 0, &contexts);
+        assert_eq!(
+            wots,
+            [
+                93, 76, 101, 128, 184, 179, 63, 68, 255, 223, 43, 77, 63, 245, 9, 117, 79, 194,
+                169, 239, 79, 111, 108, 148, 68, 213, 137, 178, 103, 209, 224, 151
+            ]
+        );
+        assert_eq!(
+            leaf,
+            [
+                223, 60, 126, 124, 248, 0, 12, 93, 99, 135, 184, 253, 201, 140, 143, 178, 175, 51,
+                35, 211, 62, 205, 43, 168, 224, 106, 0, 237, 47, 217, 254, 42
+            ]
+        );
+        assert_eq!(
+            fors_leaf,
+            [
+                59, 14, 81, 249, 165, 106, 195, 20, 154, 168, 72, 207, 227, 9, 73, 156, 227, 247,
+                123, 155, 78, 138, 95, 51, 228, 109, 160, 237, 133, 175, 135, 67
+            ]
+        );
+
+        let mut leaves = [[0_u8; 32]; LEAF_COUNT];
+        for (index, slot) in leaves.iter_mut().enumerate() {
+            let byte = u8::try_from(index).unwrap();
+            *slot = [byte; 32];
+        }
+        let (root, auth) =
+            super::qhs42_tree_root_and_auth_from_leaves(&leaves, 0, &contexts).unwrap();
+        assert_eq!(
+            root,
+            [
+                232, 201, 110, 154, 197, 112, 156, 52, 75, 170, 149, 255, 217, 79, 158, 225, 232,
+                134, 26, 187, 181, 187, 118, 12, 59, 84, 201, 253, 218, 54, 189, 72
+            ]
+        );
+        let tree_auth_bytes = super::auth_path_bytes(&auth).unwrap();
+        assert_eq!(
+            qwp_hash::hash32(&tree_auth_bytes).to_bytes(),
+            [
+                90, 249, 26, 160, 143, 43, 45, 58, 141, 125, 27, 115, 87, 211, 36, 109, 146, 124,
+                99, 81, 103, 184, 144, 45, 251, 77, 68, 239, 128, 29, 129, 9
+            ]
+        );
+        let tree = super::Qhs42Tree::new(root, auth);
+        assert_eq!(tree.root(), root);
+        assert_eq!(tree.auth_path(), &auth);
+
+        let mut fors_leaves = [[0_u8; 32]; FORS_LEAVES];
+        for (index, slot) in fors_leaves.iter_mut().enumerate() {
+            let byte = u8::try_from(index).unwrap();
+            *slot = [byte; 32];
+        }
+        let (fors_root, fors_auth) =
+            super::qhs42_fors_root_and_auth_from_leaves(&fors_leaves, 0, &contexts).unwrap();
+        assert_eq!(
+            fors_root,
+            [
+                202, 64, 244, 167, 186, 75, 84, 254, 158, 51, 141, 48, 147, 165, 33, 85, 209, 72,
+                126, 12, 164, 116, 195, 144, 224, 101, 93, 92, 173, 109, 245, 131
+            ]
+        );
+        let fors_auth_bytes = super::auth_path_bytes(&fors_auth).unwrap();
+        assert_eq!(
+            qwp_hash::hash32(&fors_auth_bytes).to_bytes(),
+            [
+                109, 69, 29, 156, 37, 156, 174, 131, 173, 102, 1, 12, 120, 253, 195, 71, 18, 196,
+                54, 182, 17, 241, 250, 240, 135, 143, 129, 246, 39, 226, 60, 185
+            ]
+        );
+        let fors_tree = super::Qhs42ForsTree::new(fors_root, fors_auth);
+        assert_eq!(fors_tree.root(), fors_root);
+        assert_eq!(fors_tree.auth_path(), &fors_auth);
+
+        let private_key = Qhs42PrivateKey::from_parts([3_u8; 32], [4_u8; 32]);
+        let plan = super::qhs42_signing_plan(&private_key, b"qWp QHS-4.2 plan");
+        assert_eq!(
+            plan.randomizer(),
+            [
+                156, 249, 31, 63, 167, 150, 240, 254, 63, 208, 253, 109, 140, 31, 69, 204, 234,
+                243, 219, 223, 136, 77, 5, 152, 107, 173, 81, 93, 13, 94, 45, 21
+            ]
+        );
+        assert_eq!(
+            plan.fors_digest(),
+            [
+                67, 170, 168, 213, 153, 140, 106, 22, 253, 82, 50, 31, 250, 59, 114, 45, 109, 14,
+                57, 134, 96, 80, 99, 111, 104, 15, 121, 203, 157, 218, 102, 30
+            ]
+        );
+        assert_eq!(plan.tree_index(), 11_828_721_361_547_899_209);
+        assert_eq!(plan.bottom_tree(), 46_205_942_818_546_481);
+        assert_eq!(plan.bottom_leaf(), 73);
+        assert_eq!(plan.tree_indices().len(), LAYERS);
+        assert_eq!(plan.leaf_indices().len(), LAYERS);
     }
 
     #[test]

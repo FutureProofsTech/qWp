@@ -131,11 +131,13 @@ QHS-4.2 is the compact stateless profile. It uses WOTS base-256
 (34 chains × 255 steps), a seven-layer height-56 hypertree, and 17 FORS trees.
 The signature is 14,344 bytes (≈21% smaller than QHS-4/4.1), the key remains
 68 bytes, and the security target remains 128-bit classical / ≥64-bit quantum
-for `q ≤ 2^20`. Signing is slower than QHS-4.1 because the WOTS chains are
-longer; the `qhs42-*` CLI uses the parallel tree path.
+for `q ≤ 2^20`. Measured keygen ≈0.30 s, sequential sign ≈2.08 s, parallel sign
+≈0.27 s, verify ≈3.97 ms. Signing is slower than QHS-4.1 because the WOTS chains
+are longer; the `qhs42-*` CLI uses the parallel tree path.
 
 QHS-4.2 is a new parameter set and format, not a profile of QHS-4/4.1. Its
-signatures and keys are version-separated by the `[5, 5, 56, 0]` header.
+signatures and keys are version-separated by the `[5, 5, 56, 0]` header. The
+QHS-4.2 1-hour soak passed with 56,556,913 iterations and 0 panics.
 
 QHS-4.2 does not replace QHS-1/2/3/3.1, QHS-4, or QHS-4.1. All versions remain
 available and version-separated.

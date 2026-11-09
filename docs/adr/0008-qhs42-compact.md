@@ -1,6 +1,6 @@
 # ADR-0008: QHS-4.2 Compact Stateless Profile
 
-**Status:** Accepted for implementation — proof-first design
+**Status:** Accepted and implemented — local evidence complete; 1-hour soak passed; `qhs42-rc1`
 
 **Date:** 2026-11-09
 

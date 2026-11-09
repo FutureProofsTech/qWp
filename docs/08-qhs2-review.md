@@ -76,7 +76,7 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 
 | Evidence | Result |
 |---|---|
-| Unit/integration tests | 205 tests pass workspace-wide (release; 146 at the QHS-2 review, before QHS-4/4.1/4.2) |
+| Unit/integration tests | 206 tests pass workspace-wide (release; 146 at the QHS-2 review, before QHS-4/4.1/4.2) |
 | Attack suite | 11/11 attack groups pass, including QHS-2, QHS-4.1, and QHS-4.2 (8/8 at the QHS-2 review, before QHS-4) |
 | Kani | 12 parser/bounds proofs pass, including 3 QHS-2 proofs |
 | Miri | `qwp-core` and `qwp-crypto` format tests pass |

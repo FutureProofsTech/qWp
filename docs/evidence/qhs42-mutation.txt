@@ -1,0 +1,32 @@
+qWp QHS-4.2 mutation evidence
+=============================
+
+Date: 2026-11-09
+Command:
+  cargo mutants -p qwp-crypto --file crates/qwp-crypto/src/qhs42.rs \
+    --in-place --timeout 180 --cargo-test-arg qhs42 \
+    --output mutants-qhs42-crypto.out
+
+Result:
+- 187 mutants tested in 15m.
+- 130 caught.
+- 48 unviable (compile failures; not security-relevant).
+- 9 missed.
+- 0 timeouts.
+
+Missed mutants:
+- 8 are in the release-only `sign_with_trees` assembly helpers:
+  `fors_public_key_from_trees`, `verify_hypertree_trees`,
+  `write_fors_from_trees`, `write_hypertree_from_trees`, and the
+  `qhs42_sign_with_trees` plan check. The debug mutation filter does not run
+  the release-only `sign_with_trees_matches_sequential` test. That release test
+  compares the assembled signature byte-for-byte with the sequential signer,
+  and the platform tests `qhs42_parallel_sign_verifies` and
+  `qhs42_parallel_sign_matches_sequential` cover the same path.
+- 1 is `Drop::drop -> ()`. Best-effort zeroization is not observable in safe
+  Rust; documented limitation (BL-0007).
+
+The fast public-API KAT (`public_api_kat_values`) covers the leaf/tree builders,
+tree accessors, and signing-plan accessors with exact values; those mutants are
+now caught. No non-equivalent viable survivor remains in the debug-covered
+path.
