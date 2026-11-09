@@ -17,6 +17,7 @@ name = "fuzz"
 path = "src/bin/fuzz.rs"
 
 [dependencies]
+qwp-classical = { path = "../qwp-classical" }
 qwp-core = { path = "../qwp-core" }
 qwp-crypto = { path = "../qwp-crypto" }
 qwp-hash = { path = "../qwp-hash" }

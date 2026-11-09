@@ -70,14 +70,15 @@ use qwp_crypto::{
     QHS2_PUBLIC_KEY_BYTES, QHS2_SIGNATURE_BYTES, QHS3_LEAF_COUNT, QHS3_PRIVATE_KEY_BYTES,
     QHS3_PUBLIC_KEY_BYTES, QHS3_SIGNATURE_BYTES, QHS3_TREE_NODES, QHS4_PRIVATE_KEY_BYTES,
     QHS4_PUBLIC_KEY_BYTES, QHS4_SIGNATURE_BYTES, QHS5_LEAF_BYTES, QHS5_LEAF_COUNT,
-    QHS5_PRIVATE_KEY_BYTES, QHS5_PUBLIC_KEY_BYTES, QHS5_SIGNATURE_BYTES, QHS42_PRIVATE_KEY_BYTES,
-    QHS42_PUBLIC_KEY_BYTES, QHS42_SIGNATURE_BYTES, Qhs2PrivateKey, Qhs2PublicKey, Qhs2Signature,
-    Qhs3PrivateKey, Qhs3PublicKey, Qhs3Signature, Qhs4PrivateKey, Qhs4PublicKey, Qhs4Signature,
-    Qhs5PrivateKey, Qhs5PublicKey, Qhs5Signature, Qhs42PrivateKey, Qhs42PublicKey, Qhs42Signature,
-    QhsPrivateKey, QhsPublicKey, QhsSignature, Signature, qhs_keygen, qhs_keygen_from_leaves,
-    qhs_leaves, qhs2_keygen, qhs2_keygen_from_leaves, qhs2_leaves, qhs3_auth_path_from_tree,
-    qhs3_build_tree, qhs3_keygen_from_leaves, qhs3_leaf, qhs4_keygen, qhs5_keygen_from_leaves,
-    qhs5_leaves, qhs42_keygen,
+    QHS5_PRIVATE_KEY_BYTES, QHS5_PUBLIC_KEY_BYTES, QHS5_SIGNATURE_BYTES, QHS6_PRIVATE_KEY_BYTES,
+    QHS6_PUBLIC_KEY_BYTES, QHS6_SIGNATURE_BYTES, QHS42_PRIVATE_KEY_BYTES, QHS42_PUBLIC_KEY_BYTES,
+    QHS42_SIGNATURE_BYTES, Qhs2PrivateKey, Qhs2PublicKey, Qhs2Signature, Qhs3PrivateKey,
+    Qhs3PublicKey, Qhs3Signature, Qhs4PrivateKey, Qhs4PublicKey, Qhs4Signature, Qhs5PrivateKey,
+    Qhs5PublicKey, Qhs5Signature, Qhs6PrivateKey, Qhs6PublicKey, Qhs6Signature, Qhs42PrivateKey,
+    Qhs42PublicKey, Qhs42Signature, QhsPrivateKey, QhsPublicKey, QhsSignature, Signature,
+    qhs_keygen, qhs_keygen_from_leaves, qhs_leaves, qhs2_keygen, qhs2_keygen_from_leaves,
+    qhs2_leaves, qhs3_auth_path_from_tree, qhs3_build_tree, qhs3_keygen_from_leaves, qhs3_leaf,
+    qhs4_keygen, qhs5_keygen_from_leaves, qhs5_leaves, qhs6_keygen_from_leaves, qhs42_keygen,
 };
 use qwp_hash::{Hasher, derive_key32, hash32};
 use qwp_platform::{
@@ -140,6 +141,14 @@ const QHS5_CACHE_LEAVES_START: usize = 36;
 const QHS5_CACHE_LEAVES_END: usize = QHS5_CACHE_LEAVES_START + QHS5_LEAF_COUNT * QHS5_LEAF_BYTES;
 const QHS5_CACHE_BYTES: usize = QHS5_CACHE_LEAVES_END + QHS_CACHE_MAC_BYTES;
 const QHS5_STATE_GUARD_MAC_CONTEXT: &[u8] = b"qWp QHS-5 key state guard";
+
+const QHS6_CACHE_HEADER: [u8; 4] = [7, 7, 8, 2];
+const QHS6_CACHE_FINGERPRINT_CONTEXT: &[u8] = b"qWp QHS-6 cache fingerprint";
+const QHS6_CACHE_MAC_CONTEXT: &[u8] = b"qWp QHS-6 cache mac";
+const QHS6_CACHE_LEAVES_START: usize = QHS5_CACHE_LEAVES_START;
+const QHS6_CACHE_LEAVES_END: usize = QHS5_CACHE_LEAVES_END;
+const QHS6_CACHE_BYTES: usize = QHS5_CACHE_BYTES;
+const QHS6_STATE_GUARD_MAC_CONTEXT: &[u8] = b"qWp QHS-6 key state guard";
 
 fn main() -> ExitCode {
     let arguments: Vec<String> = env::args().collect();
@@ -207,6 +216,10 @@ fn main() -> ExitCode {
         Some("qhs5-keygen") => run_qhs5_keygen(&arguments),
         Some("qhs5-sign") => run_qhs5_sign(&arguments),
         Some("qhs5-verify") => run_qhs5_verify(&arguments),
+        Some("qhs6-selftest") => run_named_selftest("qhs6-selftest", qhs6_selftest),
+        Some("qhs6-keygen") => run_qhs6_keygen(&arguments),
+        Some("qhs6-sign") => run_qhs6_sign(&arguments),
+        Some("qhs6-verify") => run_qhs6_verify(&arguments),
         Some("help") | None => {
             print_help();
             ExitCode::SUCCESS
@@ -258,6 +271,10 @@ fn print_help() {
     println!("  qhs5-keygen <pub> <key>         write QHS-5 keys and leaf cache");
     println!("  qhs5-sign <key> <message> <sig> stateful 512-bit signing");
     println!("  qhs5-verify <pub> <message> <sig> verify QHS-5 signature");
+    println!("  qhs6-selftest     run QHS-6 hybrid keygen/sign/verify");
+    println!("  qhs6-keygen <pub> <key>         write QHS-6 hybrid keys and leaf cache");
+    println!("  qhs6-sign <key> <message> <sig> QHS-5 + Ed25519 hybrid signing");
+    println!("  qhs6-verify <pub> <message> <sig> verify both hybrid signatures");
     println!("  help              show this help");
 }
 
@@ -1585,6 +1602,206 @@ fn run_qhs5_verify(arguments: &[String]) -> ExitCode {
     }
 }
 
+fn run_qhs6_keygen(arguments: &[String]) -> ExitCode {
+    let (Some(public_path), Some(private_path)) = (arguments.get(2), arguments.get(3)) else {
+        eprintln!("usage: qwp qhs6-keygen <public-key> <private-key>");
+        return ExitCode::from(2);
+    };
+    if Path::new(private_path).exists() {
+        eprintln!("qhs6-keygen: refusing to overwrite existing {private_path}");
+        return ExitCode::from(2);
+    }
+    let _lock_file = match lock_key(private_path) {
+        Ok(file) => file,
+        Err(error) => {
+            eprintln!("qhs6-keygen: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let mut seeds = [0_u8; 96];
+    if let Err(error) = HostEntropy::open().and_then(|mut entropy| entropy.fill(&mut seeds)) {
+        eprintln!("qhs6-keygen: {error}");
+        return ExitCode::from(3);
+    }
+    let mut qhs5_seed = [0_u8; 64];
+    qhs5_seed.copy_from_slice(&seeds[..64]);
+    let mut ed25519_seed = [0_u8; 32];
+    ed25519_seed.copy_from_slice(&seeds[64..]);
+    let leaves = match compute_leaves_for_cli_v5(&qhs5_seed) {
+        Ok(leaves) => leaves,
+        Err(error) => {
+            eprintln!("qhs6-keygen: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    match qhs6_keygen_from_leaves(&qhs5_seed, &ed25519_seed, &leaves) {
+        Ok((private_key, public_key)) => {
+            let key_bytes = private_key.to_bytes();
+            if let Err(error) = write_atomic(private_path, &key_bytes, true) {
+                eprintln!("qhs6-keygen: {error}");
+                return ExitCode::from(3);
+            }
+            if let Err(error) = write_atomic(public_path, &public_key.to_bytes(), false) {
+                eprintln!("qhs6-keygen: {error}");
+                return ExitCode::from(3);
+            }
+            if let Err(error) = write_qhs6_cache(private_path, &qhs5_seed, &leaves) {
+                eprintln!("qhs6-keygen: warning: cache not written: {error}");
+            }
+            if let Err(error) = write_qhs6_state_guard(private_path, &qhs5_seed, &key_bytes, 0) {
+                eprintln!("qhs6-keygen: warning: state guard not written: {error}");
+            }
+            println!("qhs6-keygen: wrote {public_path}, {private_path}, and cache");
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("qhs6-keygen: {error}");
+            ExitCode::from(3)
+        }
+    }
+}
+
+fn run_qhs6_sign(arguments: &[String]) -> ExitCode {
+    let (Some(private_path), Some(message_path), Some(signature_path)) =
+        (arguments.get(2), arguments.get(3), arguments.get(4))
+    else {
+        eprintln!("usage: qwp qhs6-sign <private-key> <message> <signature>");
+        return ExitCode::from(2);
+    };
+    let _lock_file = match lock_key(private_path) {
+        Ok(file) => file,
+        Err(error) => {
+            eprintln!("qhs6-sign: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let key_vec = match read_exact_file(private_path, QHS6_PRIVATE_KEY_BYTES) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("qhs6-sign: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let Ok(key_bytes) = <[u8; QHS6_PRIVATE_KEY_BYTES]>::try_from(key_vec.as_slice()) else {
+        eprintln!("qhs6-sign: invalid private key length");
+        return ExitCode::from(3);
+    };
+    let mut private_key = match Qhs6PrivateKey::from_bytes(&key_bytes) {
+        Ok(key) => key,
+        Err(error) => {
+            eprintln!("qhs6-sign: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    if private_key.is_exhausted() {
+        eprintln!("qhs6-sign: key exhausted");
+        return ExitCode::from(3);
+    }
+    let message = match fs::read(message_path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("qhs6-sign: {message_path}: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let seed = *private_key.qhs5_seed();
+    let state_key = private_key.to_bytes();
+    if let Err(error) =
+        check_qhs6_state_guard(private_path, &seed, &state_key, private_key.next_leaf())
+    {
+        eprintln!("qhs6-sign: {error}");
+        return ExitCode::from(3);
+    }
+    let leaves = match load_or_compute_leaves_v6(private_path, &seed) {
+        Ok(leaves) => leaves,
+        Err(error) => {
+            eprintln!("qhs6-sign: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let signature = match private_key.sign_with_leaves(&message, &leaves) {
+        Ok(signature) => signature,
+        Err(error) => {
+            eprintln!("qhs6-sign: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    if let Err(error) = write_atomic(private_path, &private_key.to_bytes(), true) {
+        eprintln!("qhs6-sign: {error}");
+        return ExitCode::from(3);
+    }
+    if let Err(error) =
+        update_qhs6_state_guard(private_path, &seed, &state_key, private_key.next_leaf())
+    {
+        eprintln!("qhs6-sign: {error}");
+        return ExitCode::from(3);
+    }
+    if let Err(error) = write_atomic(signature_path, &signature.to_bytes(), false) {
+        eprintln!("qhs6-sign: {error}");
+        return ExitCode::from(3);
+    }
+    println!("qhs6-sign: wrote {signature_path}");
+    ExitCode::SUCCESS
+}
+
+fn run_qhs6_verify(arguments: &[String]) -> ExitCode {
+    let (Some(public_path), Some(message_path), Some(signature_path)) =
+        (arguments.get(2), arguments.get(3), arguments.get(4))
+    else {
+        eprintln!("usage: qwp qhs6-verify <public-key> <message> <signature>");
+        return ExitCode::from(2);
+    };
+    let public_vec = match read_exact_file(public_path, QHS6_PUBLIC_KEY_BYTES) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("qhs6-verify: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let Ok(public_bytes) = <[u8; QHS6_PUBLIC_KEY_BYTES]>::try_from(public_vec.as_slice()) else {
+        eprintln!("qhs6-verify: invalid public key length");
+        return ExitCode::from(3);
+    };
+    let public_key = match Qhs6PublicKey::from_bytes(&public_bytes) {
+        Ok(key) => key,
+        Err(error) => {
+            eprintln!("qhs6-verify: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let signature_vec = match read_exact_file(signature_path, QHS6_SIGNATURE_BYTES) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("qhs6-verify: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let signature = match Qhs6Signature::from_slice(&signature_vec) {
+        Ok(signature) => signature,
+        Err(error) => {
+            eprintln!("qhs6-verify: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let message = match fs::read(message_path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("qhs6-verify: {message_path}: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    match public_key.verify(&message, &signature) {
+        Ok(()) => {
+            println!("qhs6-verify: ok");
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("qhs6-verify: {error}");
+            ExitCode::from(1)
+        }
+    }
+}
+
 fn lock_key(path: &str) -> Result<fs::File, String> {
     let lock_path = format!("{path}.lock");
     let file = OpenOptions::new()
@@ -2056,6 +2273,184 @@ fn update_qhs5_state_guard(
     write_qhs5_state_guard(private_path, seed, key_bytes, counter)
 }
 
+fn qhs6_cache_fingerprint(seed: &[u8; 64]) -> [u8; 32] {
+    derive_key32(QHS6_CACHE_FINGERPRINT_CONTEXT, seed).to_bytes()
+}
+
+fn qhs6_cache_mac(seed: &[u8; 64], body: &[u8]) -> [u8; 32] {
+    let key = derive_key32(QHS6_CACHE_MAC_CONTEXT, seed).to_bytes();
+    let mut hasher = Hasher::new_keyed(key);
+    hasher.update(body);
+    hasher.finalize().to_bytes()
+}
+
+fn load_or_compute_leaves_v6(
+    private_path: &str,
+    seed: &[u8; 64],
+) -> Result<[[u8; 64]; QHS5_LEAF_COUNT], String> {
+    let path = cache_path(private_path);
+    if let Some(leaves) = read_qhs6_cache(&path, seed) {
+        return Ok(leaves);
+    }
+    let leaves = compute_leaves_for_cli_v5(seed)?;
+    if let Err(error) = write_qhs6_cache(private_path, seed, &leaves) {
+        eprintln!("qhs6-sign: warning: cache not written: {error}");
+    }
+    Ok(leaves)
+}
+
+fn write_qhs6_cache(
+    private_path: &str,
+    seed: &[u8; 64],
+    leaves: &[[u8; 64]; QHS5_LEAF_COUNT],
+) -> Result<(), String> {
+    let mut bytes = vec![0_u8; QHS6_CACHE_BYTES];
+    if let Some(slot) = bytes.get_mut(0..QHS_CACHE_HEADER_BYTES) {
+        slot.copy_from_slice(&QHS6_CACHE_HEADER);
+    }
+    if let Some(slot) = bytes.get_mut(QHS_CACHE_FINGERPRINT_START..QHS_CACHE_FINGERPRINT_END) {
+        slot.copy_from_slice(&qhs6_cache_fingerprint(seed));
+    }
+    if let Some(slot) = bytes.get_mut(QHS6_CACHE_LEAVES_START..QHS6_CACHE_LEAVES_END) {
+        for (destination, source) in slot
+            .as_chunks_mut::<QHS5_LEAF_BYTES>()
+            .0
+            .iter_mut()
+            .zip(leaves.iter())
+        {
+            destination.copy_from_slice(source);
+        }
+    }
+    let body = bytes
+        .get(..QHS6_CACHE_LEAVES_END)
+        .ok_or_else(|| "cache layout".to_string())?;
+    let mac = qhs6_cache_mac(seed, body);
+    if let Some(slot) = bytes.get_mut(QHS6_CACHE_LEAVES_END..QHS6_CACHE_BYTES) {
+        slot.copy_from_slice(&mac);
+    }
+    write_atomic(&cache_path(private_path), &bytes, true)
+}
+
+fn read_qhs6_cache(path: &str, seed: &[u8; 64]) -> Option<[[u8; 64]; QHS5_LEAF_COUNT]> {
+    let file = fs::File::open(path).ok()?;
+    let limit = u64::try_from(QHS6_CACHE_BYTES).ok()?.saturating_add(1);
+    let mut bytes = Vec::with_capacity(QHS6_CACHE_BYTES.saturating_add(1));
+    let read = file.take(limit).read_to_end(&mut bytes).ok()?;
+    if read != QHS6_CACHE_BYTES {
+        return None;
+    }
+    if bytes.get(0..QHS_CACHE_HEADER_BYTES) != Some(QHS6_CACHE_HEADER.as_slice()) {
+        return None;
+    }
+    let expected_fingerprint = qhs6_cache_fingerprint(seed);
+    if bytes.get(QHS_CACHE_FINGERPRINT_START..QHS_CACHE_FINGERPRINT_END)?
+        != expected_fingerprint.as_slice()
+    {
+        return None;
+    }
+    let body = bytes.get(..QHS6_CACHE_LEAVES_END)?;
+    let expected_mac = qhs6_cache_mac(seed, body);
+    if bytes.get(QHS6_CACHE_LEAVES_END..QHS6_CACHE_BYTES)? != expected_mac.as_slice() {
+        return None;
+    }
+
+    let mut leaves = [[0_u8; 64]; QHS5_LEAF_COUNT];
+    for (destination, source) in leaves.iter_mut().zip(
+        bytes
+            .get(QHS6_CACHE_LEAVES_START..QHS6_CACHE_LEAVES_END)?
+            .as_chunks::<QHS5_LEAF_BYTES>()
+            .0
+            .iter(),
+    ) {
+        destination.copy_from_slice(source);
+    }
+    Some(leaves)
+}
+
+fn qhs6_state_guard_mac(seed: &[u8; 64], body: &[u8]) -> [u8; 32] {
+    let key = derive_key32(QHS6_STATE_GUARD_MAC_CONTEXT, seed).to_bytes();
+    let mut hasher = Hasher::new_keyed(key);
+    hasher.update(body);
+    hasher.finalize().to_bytes()
+}
+
+fn write_qhs6_state_guard(
+    private_path: &str,
+    seed: &[u8; 64],
+    key_bytes: &[u8],
+    counter: u16,
+) -> Result<(), String> {
+    let mut body = [0_u8; 6];
+    if let (Some(slot), Some(header)) = (body.get_mut(..4), key_bytes.get(..4)) {
+        slot.copy_from_slice(header);
+        if let Some(byte) = slot.get_mut(3) {
+            *byte = 0;
+        }
+    } else {
+        return Err("state guard layout".to_string());
+    }
+    if let Some(slot) = body.get_mut(4..6) {
+        slot.copy_from_slice(&counter.to_le_bytes());
+    }
+    let mac = qhs6_state_guard_mac(seed, &body);
+    let mut bytes = [0_u8; STATE_GUARD_BYTES];
+    let (header, tag) = bytes.split_at_mut(6);
+    header.copy_from_slice(&body);
+    tag.copy_from_slice(&mac);
+    write_atomic(&state_path(private_path), &bytes, true)
+}
+
+fn read_qhs6_state_guard(private_path: &str, seed: &[u8; 64]) -> Option<[u8; 6]> {
+    let bytes = read_exact_file(&state_path(private_path), STATE_GUARD_BYTES).ok()?;
+    let body = bytes.get(..6)?;
+    let expected = qhs6_state_guard_mac(seed, body);
+    if bytes.get(6..)? != expected.as_slice() {
+        return None;
+    }
+    let mut output = [0_u8; 6];
+    output.copy_from_slice(body);
+    Some(output)
+}
+
+fn check_qhs6_state_guard(
+    private_path: &str,
+    seed: &[u8; 64],
+    key_bytes: &[u8],
+    counter: u16,
+) -> Result<(), String> {
+    let Some(guard) = read_qhs6_state_guard(private_path, seed) else {
+        return write_qhs6_state_guard(private_path, seed, key_bytes, counter);
+    };
+    let Some(header) = key_bytes.get(..4) else {
+        return Err("state guard key layout".to_string());
+    };
+    if guard.get(..4) != Some(header) {
+        return Err("key state guard belongs to a different key".to_string());
+    }
+    let guard_counter = guard
+        .get(4..6)
+        .and_then(|bytes| <[u8; 2]>::try_from(bytes).ok())
+        .map_or(0, u16::from_le_bytes);
+    if guard_counter > counter {
+        return Err(format!(
+            "key state rollback detected: guard {guard_counter} > key {counter}"
+        ));
+    }
+    if guard_counter < counter {
+        write_qhs6_state_guard(private_path, seed, key_bytes, counter)?;
+    }
+    Ok(())
+}
+
+fn update_qhs6_state_guard(
+    private_path: &str,
+    seed: &[u8; 64],
+    key_bytes: &[u8],
+    counter: u16,
+) -> Result<(), String> {
+    write_qhs6_state_guard(private_path, seed, key_bytes, counter)
+}
+
 struct Qhs31Tree {
     leaves: Vec<[u8; 32]>,
     nodes: Vec<[u8; 32]>,
@@ -2346,6 +2741,27 @@ fn qhs5_selftest() -> bool {
     all_true(&[
         public_key.verify(b"qhs5-selftest", &signature).is_ok(),
         public_key.verify(b"qhs5-wrong", &signature).is_err(),
+        private_key.next_leaf() == 1,
+    ])
+}
+
+fn qhs6_selftest() -> bool {
+    let qhs5_seed = [7_u8; 64];
+    let ed25519_seed = [9_u8; 32];
+    let Ok(leaves) = compute_leaves_for_cli_v5(&qhs5_seed) else {
+        return false;
+    };
+    let Ok((mut private_key, public_key)) =
+        qhs6_keygen_from_leaves(&qhs5_seed, &ed25519_seed, &leaves)
+    else {
+        return false;
+    };
+    let Ok(signature) = private_key.sign_with_leaves(b"qhs6-selftest", &leaves) else {
+        return false;
+    };
+    all_true(&[
+        public_key.verify(b"qhs6-selftest", &signature).is_ok(),
+        public_key.verify(b"qhs6-wrong", &signature).is_err(),
         private_key.next_leaf() == 1,
     ])
 }

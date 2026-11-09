@@ -81,6 +81,11 @@
 | `qhs5_leaves_parallel` | `qwp-platform` | `qhs/qhs5.md` | `qwp-platform` tests | Survived — leaf equivalence + verify |
 | QHS-5 CLI `qhs5-*`, leaf cache, state guard | `qwp-cli` | `qhs/qhs5.md` | `qwp-cli` tests | Survived — cache/rollback/cross-version tests |
 | `qhs5_timing` | `qwp-bench` | `qhs/qhs5.md` | timing harness | Survived — \|t\| < 4.5 |
+| `qhs6_keygen` / `Qhs6PrivateKey::sign` / `Qhs6PublicKey::verify` | `qwp-crypto` | `qhs/qhs6.md` | `qwp-attacks/qhs6` | Attacked — RFC/KAT + attack + timing |
+| `Ed25519PrivateKey::sign` / `Ed25519PublicKey::verify` / SHA-512 | `qwp-classical` | `qhs/qhs6.md` | RFC 8032 + unit + timing | Attacked — vectors + tamper + timing |
+| QHS-6 transcript binding and hybrid parser | `qwp-crypto`, `qwp-cli` | `qhs/qhs6.md` | `qwp-attacks/qhs6`, CLI tests | Attacked — component mixing rejected |
+| QHS-6 CLI `qhs6-*`, leaf cache, state guard | `qwp-cli` | `qhs/qhs6.md` | `qwp-cli` tests | Attacked — cache/rollback/cross-version tests |
+| `qhs6_timing` | `qwp-bench` | `qhs/qhs6.md` | timing harness | Attacked — \|t\| < 4.5 |
 
 ## Status meanings
 

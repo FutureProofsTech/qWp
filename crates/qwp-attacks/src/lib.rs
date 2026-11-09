@@ -74,10 +74,11 @@ use std::path::Path;
 use qwp_core::{BRAID_BYTES, Braid, CryptoError, MAX_CROSSINGS, Polynomial};
 use qwp_crypto::{
     PrivateKey, PublicKey, QHS_MAX_SIGNATURES, QHS2_MAX_SIGNATURES, QHS3_MAX_SIGNATURES,
-    QHS4_SIGNATURE_BYTES, QHS5_MAX_SIGNATURES, Qhs2PrivateKey, Qhs2Signature, Qhs3PrivateKey,
-    Qhs3PublicKey, Qhs3Signature, Qhs4PublicKey, Qhs4Signature, Qhs5PrivateKey, Qhs5Signature,
-    Qhs42PublicKey, Qhs42Signature, QhsPrivateKey, QhsSignature, Signature, qhs_keygen,
-    qhs2_keygen, qhs3_keygen_from_leaves, qhs4_keygen, qhs5_keygen, qhs42_keygen,
+    QHS4_SIGNATURE_BYTES, QHS5_MAX_SIGNATURES, QHS6_SIGNATURE_BYTES, Qhs2PrivateKey, Qhs2Signature,
+    Qhs3PrivateKey, Qhs3PublicKey, Qhs3Signature, Qhs4PublicKey, Qhs4Signature, Qhs5PrivateKey,
+    Qhs5Signature, Qhs6PrivateKey, Qhs6Signature, Qhs42PublicKey, Qhs42Signature, QhsPrivateKey,
+    QhsSignature, Signature, qhs_keygen, qhs2_keygen, qhs3_keygen_from_leaves, qhs4_keygen,
+    qhs5_keygen, qhs6_keygen, qhs42_keygen,
 };
 use qwp_hash::hash32;
 use qwp_platform::{HostEntropy, qhs3_leaves_parallel, qhs4_sign_parallel, qhs42_sign_parallel};
@@ -151,6 +152,7 @@ pub fn run_all() -> AttackReport {
         attack_qhs41(),
         attack_qhs42(),
         attack_qhs5(),
+        attack_qhs6(),
     ];
     let passed = checks.iter().filter(|result| **result).count();
     let failed = checks.len().saturating_sub(passed);
@@ -713,12 +715,81 @@ pub fn attack_qhs5() -> bool {
         && ff_rejected
 }
 
+/// Attacks QHS-6 with wrong messages, component mixing, tampering, and exhaustion.
+#[must_use]
+#[inline]
+#[allow(
+    clippy::large_stack_arrays,
+    reason = "the fixed QHS-6 signature is 6,284 bytes"
+)]
+pub fn attack_qhs6() -> bool {
+    let qhs5_seed = [7_u8; 64];
+    let ed25519_seed = [9_u8; 32];
+    let Ok((mut private_key, public_key)) = qhs6_keygen(&qhs5_seed, &ed25519_seed) else {
+        return false;
+    };
+    let Ok(first) = private_key.sign(b"qhs6-attack-first") else {
+        return false;
+    };
+    let Ok(second) = private_key.sign(b"qhs6-attack-second") else {
+        return false;
+    };
+    let accepted = public_key.verify(b"qhs6-attack-first", &first).is_ok();
+    let wrong_message = public_key.verify(b"qhs6-attack-wrong", &first).is_err();
+    let counter_advanced = private_key.next_leaf() == 2;
+
+    let mixed_ed_rejected = match (
+        first.leaf_index(),
+        first.qhs5_signature(),
+        second.ed25519_signature(),
+    ) {
+        (Ok(leaf), Ok(qhs5), Ok(ed25519)) => Qhs6Signature::from_parts(leaf, qhs5, ed25519)
+            .is_ok_and(|signature| public_key.verify(b"qhs6-attack-first", &signature).is_err()),
+        _ => false,
+    };
+
+    let mut tampered_qhs5 = first.to_bytes();
+    tampered_qhs5[100] ^= 1;
+    let qhs5_rejected = Qhs6Signature::from_slice(&tampered_qhs5)
+        .is_ok_and(|signature| public_key.verify(b"qhs6-attack-first", &signature).is_err());
+    let mut tampered_ed = first.to_bytes();
+    tampered_ed[6_250] ^= 1;
+    let ed_rejected = Qhs6Signature::from_slice(&tampered_ed)
+        .is_ok_and(|signature| public_key.verify(b"qhs6-attack-first", &signature).is_err());
+
+    let zero_rejected = Qhs6Signature::from_slice(&[0_u8; QHS6_SIGNATURE_BYTES]).is_err();
+    let cross_version = Qhs5Signature::from_slice(&first.to_bytes()).is_err();
+
+    let Ok((_, other_public)) = qhs6_keygen(&[11_u8; 64], &[12_u8; 32]) else {
+        return false;
+    };
+    let wrong_key = other_public.verify(b"qhs6-attack-first", &first).is_err();
+
+    let mut key_bytes = private_key.to_bytes();
+    if let Some(slot) = key_bytes.get_mut(72..74) {
+        slot.copy_from_slice(&QHS5_MAX_SIGNATURES.to_le_bytes());
+    }
+    let exhausted_ok = Qhs6PrivateKey::from_bytes(&key_bytes)
+        .is_ok_and(|mut exhausted| exhausted.sign(b"message") == Err(CryptoError::KeyExhausted));
+
+    accepted
+        && wrong_message
+        && counter_advanced
+        && mixed_ed_rejected
+        && qhs5_rejected
+        && ed_rejected
+        && zero_rejected
+        && cross_version
+        && wrong_key
+        && exhausted_ok
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         attack_braid_parser, attack_entropy, attack_hash_vectors, attack_key_formats,
         attack_polynomial_round_trip, attack_qhs1, attack_qhs2, attack_qhs3, attack_qhs4,
-        attack_qhs5, attack_qhs41, attack_qhs42, audit, run_all,
+        attack_qhs5, attack_qhs6, attack_qhs41, attack_qhs42, audit, run_all,
     };
 
     #[test]
@@ -735,6 +806,7 @@ mod tests {
         assert!(attack_qhs41());
         assert!(attack_qhs42());
         assert!(attack_qhs5());
+        assert!(attack_qhs6());
         assert!(run_all().is_ok());
     }
 

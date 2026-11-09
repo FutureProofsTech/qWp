@@ -9,6 +9,7 @@ authors.workspace = true
 publish.workspace = true
 
 [dependencies]
+qwp-classical = { path = "../qwp-classical" }
 qwp-core = { path = "../qwp-core" }
 qwp-hash = { path = "../qwp-hash" }
 

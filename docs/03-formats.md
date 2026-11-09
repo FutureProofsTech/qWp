@@ -1,6 +1,6 @@
 # qWp Format Specification (Phase 0)
 
-**Status:** Foundation formats frozen; production signatures are QHS-1/2/3/3.1 (ADR-0002–0005), QHS-4 (ADR-0006), the QHS-4.1 fast-signing profile (ADR-0007, same QHS-4 formats), QHS-4.2 compact (ADR-0008), and QHS-5 512-bit (ADR-0009). The 160-byte container is legacy research v0.
+**Status:** Foundation formats frozen; production signatures are QHS-1/2/3/3.1 (ADR-0002–0005), QHS-4 (ADR-0006), the QHS-4.1 fast-signing profile (ADR-0007, same QHS-4 formats), QHS-4.2 compact (ADR-0008), QHS-5 512-bit (ADR-0009), and QHS-6 hybrid (ADR-0010). The 160-byte container is legacy research v0.
 
 **Rule:** Every format is versioned, canonical, fixed-size, and little-endian. No external crates.
 
@@ -175,6 +175,14 @@ It detects accidental corruption only; it is not authentication.
 | QHS-5 Merkle height | 8 |
 | QHS-5 leaf cache | 16,452 |
 | QHS-5 state guard | 38 |
+| `QHS6_PUBLIC_KEY_BYTES` | 108 |
+| `QHS6_PRIVATE_KEY_BYTES` | 108 |
+| `QHS6_SIGNATURE_BYTES` | 6,284 |
+| `QHS6_MAX_SIGNATURES` | 256 |
+| QHS-6 QHS-5 component | 72-byte key / 6,216-byte signature |
+| QHS-6 Ed25519 component | 32-byte key / 64-byte signature |
+| QHS-6 leaf cache | 16,452 |
+| QHS-6 state guard | 38 |
 
 ## 10. QHS production formats
 
@@ -688,10 +696,87 @@ greater than the key counter is treated as rollback and signing is refused.
 Restoring the key and guard together is not detectable without a hardware
 monotonic counter.
 
+### 10.35 QHS-6 public key (108 bytes)
+
+```
+offset  size  field
+0       1     version        // 7
+1       1     algorithm      // 7 = QHS-6
+2       1     height         // 8
+3       1     reserved       // 0
+4       72    QHS-5 public key
+76      32    Ed25519 public key
+```
+
+### 10.36 QHS-6 private key (108 bytes)
+
+```
+offset  size  field
+0       1     version        // 7
+1       1     algorithm      // 7
+2       1     height         // 8
+3       1     reserved       // 0
+4       72    QHS-5 private key
+76      32    Ed25519 seed
+```
+
+The QHS-5 private key carries the stateful counter at hybrid offset `72..74`.
+
+### 10.37 QHS-6 signature (6,284 bytes)
+
+```
+offset   size    field
+0        1       version        // 7
+1        1       algorithm      // 7 = QHS-6
+2        2       leaf_index     // little-endian, 0..=255
+4        6216    QHS-5 signature
+6220     64      Ed25519 signature
+```
+
+Canonical rules:
+
+- Header is exactly `[7, 7, leaf_index LE]`.
+- The hybrid leaf index equals the QHS-5 signature leaf index.
+- The QHS-5 component is exactly 6,216 bytes.
+- The Ed25519 component is exactly 64 bytes.
+- No non-canonical trailing data.
+
+### 10.38 QHS-6 transcript
+
+Both components sign
+
+```
+T = H64_ctx("qWp QHS-6 transcript", QHS-5 public key || Ed25519 public key || message)
+```
+
+`H64_ctx` is the 512-bit derive-key mode from QHS-5. The transcript binds both
+public keys and the message, preventing component mixing.
+
+### 10.39 QHS-6 leaf cache (16,452 bytes, optional)
+
+Same layout as the QHS-5 leaf cache, with:
+
+```
+header:      [7, 7, 8, 2]
+fingerprint: H32_ctx("qWp QHS-6 cache fingerprint", QHS-5 seed)
+mac key:     H32_ctx("qWp QHS-6 cache mac", QHS-5 seed)
+leaves:      256 × 64
+```
+
+### 10.40 QHS-6 state guard (38 bytes, optional)
+
+Same layout as the QHS-5 state guard, with:
+
+```
+header:  [7, 7, 8, 0]
+mac key: H32_ctx("qWp QHS-6 key state guard", QHS-5 seed)
+```
+
 ## 11. Open items
 
 No open production format items. QHS-1, QHS-2, QHS-3, QHS-3.1, QHS-4, the
 QHS-4.1 fast-signing profile (same QHS-4 formats), QHS-4.2 compact, QHS-5
-512-bit, the QHS-3.1 tree cache, the QHS-5 leaf cache, and the key state guard
-are frozen and version-separated. The legacy 160-byte v0 container remains
-research-only and is not used for production signing or verification.
+512-bit, QHS-6 hybrid, the QHS-3.1 tree cache, the QHS-5/QHS-6 leaf caches, and
+the key state guard are frozen and version-separated. The legacy 160-byte v0
+container remains research-only and is not used for production signing or
+verification.

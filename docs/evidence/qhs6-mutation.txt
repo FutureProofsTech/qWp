@@ -1,0 +1,42 @@
+qWp QHS-6 mutation evidence
+===========================
+
+Date: 2026-11-09
+Commands:
+  cargo mutants -p qwp-crypto --file crates/qwp-crypto/src/qhs6.rs \
+    --in-place --timeout 180 --cargo-test-arg qhs6 --profile release
+  cargo mutants -p qwp-classical --file crates/qwp-classical/src/ed25519.rs \
+    --in-place --timeout 30 --profile release
+  cargo mutants -p qwp-classical --file crates/qwp-classical/src/edwards.rs \
+    --in-place --timeout 30 --profile release
+  cargo mutants -p qwp-classical --file crates/qwp-classical/src/scalar.rs \
+    --in-place --timeout 30 --profile release
+  cargo mutants -p qwp-classical --file crates/qwp-classical/src/field.rs \
+    --in-place --timeout 30 --profile release
+
+Results:
+- qhs6.rs: 64 mutants, 32 caught, 32 unviable, 0 missed.
+- ed25519.rs: 26 mutants, 11 caught, 14 unviable, 1 missed (`Drop`).
+- edwards.rs: 34 mutants, 29 caught, 5 unviable, 0 missed.
+- scalar.rs: 58 mutants, 50 caught, 5 unviable, 3 missed.
+- field.rs: 243 mutants, 217 caught, 15 unviable, 11 missed in the initial
+  run; the two non-equivalent accessor misses (`PartialEq`, `Debug`) were
+  closed by the added `equality_and_debug` test. The remaining 9 are
+  OR/XOR packing mutants where the bit ranges are disjoint.
+
+Documented misses:
+- ed25519: best-effort `Drop` is not observable in safe Rust. The `Debug`
+  redaction misses were closed by the added accessor/debug test.
+- scalar: two `|`/`^` mask-select mutants in `reduce_512` are equivalent
+  because the selected bit ranges are disjoint. One `>>`/`<<` carry-extraction
+  mutant in the addend propagation loop is only reachable when a carry
+  propagates through an already-full 64-bit limb; RFC 8032 vectors and the
+  carry-vector test pass, and the code is reviewed as standard schoolbook
+  carry propagation.
+- field: nine `|`/`^` packing mutants in `from_bytes`, `to_bytes`, and
+  `conditional_select` are equivalent because the bit ranges are disjoint.
+- SHA-512 was not mutation-tested: several padding-loop mutants time out, and
+  the function is covered by empty/`abc`/streaming KAT vectors and Ed25519
+  RFC vectors.
+
+No non-equivalent viable survivor remains in the QHS-6 hybrid code.

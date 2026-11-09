@@ -1,0 +1,19 @@
+qWp QHS-6 Kani evidence
+=======================
+
+Date: 2026-11-09
+Command:
+  cargo kani -p qwp-verify \
+    --harness qhs6_private_key_parse_never_panics \
+    --harness qhs6_signature_from_slice_checks_length \
+    --harness ed25519_signature_from_slice_checks_length
+
+Result:
+Manual Harness Summary:
+Complete - 3 successfully verified harnesses, 0 failures, 3 total.
+
+Notes:
+- The QHS-6 public-key parser decodes an Ed25519 point. CBMC runs out of memory
+  on that harness, so it is covered by RFC 8032 vectors and fuzz instead.
+- The QHS-6 private-key parser and hybrid/Ed25519 signature length checks are
+  verified.

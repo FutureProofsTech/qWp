@@ -1,0 +1,21 @@
+qWp QHS-6 timing evidence
+=========================
+
+Date: 2026-11-09
+Command: cargo run -q -p qwp-bench --release --bin qhs6_timing
+
+Result:
+qhs6-keygen-parallel: mean_a=86487006ns mean_b=85767719ns t=0.548
+qhs6-sign-cached:     mean_a=2060354ns mean_b=1984779ns t=2.134
+qhs6-verify: mean=1470081ns/op
+ed25519-keygen: mean_a=124939ns mean_b=125028ns t=-0.541
+ed25519-sign:   mean_a=257189ns mean_b=257212ns t=-0.055
+ed25519-verify: mean=258359ns/op
+timing: ok (threshold |t| < 4.5)
+
+Interpretation:
+- Hybrid parallel keygen ≈0.086 s.
+- Hybrid cached-leaf sign ≈2.0 ms; verify ≈1.5 ms.
+- Ed25519 keygen ≈0.125 ms; sign ≈0.257 ms; verify ≈0.258 ms.
+- Seed A/B samples are interleaved for the secret-dependent Ed25519 sign test.
+- Signature size: 6,284 bytes; keys: 108 bytes; cache: 16,452 bytes.

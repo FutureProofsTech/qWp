@@ -28,7 +28,7 @@ The version family is organized around six axes:
 | **QHS-4.1** | QHS-4 + parallel trees | No | ≤2^20 at 128-bit target | 18,216 B | ≈0.10 s | **≈0.11 s** | ≈1.6 ms | stateless signing with fast sign |
 | **QHS-4.2** | compact WOTS/FORS/hypertree | No | ≤2^20 at 128-bit target | **14,344 B** | ≈0.30 s | ≈0.27 s | ≈4.0 ms | compact stateless signatures |
 | **QHS-5** | 512-bit hash, 89×63 WOTS, h=8 | Yes | 256 | **6,216 B** | ≈0.09 s parallel / ≈0.61 s sequential | **≈1.5 ms cached** / ≈0.62 s uncached | ≈1.2 ms | 256-bit classical / ~128-bit quantum margin |
-| QHS-6 (planned) | QHS + classical hybrid | Yes | 256 | QHS + classical | QHS + classical | QHS + classical | QHS + classical | migration/compliance |
+| **QHS-6** | QHS-5 + Ed25519 hybrid | Yes | 256 | **6,284 B** | ≈0.09 s parallel | **≈2.0 ms cached** | ≈1.5 ms | migration/classical hybrid |
 | QHS-E | QHS verifier profile | n/a | n/a | QHS-1/2/3/3.1 | n/a | n/a | same | bootloader/MCU verifier |
 
 ## 3. Decision guide
@@ -168,9 +168,32 @@ signature length. QHS-5 does not replace QHS-1/2/3/3.1/4/4.1/4.2.
 
 This requires a 64-byte hash mode and a new proof/format version.
 
-## 7. QHS-6: classical hybrid (planned)
+## 7. QHS-6: classical hybrid
 
-A hybrid would carry both a QHS signature and a classical signature (for example Ed25519 or RSA). Verification accepts only if both verify. This provides migration safety but requires a classical implementation and a new hybrid proof. It is not part of the zero-dependency hash-only core unless the classical primitive is also in-tree.
+QHS-6 carries both a QHS-5 signature and an Ed25519 signature. Both sign the
+same key-and-message transcript, and verification accepts only if both verify.
+This provides migration/classical-hybrid safety while retaining QHS-5's
+~128-bit quantum margin if Ed25519 is broken.
+
+| Parameter | QHS-6 |
+|---|---:|
+| QHS-5 component | 72-byte key / 6,216-byte signature |
+| Ed25519 component | 32-byte key / 64-byte signature |
+| Public key | 108 B |
+| Private key | 108 B |
+| Signature | **6,284 B** |
+| Header | `[7, 7, 8, 0]` keys; `[7, 7, leaf LE]` signatures |
+| Signatures/key | 256 |
+| Cache / state guard | 16,452 B / 38 B |
+
+The transcript is
+`H64_ctx("qWp QHS-6 transcript", QHS-5 public key || Ed25519 public key || message)`.
+A hybrid forgery must break both components (or find a transcript collision), so
+the hybrid is secure if **either** component is secure. The in-tree Ed25519
+implementation follows RFC 8032 and is tested against its vectors.
+
+Measured: parallel keygen ≈0.09 s, cached hybrid sign ≈2.0 ms, verify ≈1.5 ms;
+Ed25519 keygen ≈0.125 ms, sign ≈0.257 ms, verify ≈0.258 ms.
 
 ## 8. QHS-E: embedded verifier profile
 

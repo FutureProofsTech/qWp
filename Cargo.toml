@@ -3,6 +3,7 @@ members = [
     "crates/qwp-core",
     "crates/qwp-crypto",
     "crates/qwp-hash",
+    "crates/qwp-classical",
     "crates/qwp-platform",
     "crates/qwp-cli",
     "crates/qwp-attacks",

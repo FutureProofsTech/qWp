@@ -16,10 +16,18 @@ dependencies = [
 name = "qwp-bench"
 version = "0.1.0"
 dependencies = [
+ "qwp-classical",
  "qwp-core",
  "qwp-crypto",
  "qwp-hash",
  "qwp-platform",
+]
+
+[[package]]
+name = "qwp-classical"
+version = "0.1.0"
+dependencies = [
+ "qwp-core",
 ]
 
 [[package]]
@@ -40,6 +48,7 @@ version = "0.1.0"
 name = "qwp-crypto"
 version = "0.1.0"
 dependencies = [
+ "qwp-classical",
  "qwp-core",
  "qwp-hash",
 ]
@@ -60,6 +69,7 @@ dependencies = [
 name = "qwp-tests"
 version = "0.1.0"
 dependencies = [
+ "qwp-classical",
  "qwp-core",
  "qwp-crypto",
  "qwp-hash",
@@ -70,6 +80,7 @@ dependencies = [
 name = "qwp-verify"
 version = "0.1.0"
 dependencies = [
+ "qwp-classical",
  "qwp-core",
  "qwp-crypto",
 ]

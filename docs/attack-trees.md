@@ -2,7 +2,7 @@
 
 **Rule:** Every critical asset has an attack tree; every leaf maps to an abuse case, attack harness, and gap if unresolved.
 
-**Scope:** §1–§6 cover the legacy braid research path. §7–§14 cover the production QHS-1/2/3/3.1/4, QHS-4.1, QHS-4.2, and QHS-5 signatures.
+**Scope:** §1–§6 cover the legacy braid research path. §7–§15 cover the production QHS-1/2/3/3.1/4, QHS-4.1, QHS-4.2, QHS-5, and QHS-6 signatures.
 
 ## 1. Signature forgery
 
@@ -198,4 +198,22 @@ Forge QHS-5
 ├── Cross-version with QHS-1/2/3/4/4.2           [header [6,6,8,0]; 6,216-byte length]
 ├── Cache corruption / foreign cache             [fingerprint + keyed MAC; recompute]
 └── Timing/fault/DoS                             [Welch |t| < 4.5; cached-leaf signing]
+```
+
+## 15. QHS-6 QHS-5 + Ed25519 hybrid
+
+```
+Forge QHS-6
+├── Mix QHS-5 and Ed25519 components              [transcript binds both keys + message]
+├── Break QHS-5 component                         [256-bit classical / ~128-bit quantum]
+├── Break Ed25519 component                       [~128-bit classical; quantum-broken]
+├── Break both components                         [required for a hybrid forgery]
+├── Transcript collision                          [~2^256 classical / ~2^128 quantum]
+├── Tamper QHS-5 or Ed25519 component             [attack suite; Kani length proofs]
+├── Non-canonical Ed25519 S / invalid point       [strict S < L; canonical decode]
+├── Small-order Ed25519 point                     [rejected by parser/verifier]
+├── Leaf reuse / counter rollback                 [state guard; guard > key refused]
+├── Cache corruption / foreign cache              [fingerprint + keyed MAC; recompute]
+├── Cross-version with QHS-5 / Ed25519-only       [header [7,7,8,0]; 6,284-byte length]
+└── Timing/fault/DoS                              [Welch |t| < 4.5]
 ```

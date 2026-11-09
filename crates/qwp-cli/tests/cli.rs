@@ -71,6 +71,9 @@ fn version_help_and_selftests() {
     assert!(help_text.contains("qhs5-keygen"));
     assert!(help_text.contains("qhs5-sign"));
     assert!(help_text.contains("qhs5-verify"));
+    assert!(help_text.contains("qhs6-keygen"));
+    assert!(help_text.contains("qhs6-sign"));
+    assert!(help_text.contains("qhs6-verify"));
 
     assert!(run(&["selftest"]).status.success());
     assert!(run(&["qhs-selftest"]).status.success());
@@ -81,6 +84,7 @@ fn version_help_and_selftests() {
     assert!(run(&["qhs41-selftest"]).status.success());
     assert!(run(&["qhs42-selftest"]).status.success());
     assert!(run(&["qhs5-selftest"]).status.success());
+    assert!(run(&["qhs6-selftest"]).status.success());
 }
 
 #[test]
@@ -128,6 +132,9 @@ fn hash_entropy_and_usage_errors() {
     assert!(!run(&["qhs5-keygen"]).status.success());
     assert!(!run(&["qhs5-sign"]).status.success());
     assert!(!run(&["qhs5-verify"]).status.success());
+    assert!(!run(&["qhs6-keygen"]).status.success());
+    assert!(!run(&["qhs6-sign"]).status.success());
+    assert!(!run(&["qhs6-verify"]).status.success());
     assert!(!run(&["unknown"]).status.success());
 }
 
@@ -516,6 +523,146 @@ fn qhs5_keygen_sign_verify_cache_and_rollback() {
     fs::write(&private, &exhausted).unwrap();
     assert!(
         !run(&["qhs5-sign", &private_text, &message_text, &signature_text])
+            .status
+            .success()
+    );
+
+    let _ = fs::remove_dir_all(&directory);
+}
+
+#[test]
+fn qhs6_keygen_sign_verify_cache_and_rollback() {
+    let directory = workspace();
+    let public = directory.join("public.key");
+    let private = directory.join("private.key");
+    let message = directory.join("message.txt");
+    let signature = directory.join("message.sig");
+    fs::write(&message, b"qWp QHS-6 CLI integration message\n").unwrap();
+
+    let public_text = public.to_string_lossy().to_string();
+    let private_text = private.to_string_lossy().to_string();
+    let message_text = message.to_string_lossy().to_string();
+    let signature_text = signature.to_string_lossy().to_string();
+
+    let keygen = run(&["qhs6-keygen", &public_text, &private_text]);
+    assert!(keygen.status.success(), "{keygen:?}");
+    assert_eq!(fs::metadata(&public).unwrap().len(), 108);
+    assert_eq!(fs::metadata(&private).unwrap().len(), 108);
+    assert_eq!(&fs::read(&public).unwrap()[..4], &[7, 7, 8, 0]);
+    let key_bytes = fs::read(&private).unwrap();
+    assert_eq!(&key_bytes[..4], &[7, 7, 8, 0]);
+    assert_eq!(&key_bytes[72..74], &0_u16.to_le_bytes());
+
+    let cache = directory.join("private.key.cache");
+    let state = directory.join("private.key.state");
+    assert_eq!(fs::metadata(&cache).unwrap().len(), 16_452);
+    assert_eq!(fs::metadata(&state).unwrap().len(), 38);
+    let cache_bytes = fs::read(&cache).unwrap();
+    assert_eq!(&cache_bytes[..4], &[7, 7, 8, 2]);
+    let state_bytes = fs::read(&state).unwrap();
+    assert_eq!(&state_bytes[..4], &[7, 7, 8, 0]);
+    assert_eq!(&state_bytes[4..6], &0_u16.to_le_bytes());
+
+    let mut seed = [0_u8; 64];
+    seed.copy_from_slice(&key_bytes[8..72]);
+    let expected_fingerprint = derive_key32(b"qWp QHS-6 cache fingerprint", &seed).to_bytes();
+    assert_eq!(&cache_bytes[4..36], &expected_fingerprint);
+    let expected_state_mac = cache_mac64(&seed, b"qWp QHS-6 key state guard", &state_bytes[..6]);
+    assert_eq!(&state_bytes[6..38], &expected_state_mac);
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        for path in [&private, &cache, &state] {
+            let mode = fs::metadata(path).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600);
+        }
+    }
+
+    let old_time =
+        std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000);
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&cache)
+        .unwrap()
+        .set_times(fs::FileTimes::new().set_modified(old_time))
+        .unwrap();
+
+    let sign = run(&["qhs6-sign", &private_text, &message_text, &signature_text]);
+    assert!(sign.status.success(), "{sign:?}");
+    assert_eq!(fs::metadata(&signature).unwrap().len(), 6_284);
+    let signature_bytes = fs::read(&signature).unwrap();
+    assert_eq!(&signature_bytes[..4], &[7, 7, 0, 0]);
+    assert_eq!(fs::metadata(&cache).unwrap().modified().unwrap(), old_time);
+    let key_after_first = fs::read(&private).unwrap();
+    let state_after_first = fs::read(&state).unwrap();
+    assert_eq!(&key_after_first[72..74], &1_u16.to_le_bytes());
+    assert_eq!(&state_after_first[4..6], &1_u16.to_le_bytes());
+    assert!(
+        run(&["qhs6-verify", &public_text, &message_text, &signature_text])
+            .status
+            .success()
+    );
+
+    let sign_again = run(&["qhs6-sign", &private_text, &message_text, &signature_text]);
+    assert!(sign_again.status.success(), "{sign_again:?}");
+    assert_eq!(&fs::read(&signature).unwrap()[..4], &[7, 7, 1, 0]);
+    assert_eq!(&fs::read(&private).unwrap()[72..74], &2_u16.to_le_bytes());
+    assert_eq!(&fs::read(&state).unwrap()[4..6], &2_u16.to_le_bytes());
+    assert!(
+        run(&["qhs6-verify", &public_text, &message_text, &signature_text])
+            .status
+            .success()
+    );
+
+    let mut rolled_back = key_after_first.clone();
+    rolled_back[72..74].copy_from_slice(&1_u16.to_le_bytes());
+    fs::write(&private, &rolled_back).unwrap();
+    let rollback = run(&["qhs6-sign", &private_text, &message_text, &signature_text]);
+    assert!(!rollback.status.success());
+    assert!(String::from_utf8_lossy(&rollback.stderr).contains("rollback"));
+    fs::write(&private, &key_after_first).unwrap();
+    fs::write(&state, &state_after_first).unwrap();
+
+    fs::write(&cache, b"corrupt cache").unwrap();
+    let cache_recovery = run(&["qhs6-sign", &private_text, &message_text, &signature_text]);
+    assert!(cache_recovery.status.success(), "{cache_recovery:?}");
+    assert_eq!(fs::metadata(&cache).unwrap().len(), 16_452);
+    assert!(
+        run(&["qhs6-verify", &public_text, &message_text, &signature_text])
+            .status
+            .success()
+    );
+
+    let mut tampered = fs::read(&signature).unwrap();
+    tampered[100] ^= 1;
+    fs::write(&signature, &tampered).unwrap();
+    assert!(
+        !run(&["qhs6-verify", &public_text, &message_text, &signature_text])
+            .status
+            .success()
+    );
+
+    fs::write(&message, b"wrong message\n").unwrap();
+    assert!(
+        !run(&["qhs6-verify", &public_text, &message_text, &signature_text])
+            .status
+            .success()
+    );
+    assert!(
+        !run(&["qhs5-verify", &public_text, &message_text, &signature_text])
+            .status
+            .success()
+    );
+
+    let overwrite = run(&["qhs6-keygen", &public_text, &private_text]);
+    assert!(!overwrite.status.success());
+
+    let mut exhausted = fs::read(&private).unwrap();
+    exhausted[72..74].copy_from_slice(&256_u16.to_le_bytes());
+    fs::write(&private, &exhausted).unwrap();
+    assert!(
+        !run(&["qhs6-sign", &private_text, &message_text, &signature_text])
             .status
             .success()
     );

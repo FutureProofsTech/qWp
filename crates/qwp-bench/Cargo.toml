@@ -17,6 +17,7 @@ name = "qwp-timing"
 path = "src/bin/timing.rs"
 
 [dependencies]
+qwp-classical = { path = "../qwp-classical" }
 qwp-core = { path = "../qwp-core" }
 qwp-crypto = { path = "../qwp-crypto" }
 qwp-hash = { path = "../qwp-hash" }

@@ -8,18 +8,20 @@
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::time::{Duration, Instant};
 
+use qwp_classical::{Ed25519PrivateKey, Ed25519Signature};
 use qwp_core::{BRAID_BYTES, Braid, PUBLIC_KEY_BYTES, Polynomial};
 use qwp_crypto::{
     QHS_PRIVATE_KEY_BYTES, QHS_PUBLIC_KEY_BYTES, QHS_SIGNATURE_BYTES, QHS2_PRIVATE_KEY_BYTES,
     QHS2_PUBLIC_KEY_BYTES, QHS2_SIGNATURE_BYTES, QHS3_PRIVATE_KEY_BYTES, QHS3_PUBLIC_KEY_BYTES,
     QHS3_SIGNATURE_BYTES, QHS3_TREE_NODES, QHS4_PRIVATE_KEY_BYTES, QHS4_PUBLIC_KEY_BYTES,
     QHS4_SIGNATURE_BYTES, QHS5_PRIVATE_KEY_BYTES, QHS5_PUBLIC_KEY_BYTES, QHS5_SIGNATURE_BYTES,
-    QHS42_PRIVATE_KEY_BYTES, QHS42_PUBLIC_KEY_BYTES, QHS42_SIGNATURE_BYTES, Qhs2PrivateKey,
-    Qhs2PublicKey, Qhs2Signature, Qhs3PrivateKey, Qhs3PublicKey, Qhs3Signature, Qhs4PrivateKey,
-    Qhs4PublicKey, Qhs4Signature, Qhs5PrivateKey, Qhs5PublicKey, Qhs5Signature, Qhs42PrivateKey,
-    Qhs42PublicKey, Qhs42Signature, QhsPrivateKey, QhsPublicKey, QhsSignature, qhs_keygen,
-    qhs2_keygen, qhs3_auth_path_from_tree, qhs3_build_tree, qhs3_keygen_from_leaves, qhs4_keygen,
-    qhs5_keygen, qhs42_keygen,
+    QHS6_PRIVATE_KEY_BYTES, QHS6_PUBLIC_KEY_BYTES, QHS6_SIGNATURE_BYTES, QHS42_PRIVATE_KEY_BYTES,
+    QHS42_PUBLIC_KEY_BYTES, QHS42_SIGNATURE_BYTES, Qhs2PrivateKey, Qhs2PublicKey, Qhs2Signature,
+    Qhs3PrivateKey, Qhs3PublicKey, Qhs3Signature, Qhs4PrivateKey, Qhs4PublicKey, Qhs4Signature,
+    Qhs5PrivateKey, Qhs5PublicKey, Qhs5Signature, Qhs6PrivateKey, Qhs6PublicKey, Qhs6Signature,
+    Qhs42PrivateKey, Qhs42PublicKey, Qhs42Signature, QhsPrivateKey, QhsPublicKey, QhsSignature,
+    qhs_keygen, qhs2_keygen, qhs3_auth_path_from_tree, qhs3_build_tree, qhs3_keygen_from_leaves,
+    qhs4_keygen, qhs5_keygen, qhs6_keygen, qhs42_keygen,
 };
 use qwp_platform::{qhs3_leaves_parallel, qhs4_sign_parallel, qhs42_sign_parallel};
 
@@ -313,6 +315,72 @@ fn main() {
             }
         }
     }
+    let qhs6_keys = if seconds >= 30 {
+        let qhs5_seed = [7_u8; 64];
+        let ed25519_seed = [9_u8; 32];
+        let Ok((mut private_key6, public_key6)) = qhs6_keygen(&qhs5_seed, &ed25519_seed) else {
+            eprintln!("fuzz: qhs6 keygen failed");
+            std::process::exit(2);
+        };
+        let Ok(valid_signature6) = private_key6.sign(b"fuzz-seed-qhs6") else {
+            eprintln!("fuzz: qhs6 seed sign failed");
+            std::process::exit(2);
+        };
+        if public_key6
+            .verify(b"fuzz-seed-qhs6", &valid_signature6)
+            .is_err()
+        {
+            eprintln!("fuzz: qhs6 seed verify failed");
+            std::process::exit(2);
+        }
+        Some((private_key6, public_key6, valid_signature6))
+    } else {
+        None
+    };
+    let fallback_public6 = Qhs6PublicKey::from_parts(
+        Qhs5PublicKey::from_root([0_u8; 64]),
+        Ed25519PrivateKey::from_seed([0_u8; 32]).public_key(),
+    );
+    let fallback_signature6 = match Qhs6Signature::from_parts(
+        0,
+        Qhs5Signature::from_bytes([0_u8; QHS5_SIGNATURE_BYTES]),
+        Ed25519Signature::from_bytes([0_u8; 64]),
+    ) {
+        Ok(signature) => signature,
+        Err(_) => {
+            eprintln!("fuzz: qhs6 fallback signature failed");
+            std::process::exit(2);
+        }
+    };
+    let (public_key6, valid_signature6) = qhs6_keys
+        .as_ref()
+        .map_or((&fallback_public6, &fallback_signature6), |keys| {
+            (&keys.1, &keys.2)
+        });
+    if let Some((private_key6, _, _)) = &qhs6_keys
+        && seconds >= 60
+    {
+        let mut private_key6 = match Qhs6PrivateKey::from_bytes(&private_key6.to_bytes()) {
+            Ok(key) => key,
+            Err(_) => {
+                eprintln!("fuzz: qhs6 key reparse failed");
+                std::process::exit(2);
+            }
+        };
+        for _ in 0..2 {
+            let length = usize::try_from(rng.next() % 257).unwrap_or(0);
+            let mut message = [0_u8; 256];
+            rng.fill(&mut message[..length]);
+            let Ok(signature) = private_key6.sign(&message[..length]) else {
+                eprintln!("fuzz: random qhs6 sign failed");
+                std::process::exit(2);
+            };
+            if public_key6.verify(&message[..length], &signature).is_err() {
+                eprintln!("fuzz: random qhs6 verify failed");
+                std::process::exit(2);
+            }
+        }
+    }
     random_rounds(&mut rng);
 
     let mut iterations: u64 = 0;
@@ -417,6 +485,32 @@ fn main() {
             let short_length5 = usize::try_from(rng.next() % signature_limit5).unwrap_or(0);
             let _ = Qhs5Signature::from_slice(&signature5.as_bytes()[..short_length5]);
 
+            let mut public_bytes6 = [0_u8; QHS6_PUBLIC_KEY_BYTES];
+            rng.fill(&mut public_bytes6);
+            let _ = Qhs6PublicKey::from_bytes(&public_bytes6);
+
+            let mut private_bytes6 = [0_u8; QHS6_PRIVATE_KEY_BYTES];
+            rng.fill(&mut private_bytes6);
+            let _ = Qhs6PrivateKey::from_bytes(&private_bytes6);
+
+            let mut signature_bytes6 = [0_u8; QHS6_SIGNATURE_BYTES];
+            rng.fill(&mut signature_bytes6);
+            let signature6 = match Qhs6Signature::from_slice(&signature_bytes6) {
+                Ok(signature) => signature,
+                Err(_) => match Qhs6Signature::from_parts(
+                    0,
+                    Qhs5Signature::from_bytes([0_u8; QHS5_SIGNATURE_BYTES]),
+                    Ed25519Signature::from_bytes([0_u8; 64]),
+                ) {
+                    Ok(signature) => signature,
+                    Err(_) => fallback_signature6,
+                },
+            };
+            let signature_limit6 =
+                u64::try_from(QHS6_SIGNATURE_BYTES.saturating_add(1)).unwrap_or(u64::MAX);
+            let short_length6 = usize::try_from(rng.next() % signature_limit6).unwrap_or(0);
+            let _ = Qhs6Signature::from_slice(&signature6.as_bytes()[..short_length6]);
+
             let length = usize::try_from(rng.next() % 257).unwrap_or(0);
             let mut message = [0_u8; 256];
             rng.fill(&mut message[..length]);
@@ -427,10 +521,12 @@ fn main() {
             let _ = public_key4.verify(message, &signature4);
             let _ = public_key42.verify(message, &signature42);
             let _ = public_key5.verify(message, &signature5);
+            let _ = public_key6.verify(message, &signature6);
             if iterations.is_multiple_of(1_000) {
                 let _ = public_key4.verify(b"fuzz-seed-qhs4", valid_signature4);
                 let _ = public_key42.verify(b"fuzz-seed-qhs42", valid_signature42);
                 let _ = public_key5.verify(b"fuzz-seed-qhs5", valid_signature5);
+                let _ = public_key6.verify(b"fuzz-seed-qhs6", valid_signature6);
             }
         }));
         if result.is_err() {

@@ -1,0 +1,41 @@
+qWp QHS-6 coverage evidence
+===========================
+
+Date: 2026-11-09
+Commands:
+  cargo llvm-cov --release -p qwp-crypto --lib --summary-only
+  cargo llvm-cov --release -p qwp-classical --summary-only
+
+QHS-6 hybrid (`qhs6.rs`):
+- 99.25% lines (399 lines, 3 missed); 95.08% regions; 100% functions.
+- The three missed lines are defensive fixed-layout branches: two component
+  length `?` branches that cannot fail after the exact-length parse, and the
+  redundant Ed25519-component re-comparison.
+
+Ed25519/SHA-512 (`qwp-classical`):
+- ed25519.rs: 99.56% lines; 100% functions.
+- edwards.rs: 99.28% lines; 100% functions.
+- field.rs: 100% lines; 100% functions.
+- scalar.rs: 100% lines; 100% functions.
+- sha512.rs: 98.75% lines; 100% functions.
+- Total: 99.66% lines; 100% functions.
+
+Raw qwp-crypto summary:
+Filename                      Regions    Missed Regions     Cover   Functions  Missed Functions     Executed       Lines      Missed Lines     Cover
+format.rs                         175                 0   100.00%          24                 0   100.00%         104                 0   100.00%
+qhs.rs                           1288                67    94.80%          59                 1    98.31%         602                 6    99.00%
+qhs2.rs                          1305                66    94.94%          60                 1    98.33%         611                 7    98.85%
+qhs3.rs                          1762                79    95.52%          77                 0   100.00%         841                 7    99.17%
+qhs4.rs                          2511               119    95.26%         102                 0   100.00%        1386                10    99.28%
+qhs42.rs                         2749               119    95.67%         101                 0   100.00%        1485                10    99.33%
+qhs5.rs                          1607                64    96.02%          75                 0   100.00%         776                 2    99.74%
+qhs6.rs                           874                43    95.08%          40                 0   100.00%         399                 3    99.25%
+TOTAL                           12271               557    95.46%         538                 2    99.63%        6204                45    99.27%
+
+Raw qwp-classical summary:
+ed25519.rs                        475                 6    98.74%          26                 0   100.00%         227                 1    99.56%
+edwards.rs                        315                 3    99.05%          16                 0   100.00%         139                 1    99.28%
+field.rs                          528                 5    99.05%          25                 0   100.00%         254                 0   100.00%
+scalar.rs                         367                 5    98.64%          19                 0   100.00%         413                 0   100.00%
+sha512.rs                         273                 4    98.53%          12                 0   100.00%         160                 2    98.75%
+TOTAL                            1958                23    98.83%          98                 0   100.00%        1193                 4    99.66%

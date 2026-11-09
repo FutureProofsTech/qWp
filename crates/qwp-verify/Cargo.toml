@@ -13,6 +13,7 @@ name = "qwp_verify"
 path = "src/lib.rs"
 
 [dependencies]
+qwp-classical = { path = "../qwp-classical" }
 qwp-core = { path = "../qwp-core" }
 qwp-crypto = { path = "../qwp-crypto" }
 
