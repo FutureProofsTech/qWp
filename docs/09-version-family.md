@@ -71,13 +71,13 @@ QHS-3 is the next implemented version. It keeps the QHS-2 WOTS parameters and ex
 | Private key | 64 B |
 | Auth path | 384 B |
 | Signature | **1,832 B** |
-| Cache | 131,112 B (128 KiB leaves) |
+| Cache | 131,140 B (128 KiB leaves) |
 | Keygen | ≈0.40–0.44 s |
 | Cached sign | ≈1.60–1.70 ms |
 | Verify | ≈0.39 ms |
 
 QHS-3.1 is the tree-cache profile of QHS-3: identical keys, signature bytes,
-KAT, capacity, and proof; signing drops to ≈0.35–0.36 ms using a 262,152-byte
+KAT, capacity, and proof; signing drops to ≈0.35–0.36 ms using a 262,180-byte
 tree cache. Use QHS-3.1 when signing latency matters; QHS-3 remains available.
 
 Why h=12:

@@ -1,11 +1,25 @@
 //! End-to-end CLI tests.
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use qwp_hash::hash32;
+use qwp_hash::{Hasher, derive_key32};
+
+fn cache_mac(seed: &[u8; 32], context: &[u8], body: &[u8]) -> [u8; 32] {
+    let key = derive_key32(context, seed).to_bytes();
+    let mut hasher = Hasher::new_keyed(key);
+    hasher.update(body);
+    hasher.finalize().to_bytes()
+}
+
+fn private_seed(path: &Path) -> [u8; 32] {
+    let bytes = fs::read(path).unwrap();
+    let mut seed = [0_u8; 32];
+    seed.copy_from_slice(&bytes[4..36]);
+    seed
+}
 
 static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -155,13 +169,24 @@ fn qhs_keygen_sign_verify_end_to_end() {
     }
 
     let cache = directory.join("private.key.cache");
-    assert_eq!(fs::metadata(&cache).unwrap().len(), 8232);
+    assert_eq!(fs::metadata(&cache).unwrap().len(), 8260);
+    let state = directory.join("private.key.state");
+    assert_eq!(fs::metadata(&state).unwrap().len(), 38);
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         let mode = fs::metadata(&cache).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o600);
+        let state_mode = fs::metadata(&state).unwrap().permissions().mode() & 0o777;
+        assert_eq!(state_mode, 0o600);
     }
+    let seed = private_seed(&private);
+    let cache_bytes = fs::read(&cache).unwrap();
+    let expected_fingerprint = derive_key32(b"qWp QHS-1 cache fingerprint", &seed).to_bytes();
+    assert_eq!(&cache_bytes[4..36], &expected_fingerprint);
+    let state_bytes = fs::read(&state).unwrap();
+    let expected_state_mac = cache_mac(&seed, b"qWp key state guard", &state_bytes[..6]);
+    assert_eq!(&state_bytes[6..38], &expected_state_mac);
 
     let old_time =
         std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000);
@@ -179,6 +204,33 @@ fn qhs_keygen_sign_verify_end_to_end() {
 
     let verify = run(&["qhs-verify", &public_text, &message_text, &signature_text]);
     assert!(verify.status.success(), "{verify:?}");
+
+    let signed_key = fs::read(&private).unwrap();
+    let signed_state = fs::read(&state).unwrap();
+    let mut rolled_back = signed_key.clone();
+    rolled_back[36..38].copy_from_slice(&0_u16.to_le_bytes());
+    fs::write(&private, &rolled_back).unwrap();
+    let rollback = run(&["qhs-sign", &private_text, &message_text, &signature_text]);
+    assert!(!rollback.status.success());
+    assert!(String::from_utf8_lossy(&rollback.stderr).contains("rollback"));
+    fs::write(&private, &signed_key).unwrap();
+    fs::write(&state, &signed_state).unwrap();
+
+    let mut ahead = fs::read(&private).unwrap();
+    ahead[36..38].copy_from_slice(&2_u16.to_le_bytes());
+    fs::write(&private, &ahead).unwrap();
+    let caught_up = run(&["qhs-sign", &private_text, &message_text, &signature_text]);
+    assert!(caught_up.status.success());
+    let caught_up_state = fs::read(&state).unwrap();
+    assert_eq!(
+        u16::from_le_bytes([caught_up_state[4], caught_up_state[5]]),
+        3
+    );
+
+    fs::remove_file(&state).unwrap();
+    let sign_after_guard_loss = run(&["qhs-sign", &private_text, &message_text, &signature_text]);
+    assert!(sign_after_guard_loss.status.success());
+    assert!(state.exists());
 
     fs::remove_file(&cache).unwrap();
     let sign_again = run(&["qhs-sign", &private_text, &message_text, &signature_text]);
@@ -220,9 +272,16 @@ fn qhs2_keygen_sign_verify_end_to_end() {
     assert_eq!(fs::metadata(&private).unwrap().len(), 64);
 
     let cache = directory.join("private.key.cache");
-    assert_eq!(fs::metadata(&cache).unwrap().len(), 8232);
+    assert_eq!(fs::metadata(&cache).unwrap().len(), 8260);
     let cache_bytes = fs::read(&cache).unwrap();
-    assert_eq!(&cache_bytes[..4], &[2, 2, 8, 0]);
+    assert_eq!(&cache_bytes[..4], &[2, 2, 8, 2]);
+    let seed = private_seed(&private);
+    let expected_fingerprint = derive_key32(b"qWp QHS-2 cache fingerprint", &seed).to_bytes();
+    assert_eq!(&cache_bytes[4..36], &expected_fingerprint);
+    let state = directory.join("private.key.state");
+    let state_bytes = fs::read(&state).unwrap();
+    let expected_state_mac = cache_mac(&seed, b"qWp key state guard", &state_bytes[..6]);
+    assert_eq!(&state_bytes[6..38], &expected_state_mac);
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -387,9 +446,16 @@ fn qhs3_keygen_sign_verify_end_to_end() {
     assert_eq!(fs::metadata(&private).unwrap().len(), 64);
 
     let cache = directory.join("private.key.cache");
-    assert_eq!(fs::metadata(&cache).unwrap().len(), 131_112);
+    assert_eq!(fs::metadata(&cache).unwrap().len(), 131_140);
     let cache_bytes = fs::read(&cache).unwrap();
-    assert_eq!(&cache_bytes[..4], &[3, 3, 12, 0]);
+    assert_eq!(&cache_bytes[..4], &[3, 3, 12, 2]);
+    let seed = private_seed(&private);
+    let expected_fingerprint = derive_key32(b"qWp QHS-3 cache fingerprint", &seed).to_bytes();
+    assert_eq!(&cache_bytes[4..36], &expected_fingerprint);
+    let state = directory.join("private.key.state");
+    let state_bytes = fs::read(&state).unwrap();
+    let expected_state_mac = cache_mac(&seed, b"qWp key state guard", &state_bytes[..6]);
+    assert_eq!(&state_bytes[6..38], &expected_state_mac);
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -419,11 +485,12 @@ fn qhs3_keygen_sign_verify_end_to_end() {
     assert!(verify.status.success(), "{verify:?}");
 
     let canonical_cache = fs::read(&cache).unwrap();
+    let seed = private_seed(&private);
     for offset in 0..4 {
         let mut corrupted_header = canonical_cache.clone();
         corrupted_header[offset] = 0xff;
-        let checksum = hash32(&corrupted_header[..131_108]).to_bytes();
-        corrupted_header[131_108..131_112].copy_from_slice(&checksum[..4]);
+        let mac = cache_mac(&seed, b"qWp QHS-3 cache mac", &corrupted_header[..131_108]);
+        corrupted_header[131_108..131_140].copy_from_slice(&mac);
         fs::write(&cache, &corrupted_header).unwrap();
         let sign = run(&["qhs3-sign", &private_text, &message_text, &signature_text]);
         assert!(sign.status.success(), "{sign:?}");
@@ -596,6 +663,93 @@ fn qhs3_rejects_v1_and_v2_keys_and_signatures() {
 }
 
 #[test]
+fn qhs_cache_random_bytes_fall_back() {
+    let directory = workspace();
+    let public = directory.join("public.key");
+    let private = directory.join("private.key");
+    let message = directory.join("message.txt");
+    let signature = directory.join("message.sig");
+    fs::write(&message, b"qWp random cache fallback\n").unwrap();
+
+    let public_text = public.to_string_lossy().to_string();
+    let private_text = private.to_string_lossy().to_string();
+    let message_text = message.to_string_lossy().to_string();
+    let signature_text = signature.to_string_lossy().to_string();
+
+    assert!(
+        run(&["qhs-keygen", &public_text, &private_text])
+            .status
+            .success()
+    );
+    let cache = directory.join("private.key.cache");
+    let canonical = fs::read(&cache).unwrap();
+    let mut state = 0x9e37_79b9_7f4a_7c15_u64;
+    for _ in 0..16 {
+        let mut random = vec![0_u8; canonical.len()];
+        for byte in &mut random {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            *byte = u8::try_from(state & 0xff).unwrap_or(0);
+        }
+        fs::write(&cache, &random).unwrap();
+        let sign = run(&["qhs-sign", &private_text, &message_text, &signature_text]);
+        assert!(sign.status.success(), "{sign:?}");
+        assert_eq!(fs::read(&cache).unwrap(), canonical);
+    }
+    assert!(
+        run(&["qhs-verify", &public_text, &message_text, &signature_text])
+            .status
+            .success()
+    );
+
+    let _ = fs::remove_dir_all(&directory);
+}
+
+#[test]
+fn qhs_key_lock_rejects_second_writer() {
+    let directory = workspace();
+    let public = directory.join("public.key");
+    let private = directory.join("private.key");
+    let message = directory.join("message.txt");
+    let signature = directory.join("message.sig");
+    fs::write(&message, b"qWp lock test\n").unwrap();
+
+    let public_text = public.to_string_lossy().to_string();
+    let private_text = private.to_string_lossy().to_string();
+    let message_text = message.to_string_lossy().to_string();
+    let signature_text = signature.to_string_lossy().to_string();
+
+    assert!(
+        run(&["qhs-keygen", &public_text, &private_text])
+            .status
+            .success()
+    );
+    let lock_path = format!("{private_text}.lock");
+    let lock = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(&lock_path)
+        .unwrap();
+    lock.try_lock().unwrap();
+
+    let blocked = run(&["qhs-sign", &private_text, &message_text, &signature_text]);
+    assert!(!blocked.status.success());
+    assert!(String::from_utf8_lossy(&blocked.stderr).contains("locked"));
+
+    drop(lock);
+    assert!(
+        run(&["qhs-sign", &private_text, &message_text, &signature_text])
+            .status
+            .success()
+    );
+
+    let _ = fs::remove_dir_all(&directory);
+}
+
+#[test]
 fn qhs31_tree_cache_sign_verify_end_to_end() {
     let directory = workspace();
     let public = directory.join("public.key");
@@ -615,9 +769,18 @@ fn qhs31_tree_cache_sign_verify_end_to_end() {
     assert_eq!(fs::metadata(&private).unwrap().len(), 64);
 
     let tree_cache = directory.join("private.key.treecache");
-    assert_eq!(fs::metadata(&tree_cache).unwrap().len(), 262_152);
+    assert_eq!(fs::metadata(&tree_cache).unwrap().len(), 262_180);
     let tree_bytes = fs::read(&tree_cache).unwrap();
-    assert_eq!(&tree_bytes[..4], &[3, 3, 12, 1]);
+    assert_eq!(&tree_bytes[..4], &[3, 3, 12, 3]);
+    let seed = private_seed(&private);
+    let expected_fingerprint = derive_key32(b"qWp QHS-3.1 cache fingerprint", &seed).to_bytes();
+    assert_eq!(&tree_bytes[4..36], &expected_fingerprint);
+    let expected_tree_mac = cache_mac(&seed, b"qWp QHS-3.1 tree cache mac", &tree_bytes[..262_148]);
+    assert_eq!(&tree_bytes[262_148..262_180], &expected_tree_mac);
+    let state = directory.join("private.key.state");
+    let state_bytes = fs::read(&state).unwrap();
+    let expected_state_mac = cache_mac(&seed, b"qWp key state guard", &state_bytes[..6]);
+    assert_eq!(&state_bytes[6..38], &expected_state_mac);
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -661,10 +824,15 @@ fn qhs31_tree_cache_sign_verify_end_to_end() {
     );
 
     let canonical_tree = fs::read(&tree_cache).unwrap();
+    let seed = private_seed(&private);
     let mut corrupted_header = canonical_tree.clone();
     corrupted_header[3] = 0xff;
-    let checksum = hash32(&corrupted_header[..262_148]).to_bytes();
-    corrupted_header[262_148..262_152].copy_from_slice(&checksum[..4]);
+    let mac = cache_mac(
+        &seed,
+        b"qWp QHS-3.1 tree cache mac",
+        &corrupted_header[..262_148],
+    );
+    corrupted_header[262_148..262_180].copy_from_slice(&mac);
     fs::write(&tree_cache, &corrupted_header).unwrap();
     let sign = run(&["qhs31-sign", &private_text, &message_text, &signature_text]);
     assert!(sign.status.success(), "{sign:?}");
@@ -726,13 +894,14 @@ fn qhs_cache_corruption_and_foreign_cache_fall_back() {
     assert!(keygen.status.success(), "{keygen:?}");
     let cache = directory.join("private.key.cache");
     let canonical_cache = fs::read(&cache).unwrap();
-    assert_eq!(canonical_cache.len(), 8232);
+    assert_eq!(canonical_cache.len(), 8260);
+    let seed = private_seed(&private);
 
     for offset in 0..4 {
         let mut corrupted_header = canonical_cache.clone();
         corrupted_header[offset] = 0xff;
-        let checksum = hash32(&corrupted_header[..8_228]).to_bytes();
-        corrupted_header[8_228..8_232].copy_from_slice(&checksum[..4]);
+        let mac = cache_mac(&seed, b"qWp QHS-1 cache mac", &corrupted_header[..8_228]);
+        corrupted_header[8_228..8_260].copy_from_slice(&mac);
         fs::write(&cache, &corrupted_header).unwrap();
         let sign = run(&["qhs-sign", &private_text, &message_text, &signature_text]);
         assert!(sign.status.success(), "{sign:?}");

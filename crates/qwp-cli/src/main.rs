@@ -74,11 +74,11 @@ use qwp_crypto::{
     qhs2_keygen_from_leaves, qhs2_leaves, qhs3_auth_path_from_tree, qhs3_build_tree,
     qhs3_keygen_from_leaves, qhs3_leaf,
 };
-use qwp_hash::{derive_key32, hash32};
+use qwp_hash::{Hasher, derive_key32, hash32};
 use qwp_platform::{HostEntropy, qhs_leaves_parallel, qhs2_leaves_parallel, qhs3_leaves_parallel};
 
 const QHS_CACHE_HEADER_BYTES: usize = 4;
-const QHS_CACHE_CHECKSUM_BYTES: usize = 4;
+const QHS_CACHE_MAC_BYTES: usize = 32;
 const QHS_CACHE_FINGERPRINT_START: usize = 4;
 const QHS_CACHE_FINGERPRINT_END: usize = 36;
 const QHS_CACHE_LEAVES_START: usize = 36;
@@ -87,38 +87,43 @@ const QHS_CACHE_LEAVES_START: usize = 36;
 struct CacheSpec {
     header: [u8; 4],
     fingerprint_context: &'static [u8],
+    mac_context: &'static [u8],
     leaf_count: usize,
 }
 
 type LeafComputer = fn(&[u8; 32]) -> Result<Vec<[u8; 32]>, String>;
 
 const QHS1_CACHE_SPEC: CacheSpec = CacheSpec {
-    header: [1, 1, 8, 0],
+    header: [1, 1, 8, 2],
     fingerprint_context: b"qWp QHS-1 cache fingerprint",
+    mac_context: b"qWp QHS-1 cache mac",
     leaf_count: QHS_LEAF_COUNT,
 };
 
 const QHS2_CACHE_SPEC: CacheSpec = CacheSpec {
-    header: [2, 2, 8, 0],
+    header: [2, 2, 8, 2],
     fingerprint_context: b"qWp QHS-2 cache fingerprint",
+    mac_context: b"qWp QHS-2 cache mac",
     leaf_count: QHS2_LEAF_COUNT,
 };
 
 const QHS3_CACHE_SPEC: CacheSpec = CacheSpec {
-    header: [3, 3, 12, 0],
+    header: [3, 3, 12, 2],
     fingerprint_context: b"qWp QHS-3 cache fingerprint",
+    mac_context: b"qWp QHS-3 cache mac",
     leaf_count: QHS3_LEAF_COUNT,
 };
 
-const QHS31_TREE_CACHE_HEADER: [u8; 4] = [3, 3, 12, 1];
+const QHS31_TREE_CACHE_HEADER: [u8; 4] = [3, 3, 12, 3];
 const QHS31_TREE_CACHE_FINGERPRINT_CONTEXT: &[u8] = b"qWp QHS-3.1 cache fingerprint";
+const QHS31_TREE_CACHE_MAC_CONTEXT: &[u8] = b"qWp QHS-3.1 tree cache mac";
 const QHS31_TREE_CACHE_LEAVES_START: usize = 36;
 const QHS31_TREE_CACHE_LEAVES_END: usize =
     QHS31_TREE_CACHE_LEAVES_START + QHS3_LEAF_COUNT * QHS_LEAF_BYTES;
 const QHS31_TREE_CACHE_NODES_START: usize = QHS31_TREE_CACHE_LEAVES_END;
 const QHS31_TREE_CACHE_NODES_END: usize =
     QHS31_TREE_CACHE_NODES_START + QHS3_TREE_NODES * QHS_LEAF_BYTES;
-const QHS31_TREE_CACHE_BYTES: usize = QHS31_TREE_CACHE_NODES_END + QHS_CACHE_CHECKSUM_BYTES;
+const QHS31_TREE_CACHE_BYTES: usize = QHS31_TREE_CACHE_NODES_END + QHS_CACHE_MAC_BYTES;
 
 fn main() -> ExitCode {
     let arguments: Vec<String> = env::args().collect();
@@ -293,7 +298,8 @@ fn run_qhs_keygen(arguments: &[String]) -> ExitCode {
     };
     match qhs_keygen_from_leaves(&seed, leaves) {
         Ok((private_key, public_key)) => {
-            if let Err(error) = write_atomic(private_path, &private_key.to_bytes(), true) {
+            let key_bytes = private_key.to_bytes();
+            if let Err(error) = write_atomic(private_path, &key_bytes, true) {
                 eprintln!("qhs-keygen: {error}");
                 return ExitCode::from(3);
             }
@@ -303,6 +309,9 @@ fn run_qhs_keygen(arguments: &[String]) -> ExitCode {
             }
             if let Err(error) = write_qhs_cache(private_path, &seed, leaves, &QHS1_CACHE_SPEC) {
                 eprintln!("qhs-keygen: warning: cache not written: {error}");
+            }
+            if let Err(error) = write_state_guard(private_path, &seed, &key_bytes, 0) {
+                eprintln!("qhs-keygen: warning: state guard not written: {error}");
             }
             println!("qhs-keygen: wrote {public_path}, {private_path}, and cache");
             ExitCode::SUCCESS
@@ -358,6 +367,12 @@ fn run_qhs_sign(arguments: &[String]) -> ExitCode {
         }
     };
     let seed = *private_key.seed();
+    let state_key = private_key.to_bytes();
+    if let Err(error) = check_state_guard(private_path, &seed, &state_key, private_key.next_leaf())
+    {
+        eprintln!("qhs-sign: {error}");
+        return ExitCode::from(3);
+    }
     let leaves = match load_or_compute_leaves(private_path, &seed) {
         Ok(leaves) => leaves,
         Err(error) => {
@@ -377,6 +392,11 @@ fn run_qhs_sign(arguments: &[String]) -> ExitCode {
         }
     };
     if let Err(error) = write_atomic(private_path, &private_key.to_bytes(), true) {
+        eprintln!("qhs-sign: {error}");
+        return ExitCode::from(3);
+    }
+    if let Err(error) = update_state_guard(private_path, &seed, &state_key, private_key.next_leaf())
+    {
         eprintln!("qhs-sign: {error}");
         return ExitCode::from(3);
     }
@@ -479,7 +499,8 @@ fn run_qhs2_keygen(arguments: &[String]) -> ExitCode {
     };
     match qhs2_keygen_from_leaves(&seed, leaves) {
         Ok((private_key, public_key)) => {
-            if let Err(error) = write_atomic(private_path, &private_key.to_bytes(), true) {
+            let key_bytes = private_key.to_bytes();
+            if let Err(error) = write_atomic(private_path, &key_bytes, true) {
                 eprintln!("qhs2-keygen: {error}");
                 return ExitCode::from(3);
             }
@@ -489,6 +510,9 @@ fn run_qhs2_keygen(arguments: &[String]) -> ExitCode {
             }
             if let Err(error) = write_qhs_cache(private_path, &seed, leaves, &QHS2_CACHE_SPEC) {
                 eprintln!("qhs2-keygen: warning: cache not written: {error}");
+            }
+            if let Err(error) = write_state_guard(private_path, &seed, &key_bytes, 0) {
+                eprintln!("qhs2-keygen: warning: state guard not written: {error}");
             }
             println!("qhs2-keygen: wrote {public_path}, {private_path}, and cache");
             ExitCode::SUCCESS
@@ -544,6 +568,12 @@ fn run_qhs2_sign(arguments: &[String]) -> ExitCode {
         }
     };
     let seed = *private_key.seed();
+    let state_key = private_key.to_bytes();
+    if let Err(error) = check_state_guard(private_path, &seed, &state_key, private_key.next_leaf())
+    {
+        eprintln!("qhs2-sign: {error}");
+        return ExitCode::from(3);
+    }
     let leaves = match load_or_compute_leaves_v2(private_path, &seed) {
         Ok(leaves) => leaves,
         Err(error) => {
@@ -563,6 +593,11 @@ fn run_qhs2_sign(arguments: &[String]) -> ExitCode {
         }
     };
     if let Err(error) = write_atomic(private_path, &private_key.to_bytes(), true) {
+        eprintln!("qhs2-sign: {error}");
+        return ExitCode::from(3);
+    }
+    if let Err(error) = update_state_guard(private_path, &seed, &state_key, private_key.next_leaf())
+    {
         eprintln!("qhs2-sign: {error}");
         return ExitCode::from(3);
     }
@@ -661,7 +696,8 @@ fn run_qhs3_keygen(arguments: &[String]) -> ExitCode {
     };
     match qhs3_keygen_from_leaves(&seed, &leaves) {
         Ok((private_key, public_key)) => {
-            if let Err(error) = write_atomic(private_path, &private_key.to_bytes(), true) {
+            let key_bytes = private_key.to_bytes();
+            if let Err(error) = write_atomic(private_path, &key_bytes, true) {
                 eprintln!("qhs3-keygen: {error}");
                 return ExitCode::from(3);
             }
@@ -671,6 +707,9 @@ fn run_qhs3_keygen(arguments: &[String]) -> ExitCode {
             }
             if let Err(error) = write_qhs_cache(private_path, &seed, &leaves, &QHS3_CACHE_SPEC) {
                 eprintln!("qhs3-keygen: warning: cache not written: {error}");
+            }
+            if let Err(error) = write_state_guard(private_path, &seed, &key_bytes, 0) {
+                eprintln!("qhs3-keygen: warning: state guard not written: {error}");
             }
             println!("qhs3-keygen: wrote {public_path}, {private_path}, and cache");
             ExitCode::SUCCESS
@@ -726,6 +765,12 @@ fn run_qhs3_sign(arguments: &[String]) -> ExitCode {
         }
     };
     let seed = *private_key.seed();
+    let state_key = private_key.to_bytes();
+    if let Err(error) = check_state_guard(private_path, &seed, &state_key, private_key.next_leaf())
+    {
+        eprintln!("qhs3-sign: {error}");
+        return ExitCode::from(3);
+    }
     let leaves = match load_or_compute_leaves_v3(private_path, &seed) {
         Ok(leaves) => leaves,
         Err(error) => {
@@ -741,6 +786,11 @@ fn run_qhs3_sign(arguments: &[String]) -> ExitCode {
         }
     };
     if let Err(error) = write_atomic(private_path, &private_key.to_bytes(), true) {
+        eprintln!("qhs3-sign: {error}");
+        return ExitCode::from(3);
+    }
+    if let Err(error) = update_state_guard(private_path, &seed, &state_key, private_key.next_leaf())
+    {
         eprintln!("qhs3-sign: {error}");
         return ExitCode::from(3);
     }
@@ -839,7 +889,8 @@ fn run_qhs31_keygen(arguments: &[String]) -> ExitCode {
     };
     match qhs3_keygen_from_leaves(&seed, &tree.leaves) {
         Ok((private_key, public_key)) => {
-            if let Err(error) = write_atomic(private_path, &private_key.to_bytes(), true) {
+            let key_bytes = private_key.to_bytes();
+            if let Err(error) = write_atomic(private_path, &key_bytes, true) {
                 eprintln!("qhs31-keygen: {error}");
                 return ExitCode::from(3);
             }
@@ -849,6 +900,9 @@ fn run_qhs31_keygen(arguments: &[String]) -> ExitCode {
             }
             if let Err(error) = write_qhs31_cache(private_path, &seed, &tree) {
                 eprintln!("qhs31-keygen: warning: tree cache not written: {error}");
+            }
+            if let Err(error) = write_state_guard(private_path, &seed, &key_bytes, 0) {
+                eprintln!("qhs31-keygen: warning: state guard not written: {error}");
             }
             println!("qhs31-keygen: wrote {public_path}, {private_path}, and tree cache");
             ExitCode::SUCCESS
@@ -904,6 +958,12 @@ fn run_qhs31_sign(arguments: &[String]) -> ExitCode {
         }
     };
     let seed = *private_key.seed();
+    let state_key = private_key.to_bytes();
+    if let Err(error) = check_state_guard(private_path, &seed, &state_key, private_key.next_leaf())
+    {
+        eprintln!("qhs31-sign: {error}");
+        return ExitCode::from(3);
+    }
     let tree = match load_or_compute_tree_v31(private_path, &seed) {
         Ok(tree) => tree,
         Err(error) => {
@@ -927,6 +987,11 @@ fn run_qhs31_sign(arguments: &[String]) -> ExitCode {
         }
     };
     if let Err(error) = write_atomic(private_path, &private_key.to_bytes(), true) {
+        eprintln!("qhs31-sign: {error}");
+        return ExitCode::from(3);
+    }
+    if let Err(error) = update_state_guard(private_path, &seed, &state_key, private_key.next_leaf())
+    {
         eprintln!("qhs31-sign: {error}");
         return ExitCode::from(3);
     }
@@ -1013,8 +1078,106 @@ fn cache_path(private_path: &str) -> String {
     format!("{private_path}.cache")
 }
 
+const STATE_GUARD_BYTES: usize = 38;
+const STATE_GUARD_MAC_CONTEXT: &[u8] = b"qWp key state guard";
+
+fn state_path(private_path: &str) -> String {
+    format!("{private_path}.state")
+}
+
+fn state_guard_mac(seed: &[u8; 32], body: &[u8]) -> [u8; 32] {
+    let key = derive_key32(STATE_GUARD_MAC_CONTEXT, seed).to_bytes();
+    let mut hasher = Hasher::new_keyed(key);
+    hasher.update(body);
+    hasher.finalize().to_bytes()
+}
+
+fn write_state_guard(
+    private_path: &str,
+    seed: &[u8; 32],
+    key_bytes: &[u8],
+    counter: u16,
+) -> Result<(), String> {
+    let mut body = [0_u8; 6];
+    if let (Some(slot), Some(header)) = (body.get_mut(..4), key_bytes.get(..4)) {
+        slot.copy_from_slice(header);
+        if let Some(byte) = slot.get_mut(3) {
+            *byte = 0;
+        }
+    } else {
+        return Err("state guard layout".to_string());
+    }
+    if let Some(slot) = body.get_mut(4..6) {
+        slot.copy_from_slice(&counter.to_le_bytes());
+    }
+    let mac = state_guard_mac(seed, &body);
+    let mut bytes = [0_u8; STATE_GUARD_BYTES];
+    let (header, tag) = bytes.split_at_mut(6);
+    header.copy_from_slice(&body);
+    tag.copy_from_slice(&mac);
+    write_atomic(&state_path(private_path), &bytes, true)
+}
+
+fn read_state_guard(private_path: &str, seed: &[u8; 32]) -> Option<[u8; 6]> {
+    let bytes = read_exact_file(&state_path(private_path), STATE_GUARD_BYTES).ok()?;
+    let body = bytes.get(..6)?;
+    let expected = state_guard_mac(seed, body);
+    if bytes.get(6..)? != expected.as_slice() {
+        return None;
+    }
+    let mut output = [0_u8; 6];
+    output.copy_from_slice(body);
+    Some(output)
+}
+
+fn check_state_guard(
+    private_path: &str,
+    seed: &[u8; 32],
+    key_bytes: &[u8],
+    counter: u16,
+) -> Result<(), String> {
+    let Some(guard) = read_state_guard(private_path, seed) else {
+        return write_state_guard(private_path, seed, key_bytes, counter);
+    };
+    let Some(header) = key_bytes.get(..4) else {
+        return Err("state guard key layout".to_string());
+    };
+    if guard.get(..4) != Some(header) {
+        return Err("key state guard belongs to a different key".to_string());
+    }
+    let guard_counter = guard
+        .get(4..6)
+        .and_then(|bytes| <[u8; 2]>::try_from(bytes).ok())
+        .map_or(0, u16::from_le_bytes);
+    if guard_counter > counter {
+        return Err(format!(
+            "key state rollback detected: guard {guard_counter} > key {counter}"
+        ));
+    }
+    if guard_counter < counter {
+        write_state_guard(private_path, seed, key_bytes, counter)?;
+    }
+    Ok(())
+}
+
+fn update_state_guard(
+    private_path: &str,
+    seed: &[u8; 32],
+    key_bytes: &[u8],
+    counter: u16,
+) -> Result<(), String> {
+    write_state_guard(private_path, seed, key_bytes, counter)
+}
+
 fn cache_fingerprint(seed: &[u8; 32], spec: &CacheSpec) -> [u8; 32] {
     derive_key32(spec.fingerprint_context, seed).to_bytes()
+}
+
+fn cache_mac(seed: &[u8; 32], context: &[u8], body: &[u8]) -> [u8; 32] {
+    let key = derive_key32(context, seed).to_bytes();
+    let mut hasher = Hasher::new_keyed(key);
+    hasher.update(body);
+    hasher.finalize().to_bytes()
 }
 
 fn leaf_array<const N: usize>(leaves: &[[u8; 32]]) -> Option<&[[u8; 32]; N]> {
@@ -1028,7 +1191,7 @@ fn cache_leaves_end(spec: &CacheSpec) -> Option<usize> {
 }
 
 fn cache_total(spec: &CacheSpec) -> Option<usize> {
-    cache_leaves_end(spec)?.checked_add(QHS_CACHE_CHECKSUM_BYTES)
+    cache_leaves_end(spec)?.checked_add(QHS_CACHE_MAC_BYTES)
 }
 
 fn compute_leaves_for_cli(seed: &[u8; 32]) -> Result<Vec<[u8; 32]>, String> {
@@ -1142,13 +1305,9 @@ fn write_qhs_cache(
     let body = bytes
         .get(..leaves_end)
         .ok_or_else(|| "cache layout".to_string())?;
-    let checksum = hash32(body).to_bytes();
+    let mac = cache_mac(seed, spec.mac_context, body);
     if let Some(slot) = bytes.get_mut(leaves_end..total) {
-        slot.copy_from_slice(
-            checksum
-                .get(..QHS_CACHE_CHECKSUM_BYTES)
-                .ok_or_else(|| "cache checksum".to_string())?,
-        );
+        slot.copy_from_slice(&mac);
     }
     write_atomic(&cache_path(private_path), &bytes, true)
 }
@@ -1173,8 +1332,8 @@ fn read_qhs_cache(path: &str, seed: &[u8; 32], spec: &CacheSpec) -> Option<Vec<[
     }
     let leaves_end = cache_leaves_end(spec)?;
     let body = bytes.get(..leaves_end)?;
-    let expected_checksum = hash32(body).to_bytes();
-    if bytes.get(leaves_end..total)? != expected_checksum.get(..QHS_CACHE_CHECKSUM_BYTES)? {
+    let expected_mac = cache_mac(seed, spec.mac_context, body);
+    if bytes.get(leaves_end..total)? != expected_mac.as_slice() {
         return None;
     }
 
@@ -1255,13 +1414,9 @@ fn write_qhs31_cache(private_path: &str, seed: &[u8; 32], tree: &Qhs31Tree) -> R
     let body = bytes
         .get(..QHS31_TREE_CACHE_NODES_END)
         .ok_or_else(|| "tree cache layout".to_string())?;
-    let checksum = hash32(body).to_bytes();
+    let mac = cache_mac(seed, QHS31_TREE_CACHE_MAC_CONTEXT, body);
     if let Some(slot) = bytes.get_mut(QHS31_TREE_CACHE_NODES_END..QHS31_TREE_CACHE_BYTES) {
-        slot.copy_from_slice(
-            checksum
-                .get(..QHS_CACHE_CHECKSUM_BYTES)
-                .ok_or_else(|| "tree cache checksum".to_string())?,
-        );
+        slot.copy_from_slice(&mac);
     }
     write_atomic(&qhs31_cache_path(private_path), &bytes, true)
 }
@@ -1286,10 +1441,8 @@ fn read_qhs31_cache(path: &str, seed: &[u8; 32]) -> Option<Qhs31Tree> {
         return None;
     }
     let body = bytes.get(..QHS31_TREE_CACHE_NODES_END)?;
-    let expected_checksum = hash32(body).to_bytes();
-    if bytes.get(QHS31_TREE_CACHE_NODES_END..QHS31_TREE_CACHE_BYTES)?
-        != expected_checksum.get(..QHS_CACHE_CHECKSUM_BYTES)?
-    {
+    let expected_mac = cache_mac(seed, QHS31_TREE_CACHE_MAC_CONTEXT, body);
+    if bytes.get(QHS31_TREE_CACHE_NODES_END..QHS31_TREE_CACHE_BYTES)? != expected_mac.as_slice() {
         return None;
     }
 
@@ -1487,13 +1640,49 @@ mod tests {
         reason = "tests use fixed valid fixtures and expect construction to succeed"
     )]
 
-    use super::{Braid, all_true, braid_selftest};
+    use super::{
+        Braid, QHS3_LEAF_COUNT, QHS3_TREE_NODES, Qhs31Tree, all_true, braid_selftest,
+        check_state_guard, read_state_guard, write_qhs31_cache, write_state_guard,
+    };
 
     #[test]
     fn all_true_requires_every_check() {
         assert!(all_true(&[true, true]));
         assert!(!all_true(&[true, false]));
         assert!(!all_true(&[false, true]));
+    }
+
+    #[test]
+    fn state_guard_advances_when_behind() {
+        let seed = [7_u8; 32];
+        let path =
+            std::env::temp_dir().join(format!("qwp-state-guard-test-{}", std::process::id()));
+        let path_text = path.to_string_lossy().to_string();
+        drop(std::fs::remove_file(&path_text));
+        let mut key_bytes = [0_u8; 64];
+        key_bytes[..4].copy_from_slice(&[3, 3, 12, 0]);
+
+        write_state_guard(&path_text, &seed, &key_bytes, 0).unwrap();
+        check_state_guard(&path_text, &seed, &key_bytes, 1).unwrap();
+        let guard = read_state_guard(&path_text, &seed).unwrap();
+        assert_eq!(u16::from_le_bytes([guard[4], guard[5]]), 1);
+
+        drop(std::fs::remove_file(&path_text));
+    }
+
+    #[test]
+    fn tree_cache_rejects_bad_lengths() {
+        let seed = [7_u8; 32];
+        let short_leaves = Qhs31Tree {
+            leaves: vec![[0_u8; 32]; QHS3_LEAF_COUNT - 1],
+            nodes: vec![[0_u8; 32]; QHS3_TREE_NODES],
+        };
+        assert!(write_qhs31_cache("unused", &seed, &short_leaves).is_err());
+        let short_nodes = Qhs31Tree {
+            leaves: vec![[0_u8; 32]; QHS3_LEAF_COUNT],
+            nodes: vec![[0_u8; 32]; QHS3_TREE_NODES - 1],
+        };
+        assert!(write_qhs31_cache("unused", &seed, &short_nodes).is_err());
     }
 
     #[test]

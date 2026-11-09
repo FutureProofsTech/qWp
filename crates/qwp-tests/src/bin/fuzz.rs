@@ -12,9 +12,9 @@ use qwp_core::{BRAID_BYTES, Braid, PUBLIC_KEY_BYTES, Polynomial};
 use qwp_crypto::{
     QHS_PRIVATE_KEY_BYTES, QHS_PUBLIC_KEY_BYTES, QHS_SIGNATURE_BYTES, QHS2_PRIVATE_KEY_BYTES,
     QHS2_PUBLIC_KEY_BYTES, QHS2_SIGNATURE_BYTES, QHS3_PRIVATE_KEY_BYTES, QHS3_PUBLIC_KEY_BYTES,
-    QHS3_SIGNATURE_BYTES, Qhs2PrivateKey, Qhs2PublicKey, Qhs2Signature, Qhs3PrivateKey,
-    Qhs3PublicKey, Qhs3Signature, QhsPrivateKey, QhsPublicKey, QhsSignature, qhs_keygen,
-    qhs2_keygen, qhs3_keygen_from_leaves,
+    QHS3_SIGNATURE_BYTES, QHS3_TREE_NODES, Qhs2PrivateKey, Qhs2PublicKey, Qhs2Signature,
+    Qhs3PrivateKey, Qhs3PublicKey, Qhs3Signature, QhsPrivateKey, QhsPublicKey, QhsSignature,
+    qhs_keygen, qhs2_keygen, qhs3_auth_path_from_tree, qhs3_build_tree, qhs3_keygen_from_leaves,
 };
 use qwp_platform::qhs3_leaves_parallel;
 
@@ -37,6 +37,79 @@ impl Rng {
     fn fill(&mut self, output: &mut [u8]) {
         for byte in output {
             *byte = u8::try_from(self.next() & 0xff).unwrap_or(0);
+        }
+    }
+}
+
+fn random_rounds(rng: &mut Rng) {
+    for _ in 0..2 {
+        let mut seed = [0_u8; 32];
+        rng.fill(&mut seed);
+        let Ok((mut private_key, public_key)) = qhs_keygen(&seed) else {
+            eprintln!("fuzz: random qhs1 keygen failed");
+            std::process::exit(2);
+        };
+        let Ok((mut private_key2, public_key2)) = qhs2_keygen(&seed) else {
+            eprintln!("fuzz: random qhs2 keygen failed");
+            std::process::exit(2);
+        };
+        let Ok(leaves) = qhs3_leaves_parallel(&seed) else {
+            eprintln!("fuzz: random qhs3 leaves failed");
+            std::process::exit(2);
+        };
+        let Ok((mut private_key3, public_key3)) = qhs3_keygen_from_leaves(&seed, &leaves) else {
+            eprintln!("fuzz: random qhs3 keygen failed");
+            std::process::exit(2);
+        };
+        let mut nodes = vec![[0_u8; 32]; QHS3_TREE_NODES];
+        if qhs3_build_tree(&leaves, &mut nodes).is_err() {
+            eprintln!("fuzz: random qhs31 tree failed");
+            std::process::exit(2);
+        }
+
+        for _ in 0..4 {
+            let length = usize::try_from(rng.next() % 257).unwrap_or(0);
+            let mut message = [0_u8; 256];
+            rng.fill(&mut message[..length]);
+            let message = &message[..length];
+
+            let Ok(signature) = private_key.sign(message) else {
+                eprintln!("fuzz: random qhs1 sign failed");
+                std::process::exit(2);
+            };
+            if public_key.verify(message, &signature).is_err() {
+                eprintln!("fuzz: random qhs1 verify failed");
+                std::process::exit(2);
+            }
+            let Ok(signature2) = private_key2.sign(message) else {
+                eprintln!("fuzz: random qhs2 sign failed");
+                std::process::exit(2);
+            };
+            if public_key2.verify(message, &signature2).is_err() {
+                eprintln!("fuzz: random qhs2 verify failed");
+                std::process::exit(2);
+            }
+            let Ok(signature3) = private_key3.sign_with_leaves(message, &leaves) else {
+                eprintln!("fuzz: random qhs3 sign failed");
+                std::process::exit(2);
+            };
+            if public_key3.verify(message, &signature3).is_err() {
+                eprintln!("fuzz: random qhs3 verify failed");
+                std::process::exit(2);
+            }
+            let Ok(auth_path) = qhs3_auth_path_from_tree(&leaves, &nodes, private_key3.next_leaf())
+            else {
+                eprintln!("fuzz: random qhs31 auth path failed");
+                std::process::exit(2);
+            };
+            let Ok(signature31) = private_key3.sign_with_auth_path(message, &auth_path) else {
+                eprintln!("fuzz: random qhs31 sign failed");
+                std::process::exit(2);
+            };
+            if public_key3.verify(message, &signature31).is_err() {
+                eprintln!("fuzz: random qhs31 verify failed");
+                std::process::exit(2);
+            }
         }
     }
 }
@@ -95,6 +168,7 @@ fn main() {
         eprintln!("fuzz: qhs3 seed verify failed");
         std::process::exit(2);
     }
+    random_rounds(&mut rng);
 
     let mut iterations: u64 = 0;
     let mut panics: u64 = 0;
@@ -152,11 +226,13 @@ fn main() {
             let signature3 = Qhs3Signature::from_bytes(signature_bytes3);
             let _ = signature3.leaf_index();
 
-            let mut message = [0_u8; 64];
-            rng.fill(&mut message);
-            let _ = public_key.verify(&message, &signature);
-            let _ = public_key2.verify(&message, &signature2);
-            let _ = public_key3.verify(&message, &signature3);
+            let length = usize::try_from(rng.next() % 257).unwrap_or(0);
+            let mut message = [0_u8; 256];
+            rng.fill(&mut message[..length]);
+            let message = &message[..length];
+            let _ = public_key.verify(message, &signature);
+            let _ = public_key2.verify(message, &signature2);
+            let _ = public_key3.verify(message, &signature3);
         }));
         if result.is_err() {
             panics = panics.saturating_add(1);

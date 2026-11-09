@@ -63,7 +63,9 @@ cargo run -p qwp-cli --bin qwp -- qhs31-verify public31.key message.txt message3
 
 The private key is stateful: each signature consumes one leaf and the CLI atomically updates the key counter with `fsync` + rename before writing the signature. The private key file is created with mode `0600` on Unix. Do not copy, roll back, or use the same key concurrently from multiple processes.
 
-`qhs-keygen` and `qhs2-keygen` write an 8,232-byte cache (mode `0600`); `qhs3-keygen` writes a 131,112-byte leaf cache; `qhs31-keygen` writes a 262,152-byte tree cache. The cache contains only public Merkle data, bound to the key by a versioned fingerprint and checksum. If the cache is missing, corrupt, from another key, or from another QHS version, the CLI recomputes it.
+`qhs-keygen` and `qhs2-keygen` write an 8,260-byte cache (mode `0600`); `qhs3-keygen` writes a 131,140-byte leaf cache; `qhs31-keygen` writes a 262,180-byte tree cache. The cache contains only public Merkle data, bound to the key by a versioned fingerprint and keyed MAC. If the cache is missing, corrupt, from another key, or from another QHS version, the CLI recomputes it.
+
+Each key also gets a keyed `<private-key>.state` guard (38 bytes, mode `0600`). If the guard counter is ahead of the key counter, `qhs-sign` refuses to sign and reports a rollback. This catches accidental restoration of an old key backup; it is not a hardware monotonic counter.
 
 On the 16-thread reference host:
 

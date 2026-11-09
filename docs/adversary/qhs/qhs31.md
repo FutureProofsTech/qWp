@@ -42,7 +42,7 @@
 
 ## Closure
 
-- Abuse cases covered: A1–A6 by fingerprint/checksum, bounded reads, auth-path bounds, and equivalence tests.
+- Abuse cases covered: A1–A6 by fingerprint/keyed MAC, bounded reads, auth-path bounds, and equivalence tests.
 - Error paths tested: missing, corrupt, foreign, wrong-kind, oversized tree cache.
 - Bounds proven: slice length checks + unit tests.
 - Red-team sign-off: profile uses the QHS-3 proof unchanged.

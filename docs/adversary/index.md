@@ -57,6 +57,7 @@
 | `qhs3_build_tree` / `qhs3_auth_path_from_tree` | `qwp-crypto` | `qhs/qhs31.md` | `qhs3` unit tests | Survived — tree/leaf equivalence |
 | `Qhs3PrivateKey::sign_with_auth_path` | `qwp-crypto` | `qhs/qhs31.md` | `qhs3` unit tests | Survived — signature equivalence |
 | QHS-3.1 tree cache read/write | `qwp-cli` | `qhs/qhs31.md` | `qwp-cli` tests | Survived — header/tamper/foreign/oversized tests |
+| Key state guard read/write | `qwp-cli` | `docs/03-formats.md` §10.17 | `qwp-cli` tests | Survived — rollback/missing-guard tests |
 
 ## Status meanings
 

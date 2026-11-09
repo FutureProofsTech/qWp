@@ -99,9 +99,9 @@ Forge QHS-1
 ├── Unused leaf
 │   ├── Key-only WOTS forgery                  [Lemma 2]
 │   └── Merkle path collision                  [Lemma 3]
-├── Leaf reuse / counter rollback              [CLI lock + atomic counter]
+├── Leaf reuse / counter rollback              [CLI lock + atomic counter + state guard]
 ├── Auth path / leaf index tampering           [attack suite]
-├── Cache poisoning / foreign cache            [fingerprint + checksum; verifier root]
+├── Cache poisoning / foreign cache            [fingerprint + keyed MAC; verifier root]
 └── Checksum/parser confusion                  [parser tests]
 ```
 
@@ -115,9 +115,9 @@ Forge QHS-2
 ├── Unused leaf
 │   ├── Key-only WOTS forgery                  [Lemma 2]
 │   └── Merkle path collision                  [Lemma 3]
-├── Leaf reuse / counter rollback              [CLI lock + atomic counter]
+├── Leaf reuse / counter rollback              [CLI lock + atomic counter + state guard]
 ├── Auth path / leaf index tampering           [attack suite]
-├── Cache poisoning / foreign cache            [versioned fingerprint + checksum; verifier root]
+├── Cache poisoning / foreign cache            [versioned fingerprint + keyed MAC; verifier root]
 ├── QHS-1/QHS-2 cross-version confusion        [versioned formats/contexts; CLI tests]
 └── Checksum/parser confusion                  [parser tests]
 ```
@@ -132,9 +132,9 @@ Forge QHS-3
 ├── Unused leaf
 │   ├── Key-only WOTS forgery                  [Lemma 2]
 │   └── Merkle path collision                  [Lemma 3]
-├── Leaf reuse / counter rollback              [CLI lock + atomic counter]
+├── Leaf reuse / counter rollback              [CLI lock + atomic counter + state guard]
 ├── Auth path / leaf index tampering           [attack suite]
-├── Cache poisoning / oversized cache          [versioned fingerprint + checksum; bounded reads]
+├── Cache poisoning / oversized cache          [versioned fingerprint + keyed MAC; bounded reads]
 ├── QHS-1/QHS-2/QHS-3/QHS-3.1 cross-version    [versioned formats/contexts; CLI tests]
 └── Checksum/parser confusion                  [parser tests]
 ```
@@ -143,7 +143,7 @@ Forge QHS-3
 
 ```
 Attack QHS-3.1
-├── Poisoned leaves or internal nodes           [versioned fingerprint + checksum; verifier root]
+├── Poisoned leaves or internal nodes           [versioned fingerprint + keyed MAC; verifier root]
 ├── Foreign tree cache                          [QHS-3.1 fingerprint context]
 ├── Oversized/special tree cache                [bounded reads]
 ├── Wrong tree for leaf index                   [auth-path extraction bounds; unit tests]

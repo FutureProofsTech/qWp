@@ -51,7 +51,7 @@
 
 ## Closure
 
-- Abuse cases covered: A1–A6, A8 in tests; A9 by distinct-context test + KAT; A7 by CLI lock + atomic counter; A10 by timing harness and operational fault/DoS rules.
+- Abuse cases covered: A1–A6, A8 in tests; A9 by distinct-context test + KAT; A7 by CLI lock + atomic counter + keyed state guard; A10 by timing harness and operational fault/DoS rules.
 - Error paths tested: parser, exhaustion, cache corruption/truncation/foreign cache, fuzz.
 - Bounds proven: Kani parser proofs; checked arithmetic; fuzz/Miri.
 - Red-team sign-off: role-separated review complete.

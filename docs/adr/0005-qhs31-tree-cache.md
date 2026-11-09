@@ -22,23 +22,23 @@ security proof.
 QHS-3.1 is a **tree-cache profile of QHS-3**, not a new signature format:
 
 - Same keys, same QHS-3 signature bytes, same KAT, same version/algorithm `3/3`.
-- New optional `<private-key>.treecache` file (262,152 bytes):
-  - 4-byte header `[3, 3, 12, 1]`
+- New optional `<private-key>.treecache` file (262,180 bytes):
+  - 4-byte header `[3, 3, 12, 3]`
   - 32-byte fingerprint
   - 131,072 bytes of leaves (4,096 × 32)
   - 131,040 bytes of internal nodes (4,095 × 32)
-  - 4-byte checksum
+  - 32-byte keyed BLAKE3 MAC
 - New `Qhs3PrivateKey::sign_with_auth_path` API.
 - New `qhs3_build_tree` and `qhs3_auth_path_from_tree` APIs.
 - New `qhs31-*` CLI commands.
 
-QHS-3 remains available with its 131,112-byte leaf cache and its original
+QHS-3 remains available with its 131,140-byte leaf cache and its original
 `qhs3-*` commands.
 
 ## Security
 
 The tree cache contains only public Merkle data. It is validated by a versioned
-fingerprint and checksum; a corrupt or foreign cache is ignored and rebuilt.
+fingerprint and keyed MAC; a corrupt or foreign cache is ignored and rebuilt.
 The verifier still recomputes the Merkle root, so a poisoned cache cannot
 produce a valid forgery. The QHS-3 proof, assumptions, signature bytes, and KAT
 are unchanged.
@@ -53,7 +53,7 @@ On the 16-thread reference host, release build:
 | Cached sign | ≈1.60–1.70 ms | **≈0.35–0.36 ms** |
 | Verify | ≈0.39 ms | ≈0.39 ms |
 | Signature | 1,832 B | 1,832 B |
-| Tree/leaf cache | 131,112 B | 262,152 B |
+| Tree/leaf cache | 131,140 B | 262,180 B |
 
 Signing is about 4.5× faster. Keygen and verification are unchanged.
 

@@ -141,7 +141,7 @@ It detects accidental corruption only; it is not authentication.
 | QHS-3 Merkle height | 12 |
 | QHS-3 WOTS chains | 45 |
 | QHS-3 WOTS chain length | 63 |
-| QHS-3.1 tree cache | 262,152 |
+| QHS-3.1 tree cache | 262,180 |
 
 ## 10. QHS production formats
 
@@ -200,7 +200,7 @@ BLAKE3("qWp QHS-1 signature-checksum" || first 2404 bytes)[0..4]
 
 The checksum detects accidental corruption; the Merkle root and WOTS chains provide authentication.
 
-### 10.5 QHS-1 public-leaf cache (8,232 bytes, optional)
+### 10.5 QHS-1 public-leaf cache (8,260 bytes, optional)
 
 The CLI may store the 256 public Merkle leaves next to the private key as
 `<private-key>.cache`. The cache is a performance aid, not a key and not part of
@@ -211,19 +211,19 @@ offset  size  field
 0       1     version        // 1
 1       1     algorithm      // 1
 2       1     height         // 8
-3       1     reserved       // 0
+3       1     kind           // 2 = keyed leaf cache
 4       32    fingerprint    // BLAKE3 derive-key("qWp QHS-1 cache fingerprint", seed)
 36      8192  leaves         // 256 × 32 bytes, leaf 0 first
-8228    4     checksum       // BLAKE3(first 8228 bytes)[0..4]
+8228    32    mac            // BLAKE3 keyed MAC("qWp QHS-1 cache mac", first 8228 bytes)
 ```
 
 Canonical rules:
 
-- The file is exactly 8,232 bytes; any other length is ignored.
-- The CLI reads at most 8,233 bytes, so an oversized or special file cannot force an unbounded allocation.
-- Header is `[1, 1, 8, 0]`.
+- The file is exactly 8,260 bytes; any other length is ignored.
+- The CLI reads at most 8,261 bytes, so an oversized or special file cannot force an unbounded allocation.
+- Header is `[1, 1, 8, 2]`.
 - The fingerprint must match the private key seed; a foreign cache is ignored.
-- The checksum must match the first 8,228 bytes; a corrupt cache is ignored.
+- The keyed MAC must match the first 8,228 bytes; a corrupt or forged cache is ignored.
 - A rejected or missing cache causes the leaves to be recomputed.
 - The file is written atomically with mode `0600` on Unix.
 
@@ -288,20 +288,20 @@ BLAKE3("qWp QHS-2 signature-checksum" || first 1700 bytes)[0..4]
 The checksum detects accidental corruption; the Merkle root and WOTS chains
 provide authentication.
 
-### 10.10 QHS-2 public-leaf cache (8,232 bytes, optional)
+### 10.10 QHS-2 public-leaf cache (8,260 bytes, optional)
 
-The QHS-2 cache has the same layout as QHS-1 with a different header and
-fingerprint context:
+The QHS-2 cache has the same layout as QHS-1 with different header,
+fingerprint, and MAC contexts:
 
 ```
 offset  size  field
 0       1     version        // 2
 1       1     algorithm      // 2
 2       1     height         // 8
-3       1     reserved       // 0
+3       1     kind           // 2 = keyed leaf cache
 4       32    fingerprint    // BLAKE3 derive-key("qWp QHS-2 cache fingerprint", seed)
 36      8192  leaves         // 256 × 32 bytes, leaf 0 first
-8228    4     checksum       // BLAKE3(first 8228 bytes)[0..4]
+8228    32    mac            // BLAKE3 keyed MAC("qWp QHS-2 cache mac", first 8228 bytes)
 ```
 
 QHS-1, QHS-2, QHS-3, and QHS-3.1 caches are not interchangeable: the header,
@@ -359,22 +359,22 @@ Canonical rules:
 BLAKE3("qWp QHS-3 signature-checksum" || first 1828 bytes)[0..4]
 ```
 
-### 10.15 QHS-3 public-leaf cache (131,112 bytes, optional)
+### 10.15 QHS-3 public-leaf cache (131,140 bytes, optional)
 
 ```
 offset   size    field
 0        1       version        // 3
 1        1       algorithm      // 3
 2        1       height         // 12
-3        1       reserved       // 0
+3        1       kind           // 2 = keyed leaf cache
 4        32      fingerprint    // BLAKE3 derive-key("qWp QHS-3 cache fingerprint", seed)
 36       131072  leaves         // 4096 × 32 bytes, leaf 0 first
-131108   4       checksum       // BLAKE3(first 131108 bytes)[0..4]
+131108   32      mac            // BLAKE3 keyed MAC("qWp QHS-3 cache mac", first 131108 bytes)
 ```
 
-QHS-3 caches are not interchangeable with QHS-1/QHS-2 caches.
+QHS-3 caches are not interchangeable with QHS-1, QHS-2, or QHS-3.1 caches.
 
-### 10.16 QHS-3.1 tree cache (262,152 bytes, optional)
+### 10.16 QHS-3.1 tree cache (262,180 bytes, optional)
 
 QHS-3.1 is the tree-cache profile of QHS-3. Keys and signatures are identical
 to QHS-3; only the signing cache differs.
@@ -384,19 +384,51 @@ offset    size    field
 0         1       version        // 3
 1         1       algorithm      // 3
 2         1       height         // 12
-3         1       kind           // 1 = tree cache
+3         1       kind           // 3 = keyed tree cache
 4         32      fingerprint    // BLAKE3 derive-key("qWp QHS-3.1 cache fingerprint", seed)
 36        131072  leaves         // 4096 × 32 bytes
 131108    131040  nodes          // 4095 internal nodes, level 1..12
-262148    4       checksum       // BLAKE3(first 262148 bytes)[0..4]
+262148    32      mac            // BLAKE3 keyed MAC("qWp QHS-3.1 tree cache mac", first 262148 bytes)
 ```
 
 The internal nodes are stored level by level: 2,048 nodes at level 1, 1,024 at
 level 2, and so on, with the root at offset 4,094 within the node region.
 QHS-3.1 signatures verify with QHS-3 verifiers and vice versa.
 
+### 10.17 Key state guard (38 bytes, optional)
+
+The CLI may write `<private-key>.state` to detect accidental counter rollback
+(e.g., restoring an old private-key backup).
+
+```
+offset  size  field
+0       1     version        // 1, 2, or 3
+1       1     algorithm      // 1, 2, or 3
+2       1     height         // 8 or 12
+3       1     reserved       // 0
+4       2     counter        // last known next_leaf, little-endian
+6       32    mac            // BLAKE3 keyed MAC("qWp key state guard", first 6 bytes)
+```
+
+Rules:
+
+- Written atomically with mode `0600`.
+- If the guard counter is greater than the key counter, signing is refused
+  with a rollback error.
+- If the guard counter is behind the key counter, it is advanced to the key
+  counter.
+- A missing or corrupt guard is rebuilt from the key.
+- A guard belonging to a different key is refused; delete the guard only when
+  intentionally resetting the key state.
+
+This detects accidental rollback of the key file. If the key and guard are
+restored together, or copied together from another host, local detection is
+impossible without a hardware monotonic counter; hardware-backed counters are
+outside the local threat model.
+
 ## 11. Open items
 
-No open production format items. QHS-1, QHS-2, QHS-3, and the QHS-3.1 tree
-cache are frozen and version-separated. The legacy 160-byte v0 container
-remains research-only and is not used for production signing or verification.
+No open production format items. QHS-1, QHS-2, QHS-3, the QHS-3.1 tree cache,
+and the key state guard are frozen and version-separated. The legacy 160-byte
+v0 container remains research-only and is not used for production signing or
+verification.
