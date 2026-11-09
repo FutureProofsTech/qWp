@@ -7,7 +7,7 @@
 - Visibility: public/private
 - Owner (engineer): Crypto lead
 - Owner (attacker): Red team
-- Status: survived; FAD closed for the local production path. 1-hour soak pending.
+- Status: survived; FAD closed for the local production path. 1-hour soak passed: 94,814,625 iterations, 0 panics (`docs/evidence/qhs41-fuzz-soak-1h.txt`).
 
 ## Contract
 
@@ -44,9 +44,9 @@
 - Formal harness: the 15 QHS-4-family Kani parser/bounds proofs remain green.
 - Timing: sequential ≈0.815 s, parallel ≈0.110 s, speedup ≈7.4×; Welch `|t| < 4.5`; `docs/evidence/qhs41-timing.txt`.
 - Coverage: QHS-4 crypto 99.28% lines; `docs/evidence/qhs41-coverage.txt`.
-- Fuzz: the QHS-4 fuzz driver uses the parallel signer on longer runs; 1-hour soak pending.
+- Fuzz: the QHS-4 fuzz driver uses the parallel signer on longer runs; a 60-second run produced 1,447,894 iterations with 0 panics, and the 1-hour soak produced 94,814,625 iterations with 0 panics. Evidence: `docs/evidence/qhs41-fuzz-soak-1h.txt`.
 - Break-log entries: BL-0022, BL-0023.
-- Gap IDs: GAP-QHS-0029 — closed; 1-hour soak pending.
+- Gap IDs: GAP-QHS-0029 — closed; 1-hour soak passed (94,814,625 iterations, 0 panics).
 
 ## Closure
 

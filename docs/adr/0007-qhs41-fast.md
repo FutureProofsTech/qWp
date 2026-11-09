@@ -1,6 +1,6 @@
 # ADR-0007: QHS-4.1 Parallel Fast-Signing Profile
 
-**Status:** Accepted and implemented — local evidence complete; 1-hour soak pending
+**Status:** Accepted and implemented — local evidence complete; 1-hour soak passed; `qhs41-rc1`
 
 **Date:** 2026-11-09
 

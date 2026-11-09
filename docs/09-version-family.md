@@ -122,7 +122,8 @@ Only the implementation changes: reusable BLAKE3 derive-key contexts and
 parallel hypertree/FORS tree generation. Signing drops from ≈0.81 s to ≈0.11 s
 on the reference host (≈7.4×); the sequential `Qhs4PrivateKey::sign` remains the
 reference and fallback. The `qhs41-*` CLI commands use the parallel path, and
-`qhs4-verify` / `qhs41-verify` accept the same signatures.
+`qhs4-verify` / `qhs41-verify` accept the same signatures. The QHS-4.1 1-hour
+soak passed with 94,814,625 iterations and 0 panics.
 
 QHS-4.1 does not replace QHS-1/2/3/3.1 or QHS-4. All versions remain available
 and version-separated.
