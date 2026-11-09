@@ -10,7 +10,7 @@
 The version family is organized around six axes:
 
 1. **Stateful vs stateless** — can the signer keep a monotonic counter and never clone the key?
-2. **Signatures per key** — 256, 4,096, 65,536, or unbounded.
+2. **Signatures per key** — 256 (QHS-1/2), 4,096 (QHS-3/3.1), or 2^20 (QHS-4 at the 128-bit target).
 3. **Signature size** — 1.3–3.4 KB for hash-based stateful variants; 7–30 KB for stateless.
 4. **Signing latency** — offline signing can tolerate hundreds of milliseconds; interactive services cannot.
 5. **Quantum margin** — 128-bit classical / 64-bit quantum baseline; optional 256-bit quantum margin.
@@ -111,7 +111,8 @@ QHS-4 is implemented as a separate stateless construction, not a parameter tweak
 QHS-4 has no counter, no cache, and no state guard. It is the right profile when
 the signer cannot maintain a single-writer monotonic counter. The trade-off is a
 large signature and slower signing. The proof and limits are in
-`docs/13-qhs4.md`; the ADR is `docs/adr/0006-qhs4-stateless.md`.
+`docs/13-qhs4.md`; the ADR is `docs/adr/0006-qhs4-stateless.md`. The QHS-4
+1-hour soak passed with 91,191,782 iterations and 0 panics.
 
 QHS-4 does not replace QHS-1/2/3/3.1. All versions remain available and
 version-separated.

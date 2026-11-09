@@ -1,6 +1,6 @@
 # ADR-0006: QHS-4 Stateless Hypertree/FORS Signature
 
-**Status:** Accepted and implemented — local evidence complete; final soak before `qhs4-rc1`
+**Status:** Accepted and implemented — local evidence complete; 1-hour soak passed; `qhs4-rc1`
 
 **Date:** 2026-11-09
 

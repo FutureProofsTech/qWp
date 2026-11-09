@@ -7,7 +7,7 @@
 - Visibility: public/private
 - Owner (engineer): Crypto lead
 - Owner (attacker): Red team
-- Status: survived; FAD closed for the local production path. Final 1-hour soak recorded in `docs/evidence/`.
+- Status: survived; FAD closed for the local production path. Final 1-hour soak passed: 91,191,782 iterations, 0 panics (`docs/evidence/qhs4-fuzz-soak-1h.txt`).
 
 ## Contract
 
@@ -43,14 +43,14 @@
 - Direct unit tests: `qwp-crypto/src/qhs4.rs` (KAT, round-trip, deterministic signatures, tamper, wrong key/message, header/parser, stateless key bytes).
 - Negative/abuse tests: `qwp-attacks::attack_qhs4`; tamper matrix covers header, randomizer, FORS, hypertree, auth path, checksum, all-zero, all-0xff.
 - Property tests: signature size, key size, domain-context distinctness, message-digit shape/checksum.
-- Fuzz target: in-house fuzz covers random QHS-4 public/private/signature parsing, random verifier inputs, valid signature checks, and random-message signing on longer runs.
+- Fuzz target: in-house fuzz covers random QHS-4 public/private/signature parsing, random verifier inputs, valid signature checks, and random-message signing on longer runs. 5-second smoke: 11,533 iterations; 60-second full setup: 1,210,100 iterations; final 1-hour soak: 91,191,782 iterations; all 0 panics. Soak evidence: `docs/evidence/qhs4-fuzz-soak-1h.txt`.
 - Formal harness: Kani parser proofs pass (`qhs4_public_key_parse_never_panics`, `qhs4_private_key_parse_never_panics`, `qhs4_signature_from_slice_checks_length`).
 - Timing harness: keygen ≈0.19 s, sign ≈1.51 s, verify ≈3.0 ms; Welch `|t| < 4.5`.
 - Benchmarks: `qhs4_timing`.
 - Mutation: 137 mutants, 93 caught, 38 unviable, 6 documented equivalents; no non-equivalent viable survivor (`docs/evidence/qhs4-mutation.txt`).
 - CLI tests: keygen/sign/verify end-to-end; private key bytes and mtime unchanged; no `.cache`, `.treecache`, or `.state` files; read-only private key signing succeeds.
 - Break-log entries: BL-0019, BL-0020, BL-0021.
-- Gap IDs: GAP-QHS-0028 — closed; 1-hour soak evidence recorded.
+- Gap IDs: GAP-QHS-0028 — closed; 1-hour soak passed (91,191,782 iterations, 0 panics).
 
 ## Closure
 
