@@ -1,0 +1,15 @@
+qWp QHS-4 fuzz smoke evidence
+=============================
+
+Date: 2026-11-09
+Command: cargo run -q -p qwp-tests --release --bin fuzz -- 5
+
+Result:
+fuzz: seconds=5 iterations=11533 panics=0
+
+Notes:
+- The 5-second run skips the QHS-4 valid-key setup (`seconds >= 30`), so it
+  exercises the QHS-4 public/private/signature parsers and the verifier's
+  header/checksum rejection paths against random inputs.
+- The 60-second and 1-hour runs include QHS-4 keygen, valid sign/verify,
+  random-message signing, and periodic valid-signature verification.

@@ -142,4 +142,4 @@ Every candidate must survive:
 - Replacement: **QHS-1 selected** (ADR-0002).
 - QHS-1 is implemented in `qwp-crypto::qhs`; the proof is in `docs/05-qhs1.md`.
 - The braid/Jones engine is research-only and is not part of the production security argument.
-- QHS-1 proof review, key-store atomicity, fuzz/timing, and attack-suite expansion are closed. The production gap register has zero open entries; the 1-hour soak passed and the 72-hour soak was waived by owner decision (2026-11-06).
+- QHS-1 proof review, key-store atomicity, fuzz/timing, and attack-suite expansion are closed. QHS-2/3/3.1 add compact and high-capacity stateful profiles; QHS-4 adds the stateless hypertree/FORS profile. The production gap register has zero open entries; the combined 1-hour soak passed and the QHS-1 72-hour soak was waived by owner decision (2026-11-06).

@@ -2,7 +2,7 @@
 
 **Rule:** Every critical asset has an attack tree; every leaf maps to an abuse case, attack harness, and gap if unresolved.
 
-**Scope:** §1–§6 cover the legacy braid research path. §7 covers the production QHS-1 signature.
+**Scope:** §1–§6 cover the legacy braid research path. §7–§11 cover the production QHS-1/2/3/3.1/4 signatures.
 
 ## 1. Signature forgery
 
@@ -148,4 +148,26 @@ Attack QHS-3.1
 ├── Oversized/special tree cache                [bounded reads]
 ├── Wrong tree for leaf index                   [auth-path extraction bounds; unit tests]
 └── Signature semantics                         [same QHS-3 signature/proof]
+```
+
+## 11. QHS-4 stateless signature
+
+```
+Forge QHS-4
+├── FORS few-time forgery
+│   ├── Hit a used bottom leaf (64-bit idx)     [q/2^64]
+│   ├── Hit revealed leaves in all 16 trees     [(γ/256)^16]
+│   └── Combine                                  [q · 2^-192; 2^-172 at q=2^20]
+├── WOTS fixed-message forgery
+│   ├── Different child root under same key     [preimage/second-preimage]
+│   └── Reuse with different value              [forbidden by fixed child root]
+├── Hypertree path reuse
+│   ├── 64-bit idx collision                    [q^2/2^65 ≤ 2^-25]
+│   └── FORS reuse after collision              [2^-25 · 2^-112 = 2^-137]
+├── Merkle/FORS path collision                  [128-bit hash collision bound]
+├── Auth path / header / checksum tampering     [attack suite; Kani length proof]
+├── Wrong message/key                           [attack suite]
+├── Cross-version confusion                     [68-byte keys, 18,216-byte signature, header]
+├── Stateless key mutation                      [CLI test: key bytes/mtime unchanged]
+└── Timing/fault/DoS                            [Welch t-test; fixed loops]
 ```

@@ -46,14 +46,14 @@ qWp is **non-standard, zero-trust, adversarial, and gap-free**.
 
 | ID | Decision | Default |
 |---|---|---|
-| D1 | Project path | QHS-1 production signature; braid/Jones engine research-only |
+| D1 | Project path | QHS-1/2/3/3.1/4 production signatures; braid/Jones engine research-only |
 | D2 | Code policy | Zero external crates; 100% safe first-party Rust; `no_std` core |
 | D3 | Platform scope | Unix host first; Windows/embedded/WASM out of scope unless a safe in-tree HAL/binding is added |
 | D4 | Hash component | In-tree BLAKE3 as a specified component, not a standard authority |
-| D5 | Standard fallback | None; QHS-1 is qWp-defined |
+| D5 | Standard fallback | None; every QHS version is qWp-defined |
 | D6 | External review | Optional evidence, never a gate |
 | D7 | Security target | Measured attack cost: ≥2^128 classical and ≥2^64 quantum design goal |
-| D8 | Object sizes | QHS-1: 64-byte private key, 64-byte public key, 2408-byte signature; legacy research container 40/516/160 |
+| D8 | Object sizes | QHS-1/2/3/3.1: 64-byte keys, 2,408/1,704/1,832-byte signatures; QHS-4: 68-byte keys, 18,216-byte signature; legacy research container 40/516/160 |
 | D9 | Gap process | Gap register + traceability + zero-open-gap release gate |
 | D10 | Development method | Attack-driven development + FAD per function |
 | D11 | Test counts | 100,000 keygen and 50,000 timing runs are minimums |
@@ -61,7 +61,7 @@ qWp is **non-standard, zero-trust, adversarial, and gap-free**.
 | D13 | Zeroization | Best-effort only; documented limitation |
 | D14 | Tooling | External tool binaries allowed; no external Rust crates |
 | D15 | BLAKE3 replacement | Only by a written ADR + gap entry + full design/attack plan |
-| D16 | Message binding | QHS-1 hashes the full message via BLAKE3; the legacy braid container also binds the full digest |
+| D16 | Message binding | QHS-1/2/3/3.1/4 hash the full message via BLAKE3; the legacy braid container also binds the full digest |
 
 Any change requires an ADR, a gap-register entry, traceability update, impact analysis, and a second review.
 
@@ -80,7 +80,7 @@ Any change requires an ADR, a gap-register entry, traceability update, impact an
 | Correctness | Math spec + KATs + differential + property tests |
 | Coverage | 100% core line/branch target; 95% overall; exceptions in gap register |
 | Mutation | ≥95% target, 100% goal |
-| Fuzzing | 72h clean by default; QHS-1 1h waiver 2026-11-06; QHS-2/3/3.1 combined 1h passed |
+| Fuzzing | 72h clean by default; QHS-1 1h waiver 2026-11-06; QHS-2/3/3.1 combined 1h passed; QHS-4 1h recorded before tagging |
 | Attack coverage | 100% of functions have FAD + attack harness |
 | Gap coverage | Zero open gaps at release |
 | Supply chain | Zero crates; pinned toolchain; reproducible builds |

@@ -1,6 +1,7 @@
 # qWp Math Specification (Phase 0)
 
-**Status:** Frozen for the invariant and bounds; production signature is QHS-1 (ADR-0002).  
+**Status:** Frozen for the invariant and bounds; production signatures are QHS-1/2/3/3.1/4 (ADR-0002–0006).
+
 **Authority:** This document plus `docs/05-qhs1.md` and `docs/gap-register.md`. No external standard is authoritative.
 
 ---
@@ -228,7 +229,7 @@ A sound qWp signature must:
 
 The original topological signature cannot be made sound within the 160-byte/128-bit target. Phase 0 closes C1 as a **rejected construction**.
 
-The production path is **QHS-1** (ADR-0002): a custom WOTS/Merkle hash-based signature on in-tree BLAKE3, 2408-byte signatures, 64-byte keys, with a written EUF-CMA proof in `docs/05-qhs1.md`. The braid/Jones engine remains a research module; it is not part of the production security argument.
+The first production path is **QHS-1** (ADR-0002): a custom WOTS/Merkle hash-based signature on in-tree BLAKE3, 2408-byte signatures, 64-byte keys, with a written EUF-CMA proof in `docs/05-qhs1.md`. QHS-2, QHS-3, QHS-3.1, and QHS-4 extend the same hash-based paradigm with their own ADRs, proofs, and formats (`docs/07-qhs2.md`, `docs/10-qhs3.md`, `docs/12-qhs31.md`, `docs/13-qhs4.md`). The braid/Jones engine remains a research module; it is not part of the production security argument.
 
 No standard fallback is permitted.
 

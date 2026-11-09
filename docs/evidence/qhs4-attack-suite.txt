@@ -1,0 +1,21 @@
+qWp QHS-4 attack-suite evidence
+===============================
+
+Date: 2026-11-09
+Command: cargo run -q -p qwp-attacks --release --bin attack-suite
+
+Result:
+attack-suite: passed=9 failed=0
+
+QHS-4 checks in `qwp_attacks::attack_qhs4`:
+- Valid signature accepted.
+- Wrong message rejected.
+- Header tamper (offset 0) rejected.
+- Randomizer tamper (offsets 4, 35) rejected.
+- FORS tamper (offset 36, 100) rejected.
+- Hypertree/WOTS tamper (offsets 4,644, 6,000) rejected.
+- Auth-path/checksum tamper (offsets 18,000, 18,215) rejected.
+- All-zero and all-0xff signatures rejected.
+- Wrong public key rejected.
+- Signing twice is deterministic and leaves the private key bytes unchanged.
+- Wrong signature header (`version=3`) rejected.

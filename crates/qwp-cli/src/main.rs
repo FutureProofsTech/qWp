@@ -68,11 +68,12 @@ use qwp_crypto::{
     PrivateKey, PublicKey, QHS_LEAF_BYTES, QHS_LEAF_COUNT, QHS_PRIVATE_KEY_BYTES,
     QHS_PUBLIC_KEY_BYTES, QHS_SIGNATURE_BYTES, QHS2_LEAF_COUNT, QHS2_PRIVATE_KEY_BYTES,
     QHS2_PUBLIC_KEY_BYTES, QHS2_SIGNATURE_BYTES, QHS3_LEAF_COUNT, QHS3_PRIVATE_KEY_BYTES,
-    QHS3_PUBLIC_KEY_BYTES, QHS3_SIGNATURE_BYTES, QHS3_TREE_NODES, Qhs2PrivateKey, Qhs2PublicKey,
-    Qhs2Signature, Qhs3PrivateKey, Qhs3PublicKey, Qhs3Signature, QhsPrivateKey, QhsPublicKey,
-    QhsSignature, Signature, qhs_keygen, qhs_keygen_from_leaves, qhs_leaves, qhs2_keygen,
-    qhs2_keygen_from_leaves, qhs2_leaves, qhs3_auth_path_from_tree, qhs3_build_tree,
-    qhs3_keygen_from_leaves, qhs3_leaf,
+    QHS3_PUBLIC_KEY_BYTES, QHS3_SIGNATURE_BYTES, QHS3_TREE_NODES, QHS4_PRIVATE_KEY_BYTES,
+    QHS4_PUBLIC_KEY_BYTES, QHS4_SIGNATURE_BYTES, Qhs2PrivateKey, Qhs2PublicKey, Qhs2Signature,
+    Qhs3PrivateKey, Qhs3PublicKey, Qhs3Signature, Qhs4PrivateKey, Qhs4PublicKey, Qhs4Signature,
+    QhsPrivateKey, QhsPublicKey, QhsSignature, Signature, qhs_keygen, qhs_keygen_from_leaves,
+    qhs_leaves, qhs2_keygen, qhs2_keygen_from_leaves, qhs2_leaves, qhs3_auth_path_from_tree,
+    qhs3_build_tree, qhs3_keygen_from_leaves, qhs3_leaf, qhs4_keygen,
 };
 use qwp_hash::{Hasher, derive_key32, hash32};
 use qwp_platform::{HostEntropy, qhs_leaves_parallel, qhs2_leaves_parallel, qhs3_leaves_parallel};
@@ -158,63 +159,27 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Some("selftest") => {
-            if selftest() {
-                println!("selftest: ok");
-                ExitCode::SUCCESS
-            } else {
-                eprintln!("selftest: failed");
-                ExitCode::from(3)
-            }
-        }
-        Some("qhs-selftest") => {
-            if qhs_selftest() {
-                println!("qhs-selftest: ok");
-                ExitCode::SUCCESS
-            } else {
-                eprintln!("qhs-selftest: failed");
-                ExitCode::from(3)
-            }
-        }
+        Some("selftest") => run_named_selftest("selftest", selftest),
+        Some("qhs-selftest") => run_named_selftest("qhs-selftest", qhs_selftest),
         Some("qhs-keygen") => run_qhs_keygen(&arguments),
         Some("qhs-sign") => run_qhs_sign(&arguments),
         Some("qhs-verify") => run_qhs_verify(&arguments),
-        Some("qhs2-selftest") => {
-            if qhs2_selftest() {
-                println!("qhs2-selftest: ok");
-                ExitCode::SUCCESS
-            } else {
-                eprintln!("qhs2-selftest: failed");
-                ExitCode::from(3)
-            }
-        }
+        Some("qhs2-selftest") => run_named_selftest("qhs2-selftest", qhs2_selftest),
         Some("qhs2-keygen") => run_qhs2_keygen(&arguments),
         Some("qhs2-sign") => run_qhs2_sign(&arguments),
         Some("qhs2-verify") => run_qhs2_verify(&arguments),
-        Some("qhs3-selftest") => {
-            if qhs3_selftest() {
-                println!("qhs3-selftest: ok");
-                ExitCode::SUCCESS
-            } else {
-                eprintln!("qhs3-selftest: failed");
-                ExitCode::from(3)
-            }
-        }
+        Some("qhs3-selftest") => run_named_selftest("qhs3-selftest", qhs3_selftest),
         Some("qhs3-keygen") => run_qhs3_keygen(&arguments),
         Some("qhs3-sign") => run_qhs3_sign(&arguments),
         Some("qhs3-verify") => run_qhs3_verify(&arguments),
-        Some("qhs31-selftest") => {
-            if qhs31_selftest() {
-                println!("qhs31-selftest: ok");
-                ExitCode::SUCCESS
-            } else {
-                eprintln!("qhs31-selftest: failed");
-                ExitCode::from(3)
-            }
-        }
+        Some("qhs31-selftest") => run_named_selftest("qhs31-selftest", qhs31_selftest),
         Some("qhs31-keygen") => run_qhs31_keygen(&arguments),
         Some("qhs31-sign") => run_qhs31_sign(&arguments),
         Some("qhs31-verify") => run_qhs31_verify(&arguments),
+        Some("qhs4-selftest") => run_named_selftest("qhs4-selftest", qhs4_selftest),
+        Some("qhs4-keygen") => run_qhs4_keygen(&arguments),
+        Some("qhs4-sign") => run_qhs4_sign(&arguments),
+        Some("qhs4-verify") => run_qhs4_verify(&arguments),
         Some("help") | None => {
             print_help();
             ExitCode::SUCCESS
@@ -250,6 +215,10 @@ fn print_help() {
     println!("  qhs31-keygen <pub> <key>        write QHS-3.1 keys and tree cache");
     println!("  qhs31-sign <key> <message> <sig> fast tree-cache signing");
     println!("  qhs31-verify <pub> <message> <sig> verify QHS-3 signature");
+    println!("  qhs4-selftest     run QHS-4 stateless keygen/sign/verify");
+    println!("  qhs4-keygen <pub> <key>         write QHS-4 public/private key files");
+    println!("  qhs4-sign <key> <message> <sig> stateless signing; key file is not modified");
+    println!("  qhs4-verify <pub> <message> <sig> verify QHS-4 signature");
     println!("  help              show this help");
 }
 
@@ -1060,6 +1029,152 @@ fn run_qhs31_verify(arguments: &[String]) -> ExitCode {
     }
 }
 
+fn run_qhs4_keygen(arguments: &[String]) -> ExitCode {
+    let (Some(public_path), Some(private_path)) = (arguments.get(2), arguments.get(3)) else {
+        eprintln!("usage: qwp qhs4-keygen <public-key> <private-key>");
+        return ExitCode::from(2);
+    };
+    if Path::new(private_path).exists() {
+        eprintln!("qhs4-keygen: refusing to overwrite existing {private_path}");
+        return ExitCode::from(2);
+    }
+    let _lock_file = match lock_key(private_path) {
+        Ok(file) => file,
+        Err(error) => {
+            eprintln!("qhs4-keygen: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let mut seed = [0_u8; 32];
+    if let Err(error) = HostEntropy::open().and_then(|mut entropy| entropy.fill(&mut seed)) {
+        eprintln!("qhs4-keygen: {error}");
+        return ExitCode::from(3);
+    }
+    match qhs4_keygen(&seed) {
+        Ok((private_key, public_key)) => {
+            if let Err(error) = write_atomic(private_path, &private_key.to_bytes(), true) {
+                eprintln!("qhs4-keygen: {error}");
+                return ExitCode::from(3);
+            }
+            if let Err(error) = write_atomic(public_path, &public_key.to_bytes(), false) {
+                eprintln!("qhs4-keygen: {error}");
+                return ExitCode::from(3);
+            }
+            println!("qhs4-keygen: wrote {public_path} and {private_path}");
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("qhs4-keygen: {error}");
+            ExitCode::from(3)
+        }
+    }
+}
+
+fn run_qhs4_sign(arguments: &[String]) -> ExitCode {
+    let (Some(private_path), Some(message_path), Some(signature_path)) =
+        (arguments.get(2), arguments.get(3), arguments.get(4))
+    else {
+        eprintln!("usage: qwp qhs4-sign <private-key> <message> <signature>");
+        return ExitCode::from(2);
+    };
+    let key_vec = match read_exact_file(private_path, QHS4_PRIVATE_KEY_BYTES) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("qhs4-sign: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let Ok(key_bytes) = <[u8; QHS4_PRIVATE_KEY_BYTES]>::try_from(key_vec.as_slice()) else {
+        eprintln!("qhs4-sign: invalid private key length");
+        return ExitCode::from(3);
+    };
+    let private_key = match Qhs4PrivateKey::from_bytes(&key_bytes) {
+        Ok(key) => key,
+        Err(error) => {
+            eprintln!("qhs4-sign: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let message = match fs::read(message_path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("qhs4-sign: {message_path}: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let signature = match private_key.sign(&message) {
+        Ok(signature) => signature,
+        Err(error) => {
+            eprintln!("qhs4-sign: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    if let Err(error) = write_atomic(signature_path, &signature.to_bytes(), false) {
+        eprintln!("qhs4-sign: {error}");
+        return ExitCode::from(3);
+    }
+    println!("qhs4-sign: wrote {signature_path}");
+    ExitCode::SUCCESS
+}
+
+fn run_qhs4_verify(arguments: &[String]) -> ExitCode {
+    let (Some(public_path), Some(message_path), Some(signature_path)) =
+        (arguments.get(2), arguments.get(3), arguments.get(4))
+    else {
+        eprintln!("usage: qwp qhs4-verify <public-key> <message> <signature>");
+        return ExitCode::from(2);
+    };
+    let public_vec = match read_exact_file(public_path, QHS4_PUBLIC_KEY_BYTES) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("qhs4-verify: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let Ok(public_bytes) = <[u8; QHS4_PUBLIC_KEY_BYTES]>::try_from(public_vec.as_slice()) else {
+        eprintln!("qhs4-verify: invalid public key length");
+        return ExitCode::from(3);
+    };
+    let public_key = match Qhs4PublicKey::from_bytes(&public_bytes) {
+        Ok(key) => key,
+        Err(error) => {
+            eprintln!("qhs4-verify: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let signature_vec = match read_exact_file(signature_path, QHS4_SIGNATURE_BYTES) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("qhs4-verify: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let signature = match Qhs4Signature::from_slice(&signature_vec) {
+        Ok(signature) => signature,
+        Err(error) => {
+            eprintln!("qhs4-verify: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let message = match fs::read(message_path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("qhs4-verify: {message_path}: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    match public_key.verify(&message, &signature) {
+        Ok(()) => {
+            println!("qhs4-verify: ok");
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("qhs4-verify: {error}");
+            ExitCode::from(1)
+        }
+    }
+}
+
 fn lock_key(path: &str) -> Result<fs::File, String> {
     let lock_path = format!("{path}.lock");
     let file = OpenOptions::new()
@@ -1517,6 +1632,16 @@ fn write_atomic(path: &str, bytes: &[u8], private: bool) -> Result<(), String> {
     Ok(())
 }
 
+fn run_named_selftest(name: &str, selftest: fn() -> bool) -> ExitCode {
+    if selftest() {
+        println!("{name}: ok");
+        ExitCode::SUCCESS
+    } else {
+        eprintln!("{name}: failed");
+        ExitCode::from(3)
+    }
+}
+
 fn all_true(checks: &[bool]) -> bool {
     checks.iter().all(|value| *value)
 }
@@ -1569,6 +1694,20 @@ fn qhs31_selftest() -> bool {
     all_true(&[
         public_key.verify(b"qhs31-selftest", &signature).is_ok(),
         public_key.verify(b"qhs31-wrong", &signature).is_err(),
+    ])
+}
+
+fn qhs4_selftest() -> bool {
+    let seed = [7_u8; 32];
+    let Ok((private_key, public_key)) = qhs4_keygen(&seed) else {
+        return false;
+    };
+    let Ok(signature) = private_key.sign(b"qhs4-selftest") else {
+        return false;
+    };
+    all_true(&[
+        public_key.verify(b"qhs4-selftest", &signature).is_ok(),
+        public_key.verify(b"qhs4-wrong", &signature).is_err(),
     ])
 }
 

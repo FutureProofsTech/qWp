@@ -12,6 +12,9 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings
 echo "== tests =="
 cargo test --workspace --all-features
 
+echo "== release tests =="
+cargo test --workspace --release
+
 echo "== attacks =="
 cargo run -p qwp-attacks --bin attack-suite
 

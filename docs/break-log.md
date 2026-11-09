@@ -22,6 +22,9 @@
 | BL-0016 | 2026-11-06 | QHS-3 | High-capacity height-12 tree review | **No new break.** 4,096 leaves, 1,832-byte signature; reduction loss ~2^21.47; 128-bit target retained; slice API avoids 128 KiB stack frames | GAP-QHS-0025 | **Closed — ADR/proof/tests; combined 1h soak passed** |
 | BL-0017 | 2026-11-06 | QHS-3.1 tree cache | Poisoned, foreign, or oversized tree cache | **Mitigated.** Public Merkle data; versioned fingerprint + keyed MAC; verifier recomputes root; cache rebuild on mismatch | GAP-QHS-0026 | **Closed — tree/CLI tests; same QHS-3 signature** |
 | BL-0018 | 2026-11-06 | Key store | Restore an old private-key backup and reuse leaves | **Mitigated locally.** Keyed `<private-key>.state` guard refuses signing when guard counter is ahead of key counter; missing guard rebuilds | GAP-QHS-0027 | **Closed — rollback test** |
+| BL-0019 | 2026-11-09 | QHS-4 implementation | Initial 45-chain WOTS reused the 67-chain nibble digit layout; chain context undefined; FORS errors swallowed; private key size assertion mismatched | **Found and fixed before release.** 43+2 base-64 digits, dedicated chain and WOTS-message contexts, `Result` propagation, 68-byte key layout | GAP-QHS-0028 | **Closed — compile/clippy/KAT/round-trip** |
+| BL-0020 | 2026-11-09 | QHS-4 FORS/WOTS reuse | Reuse a bottom leaf or WOTS key with different values | **No break.** WOTS keys sign fixed child roots; FORS is few-time with `(γ/256)^16`; 64-bit path collision bound `2^-25`, combined `2^-137` | GAP-QHS-0028 | **Closed — proof + attack/tamper/fuzz** |
+| BL-0021 | 2026-11-09 | QHS-4 parser/verifier | Malformed header/checksum/auth paths; cross-version confusion; stateless key mutation | **Mitigated.** Fixed header `[4,4,64,0]`, checksum, exact lengths, Kani length proof, attack suite, and CLI tests showing key bytes/mtime unchanged | GAP-QHS-0028 | **Closed — Kani/attack/CLI tests** |
 
 ## Rules
 

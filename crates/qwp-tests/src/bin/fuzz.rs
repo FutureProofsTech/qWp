@@ -12,9 +12,11 @@ use qwp_core::{BRAID_BYTES, Braid, PUBLIC_KEY_BYTES, Polynomial};
 use qwp_crypto::{
     QHS_PRIVATE_KEY_BYTES, QHS_PUBLIC_KEY_BYTES, QHS_SIGNATURE_BYTES, QHS2_PRIVATE_KEY_BYTES,
     QHS2_PUBLIC_KEY_BYTES, QHS2_SIGNATURE_BYTES, QHS3_PRIVATE_KEY_BYTES, QHS3_PUBLIC_KEY_BYTES,
-    QHS3_SIGNATURE_BYTES, QHS3_TREE_NODES, Qhs2PrivateKey, Qhs2PublicKey, Qhs2Signature,
-    Qhs3PrivateKey, Qhs3PublicKey, Qhs3Signature, QhsPrivateKey, QhsPublicKey, QhsSignature,
-    qhs_keygen, qhs2_keygen, qhs3_auth_path_from_tree, qhs3_build_tree, qhs3_keygen_from_leaves,
+    QHS3_SIGNATURE_BYTES, QHS3_TREE_NODES, QHS4_PRIVATE_KEY_BYTES, QHS4_PUBLIC_KEY_BYTES,
+    QHS4_SIGNATURE_BYTES, Qhs2PrivateKey, Qhs2PublicKey, Qhs2Signature, Qhs3PrivateKey,
+    Qhs3PublicKey, Qhs3Signature, Qhs4PrivateKey, Qhs4PublicKey, Qhs4Signature, QhsPrivateKey,
+    QhsPublicKey, QhsSignature, qhs_keygen, qhs2_keygen, qhs3_auth_path_from_tree, qhs3_build_tree,
+    qhs3_keygen_from_leaves, qhs4_keygen,
 };
 use qwp_platform::qhs3_leaves_parallel;
 
@@ -168,6 +170,50 @@ fn main() {
         eprintln!("fuzz: qhs3 seed verify failed");
         std::process::exit(2);
     }
+    let qhs4_keys = if seconds >= 30 {
+        let Ok((private_key4, public_key4)) = qhs4_keygen(&seed) else {
+            eprintln!("fuzz: qhs4 keygen failed");
+            std::process::exit(2);
+        };
+        let Ok(valid_signature4) = private_key4.sign(b"fuzz-seed-qhs4") else {
+            eprintln!("fuzz: qhs4 seed sign failed");
+            std::process::exit(2);
+        };
+        if public_key4
+            .verify(b"fuzz-seed-qhs4", &valid_signature4)
+            .is_err()
+        {
+            eprintln!("fuzz: qhs4 seed verify failed");
+            std::process::exit(2);
+        }
+        Some((private_key4, public_key4, valid_signature4))
+    } else {
+        None
+    };
+    let fallback_public4 = Qhs4PublicKey::from_root([0_u8; 32], [0_u8; 32]);
+    let fallback_signature4 = Qhs4Signature::from_bytes([0_u8; QHS4_SIGNATURE_BYTES]);
+    let (public_key4, valid_signature4) = qhs4_keys
+        .as_ref()
+        .map_or((&fallback_public4, &fallback_signature4), |keys| {
+            (&keys.1, &keys.2)
+        });
+    if let Some((private_key4, _, _)) = &qhs4_keys
+        && seconds >= 60
+    {
+        for _ in 0..4 {
+            let length = usize::try_from(rng.next() % 257).unwrap_or(0);
+            let mut message = [0_u8; 256];
+            rng.fill(&mut message[..length]);
+            let Ok(signature) = private_key4.sign(&message[..length]) else {
+                eprintln!("fuzz: random qhs4 sign failed");
+                std::process::exit(2);
+            };
+            if public_key4.verify(&message[..length], &signature).is_err() {
+                eprintln!("fuzz: random qhs4 verify failed");
+                std::process::exit(2);
+            }
+        }
+    }
     random_rounds(&mut rng);
 
     let mut iterations: u64 = 0;
@@ -226,6 +272,20 @@ fn main() {
             let signature3 = Qhs3Signature::from_bytes(signature_bytes3);
             let _ = signature3.leaf_index();
 
+            let mut public_bytes4 = [0_u8; QHS4_PUBLIC_KEY_BYTES];
+            rng.fill(&mut public_bytes4);
+            let _ = Qhs4PublicKey::from_bytes(&public_bytes4);
+
+            let mut private_bytes4 = [0_u8; QHS4_PRIVATE_KEY_BYTES];
+            rng.fill(&mut private_bytes4);
+            let _ = Qhs4PrivateKey::from_bytes(&private_bytes4);
+
+            let mut signature_bytes4 = [0_u8; QHS4_SIGNATURE_BYTES];
+            rng.fill(&mut signature_bytes4);
+            let signature4 = Qhs4Signature::from_bytes(signature_bytes4);
+            let short_length = usize::try_from(rng.next() % 18_217).unwrap_or(0);
+            let _ = Qhs4Signature::from_slice(&signature4.as_bytes()[..short_length]);
+
             let length = usize::try_from(rng.next() % 257).unwrap_or(0);
             let mut message = [0_u8; 256];
             rng.fill(&mut message[..length]);
@@ -233,6 +293,10 @@ fn main() {
             let _ = public_key.verify(message, &signature);
             let _ = public_key2.verify(message, &signature2);
             let _ = public_key3.verify(message, &signature3);
+            let _ = public_key4.verify(message, &signature4);
+            if iterations.is_multiple_of(1_000) {
+                let _ = public_key4.verify(b"fuzz-seed-qhs4", valid_signature4);
+            }
         }));
         if result.is_err() {
             panics = panics.saturating_add(1);

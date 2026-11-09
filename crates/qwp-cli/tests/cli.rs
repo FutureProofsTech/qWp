@@ -52,12 +52,16 @@ fn version_help_and_selftests() {
     assert!(help_text.contains("qhs2-keygen"));
     assert!(help_text.contains("qhs3-keygen"));
     assert!(help_text.contains("qhs31-keygen"));
+    assert!(help_text.contains("qhs4-keygen"));
+    assert!(help_text.contains("qhs4-sign"));
+    assert!(help_text.contains("qhs4-verify"));
 
     assert!(run(&["selftest"]).status.success());
     assert!(run(&["qhs-selftest"]).status.success());
     assert!(run(&["qhs2-selftest"]).status.success());
     assert!(run(&["qhs3-selftest"]).status.success());
     assert!(run(&["qhs31-selftest"]).status.success());
+    assert!(run(&["qhs4-selftest"]).status.success());
 }
 
 #[test]
@@ -93,6 +97,9 @@ fn hash_entropy_and_usage_errors() {
     assert!(!run(&["qhs31-keygen"]).status.success());
     assert!(!run(&["qhs31-sign"]).status.success());
     assert!(!run(&["qhs31-verify"]).status.success());
+    assert!(!run(&["qhs4-keygen"]).status.success());
+    assert!(!run(&["qhs4-sign"]).status.success());
+    assert!(!run(&["qhs4-verify"]).status.success());
     assert!(!run(&["unknown"]).status.success());
 }
 
@@ -740,11 +747,18 @@ fn qhs_key_lock_rejects_second_writer() {
     assert!(String::from_utf8_lossy(&blocked.stderr).contains("locked"));
 
     drop(lock);
-    assert!(
-        run(&["qhs-sign", &private_text, &message_text, &signature_text])
-            .status
-            .success()
-    );
+    let mut released = None;
+    for _ in 0..20 {
+        let output = run(&["qhs-sign", &private_text, &message_text, &signature_text]);
+        if output.status.success() {
+            released = Some(output);
+            break;
+        }
+        released = Some(output);
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    let released = released.unwrap();
+    assert!(released.status.success(), "{released:?}");
 
     let _ = fs::remove_dir_all(&directory);
 }
@@ -869,6 +883,137 @@ fn qhs31_tree_cache_sign_verify_end_to_end() {
     fs::write(&private, &key_bytes).unwrap();
     assert!(
         !run(&["qhs31-sign", &private_text, &message_text, &signature_text])
+            .status
+            .success()
+    );
+
+    let _ = fs::remove_dir_all(&directory);
+}
+
+#[test]
+fn qhs4_stateless_keygen_sign_verify_end_to_end() {
+    let directory = workspace();
+    let public = directory.join("public.key");
+    let private = directory.join("private.key");
+    let message = directory.join("message.txt");
+    let signature = directory.join("message.sig");
+    let missing = directory.join("missing.bin");
+    fs::write(&message, b"qWp QHS-4 stateless CLI message\n").unwrap();
+
+    let public_text = public.to_string_lossy().to_string();
+    let private_text = private.to_string_lossy().to_string();
+    let message_text = message.to_string_lossy().to_string();
+    let signature_text = signature.to_string_lossy().to_string();
+    let missing_text = missing.to_string_lossy().to_string();
+
+    assert!(
+        !run(&["qhs4-sign", &missing_text, &message_text, &signature_text])
+            .status
+            .success()
+    );
+    assert!(
+        !run(&["qhs4-verify", &missing_text, &message_text, &signature_text])
+            .status
+            .success()
+    );
+
+    let keygen = run(&["qhs4-keygen", &public_text, &private_text]);
+    assert!(keygen.status.success(), "{keygen:?}");
+    assert_eq!(fs::metadata(&public).unwrap().len(), 68);
+    assert_eq!(fs::metadata(&private).unwrap().len(), 68);
+    let public_bytes = fs::read(&public).unwrap();
+    let private_bytes = fs::read(&private).unwrap();
+    assert_eq!(&public_bytes[..4], &[4, 4, 64, 0]);
+    assert_eq!(&private_bytes[..4], &[4, 4, 64, 0]);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = fs::metadata(&private).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
+    }
+    assert!(!directory.join("private.key.cache").exists());
+    assert!(!directory.join("private.key.state").exists());
+    assert!(!directory.join("private.key.treecache").exists());
+
+    let old_time =
+        std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000);
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&private)
+        .unwrap()
+        .set_times(fs::FileTimes::new().set_modified(old_time))
+        .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&private, fs::Permissions::from_mode(0o400)).unwrap();
+    }
+
+    let sign = run(&["qhs4-sign", &private_text, &message_text, &signature_text]);
+    assert!(sign.status.success(), "{sign:?}");
+    assert_eq!(fs::metadata(&signature).unwrap().len(), 18_216);
+    let signature_bytes = fs::read(&signature).unwrap();
+    assert_eq!(&signature_bytes[..4], &[4, 4, 64, 0]);
+    assert_eq!(fs::read(&private).unwrap(), private_bytes);
+    assert_eq!(
+        fs::metadata(&private).unwrap().modified().unwrap(),
+        old_time
+    );
+    assert!(!directory.join("private.key.cache").exists());
+    assert!(!directory.join("private.key.state").exists());
+    assert!(!directory.join("private.key.treecache").exists());
+
+    let verify = run(&["qhs4-verify", &public_text, &message_text, &signature_text]);
+    assert!(verify.status.success(), "{verify:?}");
+
+    let mut tampered = signature_bytes.clone();
+    tampered[10] ^= 1;
+    fs::write(&signature, &tampered).unwrap();
+    assert!(
+        !run(&["qhs4-verify", &public_text, &message_text, &signature_text])
+            .status
+            .success()
+    );
+
+    fs::write(&signature, &signature_bytes).unwrap();
+    fs::write(&message, b"wrong message\n").unwrap();
+    assert!(
+        !run(&["qhs4-verify", &public_text, &message_text, &signature_text])
+            .status
+            .success()
+    );
+
+    fs::write(&message, b"qWp QHS-4 stateless CLI message\n").unwrap();
+    let wrong_public = directory.join("wrong-public.key");
+    let mut wrong_public_bytes = public_bytes.clone();
+    wrong_public_bytes[4] ^= 1;
+    fs::write(&wrong_public, &wrong_public_bytes).unwrap();
+    let wrong_public_text = wrong_public.to_string_lossy().to_string();
+    assert!(
+        !run(&[
+            "qhs4-verify",
+            &wrong_public_text,
+            &message_text,
+            &signature_text
+        ])
+        .status
+        .success()
+    );
+
+    let overwrite = run(&["qhs4-keygen", &public_text, &private_text]);
+    assert!(!overwrite.status.success());
+    assert_eq!(fs::read(&private).unwrap(), private_bytes);
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&private, fs::Permissions::from_mode(0o600)).unwrap();
+    }
+    let mut bad_key = private_bytes.clone();
+    bad_key[0] = 0;
+    fs::write(&private, &bad_key).unwrap();
+    assert!(
+        !run(&["qhs4-sign", &private_text, &message_text, &signature_text])
             .status
             .success()
     );

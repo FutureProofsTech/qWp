@@ -58,6 +58,13 @@
 | `Qhs3PrivateKey::sign_with_auth_path` | `qwp-crypto` | `qhs/qhs31.md` | `qhs3` unit tests | Survived — signature equivalence |
 | QHS-3.1 tree cache read/write | `qwp-cli` | `qhs/qhs31.md` | `qwp-cli` tests | Survived — header/tamper/foreign/oversized tests |
 | Key state guard read/write | `qwp-cli` | `docs/03-formats.md` §10.17 | `qwp-cli` tests | Survived — rollback/missing-guard tests |
+| `qhs4_keygen` | `qwp-crypto` | `qhs/qhs4.md` | `qwp-attacks/qhs4` | Survived — KAT + attack + timing |
+| `Qhs4PrivateKey::sign` | `qwp-crypto` | `qhs/qhs4.md` | `qwp-attacks/qhs4` | Survived — proof + stateless CLI tests |
+| `Qhs4PublicKey::verify` | `qwp-crypto` | `qhs/qhs4.md` | `qwp-attacks/qhs4` | Survived — attack suite + fuzz |
+| `Qhs4PrivateKey` / `Qhs4PublicKey` / `Qhs4Signature` accessors | `qwp-crypto` | `qhs/qhs4.md` | `qwp-attacks/qhs4` | Survived — unit + Kani + fuzz |
+| QHS-4 WOTS/FORS/hypertree internals (`message_digits`, `wots_sign`, `wots_verify`, `tree_root_and_auth`, `fors_root_and_auth`, `fors_public_key`, `fors_verify`, `climb_path`) | `qwp-crypto` | `qhs/qhs4.md` | `qwp-attacks/qhs4` | Survived — KAT + tamper + fuzz |
+| QHS-4 CLI keygen/sign/verify | `qwp-cli` | `qhs/qhs4.md` | `qwp-cli` tests | Survived — key bytes/mtime unchanged; no cache/state |
+| `qhs4_timing` | `qwp-bench` | `qhs/qhs4.md` | timing harness | Survived — \|t\| < 4.5 |
 
 ## Status meanings
 

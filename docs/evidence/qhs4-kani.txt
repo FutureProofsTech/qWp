@@ -1,0 +1,27 @@
+qWp QHS-4 Kani evidence
+=======================
+
+Date: 2026-11-09
+Command:
+  cargo kani -p qwp-verify \
+    --harness qhs4_public_key_parse_never_panics \
+    --harness qhs4_private_key_parse_never_panics \
+    --harness qhs4_signature_from_slice_checks_length
+
+Result:
+- qhs4_public_key_parse_never_panics: SUCCESS
+- qhs4_private_key_parse_never_panics: SUCCESS
+- qhs4_signature_from_slice_checks_length: SUCCESS
+
+Raw summary:
+  Complete - 3 successfully verified harnesses, 0 failures, 3 total.
+  Verification Time: 0.10838036s
+
+Full workspace command:
+  cargo kani -p qwp-verify
+
+Full workspace result:
+  Complete - 15 successfully verified harnesses, 0 failures, 15 total.
+  Verification Time: 2.8623507s
+
+The 15 proofs cover QHS-1/2/3/3.1/4 parsers and bounds.

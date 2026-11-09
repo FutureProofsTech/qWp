@@ -76,8 +76,8 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 
 | Evidence | Result |
 |---|---|
-| Unit/integration tests | 146 tests pass workspace-wide (release) |
-| Attack suite | 8/8 attack groups pass, including QHS-2 |
+| Unit/integration tests | 168 tests pass workspace-wide (release; 146 at the QHS-2 review, before QHS-4) |
+| Attack suite | 9/9 attack groups pass, including QHS-2 (8/8 at the QHS-2 review, before QHS-4) |
 | Kani | 12 parser/bounds proofs pass, including 3 QHS-2 proofs |
 | Miri | `qwp-core` and `qwp-crypto` format tests pass |
 | Timing | keygen ≈27–28 ms, sign ≈0.46–0.61 ms, verify ≈0.41 ms; Welch \|t\| < 4.5 |

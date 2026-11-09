@@ -1,0 +1,29 @@
+qWp QHS-4 coverage evidence
+===========================
+
+Date: 2026-11-09
+Command: cargo llvm-cov --release -p qwp-crypto --all-targets --summary-only
+
+Result:
+- qhs4.rs: 99.42% lines (862 lines, 5 missed); 94.79% regions; 69/69 functions executed.
+- qwp-crypto total (release, all targets): 99.17% lines; 95.18% regions; 99.31% functions.
+
+Raw summary:
+Filename                      Regions    Missed Regions     Cover   Functions  Missed Functions  Executed       Lines      Missed Lines     Cover   Branches   Missed Branches     Cover
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+format.rs                         175                 0   100.00%          24                 0   100.00%         104                 0   100.00%           0                 0         -
+qhs.rs                           1288                67    94.80%          59                 1    98.31%         602                 6    99.00%           0                 0         -
+qhs2.rs                          1305                66    94.94%          60                 1    98.33%         611                 7    98.85%           0                 0         -
+qhs3.rs                          1762                79    95.52%          77                 0   100.00%         841                 7    99.17%           0                 0         -
+qhs4.rs                          1689                88    94.79%          69                 0   100.00%         862                 5    99.42%           0                 0         -
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+TOTAL                            6219               300    95.18%         289                 2    99.31%        3020                25    99.17%           0                 0         -
+
+Notes:
+- QHS-4 release tests are gated with `#[cfg(not(debug_assertions))]` because a
+  full keygen/sign is intentionally expensive in debug builds. Coverage is
+  therefore measured with the release profile.
+- The release suite also includes `crates/qwp-crypto/tests/qhs4_kat.rs`, a
+  debug-runnable full sign/verify KAT used by mutation testing.
+- The remaining 5 missed lines are defensive `get`/error branches and fixed-size
+  layout guards; the Kani parser proofs and fuzz target cover the parser paths.

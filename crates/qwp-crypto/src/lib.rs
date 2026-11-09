@@ -76,6 +76,7 @@ pub mod format;
 pub mod qhs;
 pub mod qhs2;
 pub mod qhs3;
+pub mod qhs4;
 
 pub use format::{PrivateKey, PublicKey, Signature};
 pub use qhs::{
@@ -93,4 +94,8 @@ pub use qhs3::{
     QHS3_PUBLIC_KEY_BYTES, QHS3_SIGNATURE_BYTES, QHS3_TREE_NODES, Qhs3PrivateKey, Qhs3PublicKey,
     Qhs3Signature, keygen as qhs3_keygen, qhs3_auth_path_from_tree, qhs3_build_tree,
     qhs3_keygen_from_leaves, qhs3_leaf,
+};
+pub use qhs4::{
+    QHS4_FORS_BYTES, QHS4_PRIVATE_KEY_BYTES, QHS4_PUBLIC_KEY_BYTES, QHS4_SIGNATURE_BYTES,
+    QHS4_TOTAL_HEIGHT, Qhs4PrivateKey, Qhs4PublicKey, Qhs4Signature, keygen as qhs4_keygen,
 };

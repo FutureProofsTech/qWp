@@ -1,0 +1,17 @@
+qWp QHS-4 timing evidence
+=========================
+
+Date: 2026-11-09
+Command: cargo run -q -p qwp-bench --release --bin qhs4_timing
+
+Result:
+qhs4-keygen: mean_a=189377934ns mean_b=186540835ns t=2.016
+qhs4-sign:   mean_a=1507533631ns mean_b=1505708335ns t=0.621
+qhs4-verify: mean=3040117ns/op
+timing: ok (threshold |t| < 4.5)
+
+Interpretation:
+- Keygen ≈0.189 s; sign ≈1.508 s; verify ≈3.04 ms.
+- Welch |t| for keygen and sign is below the 4.5 threshold.
+- The harness is evidence of no large secret-dependent timing difference; it is
+  not a formal constant-time proof.

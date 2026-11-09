@@ -4,3 +4,4 @@
 *.profraw
 /mutants.out
 /mutants.out.old
+/mutants-qhs4.out

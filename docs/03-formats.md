@@ -1,6 +1,7 @@
 # qWp Format Specification (Phase 0)
 
-**Status:** Foundation formats frozen; production signature is QHS-1 (ADR-0002). The 160-byte container is legacy research v0.  
+**Status:** Foundation formats frozen; production signatures are QHS-1/2/3/3.1 (ADR-0002–0005) and QHS-4 (ADR-0006). The 160-byte container is legacy research v0.
+
 **Rule:** Every format is versioned, canonical, fixed-size, and little-endian. No external crates.
 
 ---
@@ -143,6 +144,15 @@ It detects accidental corruption only; it is not authentication.
 | QHS-3 WOTS chain length | 63 |
 | QHS-3.1 tree cache | 262,180 |
 | Key state guard | 38 |
+| `QHS4_PUBLIC_KEY_BYTES` | 68 |
+| `QHS4_PRIVATE_KEY_BYTES` | 68 |
+| `QHS4_SIGNATURE_BYTES` | 18,216 |
+| `QHS4_TOTAL_HEIGHT` | 64 |
+| `QHS4_FORS_BYTES` | 4,608 |
+| QHS-4 hypertree layers | 8 |
+| QHS-4 subtree height | 8 |
+| QHS-4 FORS trees | 16 |
+| QHS-4 FORS height | 8 |
 
 ## 10. QHS production formats
 
@@ -427,9 +437,75 @@ restored together, or copied together from another host, local detection is
 impossible without a hardware monotonic counter; hardware-backed counters are
 outside the local threat model.
 
+### 10.18 QHS-4 public key (68 bytes)
+
+```
+offset  size  field
+0       1     version        // 4
+1       1     algorithm      // 4 = QHS-4
+2       1     height         // 64
+3       1     reserved       // 0
+4       32    PK.seed
+36      32    hypertree_root
+```
+
+### 10.19 QHS-4 private key (68 bytes)
+
+```
+offset  size  field
+0       1     version        // 4
+1       1     algorithm      // 4
+2       1     height         // 64
+3       1     reserved       // 0
+4       32    SK.seed
+36      32    PK.seed
+```
+
+The QHS-4 private key is stateless. There is no `next_leaf`, no cache, and no
+state guard. Signing must not modify the key file.
+
+### 10.20 QHS-4 signature (18,216 bytes)
+
+```
+offset   size    field
+0        1       version        // 4
+1        1       algorithm      // 4
+2        1       height         // 64
+3        1       reserved       // 0
+4        32      randomizer     // R
+36       4608    fors_signature // 16 × (32 secret + 256 auth)
+4644     13568   hypertree      // 8 × (1,440 WOTS + 256 auth)
+18212    4       checksum       // BLAKE3-derived
+```
+
+Canonical rules:
+
+- Header is exactly `[4, 4, 64, 0]`.
+- The checksum matches the first 18,212 bytes.
+- The FORS region is 16 entries of 32-byte secret + 8×32-byte auth path.
+- The hypertree region is eight layers of 1,440-byte WOTS signature + 8×32-byte
+  auth path.
+- No non-canonical trailing data.
+
+### 10.21 QHS-4 checksum
+
+```
+BLAKE3("qWp QHS-4 signature-checksum" || first 18212 bytes)[0..4]
+```
+
+The checksum detects accidental corruption; the FORS/WOTS hash chains and
+hypertree paths provide authentication.
+
+### 10.22 QHS-4 state and cache
+
+QHS-4 has no counter, no public-leaf cache, and no key state guard. The CLI
+`qhs4-sign` command reads the 68-byte private key and writes only the signature.
+It does not create `.cache`, `.treecache`, or `.state` files and does not update
+the key file. This is the intended stateless profile.
+
 ## 11. Open items
 
-No open production format items. QHS-1, QHS-2, QHS-3, the QHS-3.1 tree cache,
-and the key state guard are frozen and version-separated. The legacy 160-byte
-v0 container remains research-only and is not used for production signing or
-verification.
+No open production format items. QHS-1, QHS-2, QHS-3, QHS-3.1, QHS-4, the
+QHS-3.1 tree cache, and the key state guard are frozen and version-separated.
+The legacy 160-byte v0 container remains research-only and is not used for
+production signing or verification.

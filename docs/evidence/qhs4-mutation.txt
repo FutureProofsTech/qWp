@@ -1,0 +1,33 @@
+qWp QHS-4 mutation evidence
+===========================
+
+Date: 2026-11-09
+Command:
+  cargo mutants -p qwp-crypto --file crates/qwp-crypto/src/qhs4.rs \
+    --in-place --timeout 90 --cargo-test-arg qhs4 \
+    --output mutants-qhs4.out
+
+Result:
+- 137 mutants tested in 15m.
+- 93 caught.
+- 38 unviable (compile failures; not security-relevant).
+- 6 missed, all documented equivalents.
+- 0 timeouts.
+- No non-equivalent viable survivor.
+
+Missed equivalents:
+- qhs4.rs:213:51 and 472:47: `LAYERS - 1` -> `LAYERS + 1` / `LAYERS / 1`.
+  The branch is only for the top layer; `checked_shr(64)` returns 0, so the
+  else path is equivalent.
+- qhs4.rs:543:9: `Drop::drop` -> `()`.
+  Best-effort zeroization is not observable in safe Rust; documented limitation
+  (BL-0007).
+- qhs4.rs:974:43: `|` -> `^` in the digit bit accumulator.
+  `value` is shifted left first, so its low bit is 0; `| bit` and `^ bit` are
+  equivalent for `bit` in {0,1}.
+
+Coverage:
+- The debug-runnable KAT `qhs4_known_answer_sign_and_verify` covers keygen,
+  sign, verify, parsers, accessors, header rejection, checksum/tamper, and the
+  deterministic signature hash. The KAT test is in
+  `crates/qwp-crypto/tests/qhs4_kat.rs`.

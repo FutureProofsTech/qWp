@@ -18,13 +18,13 @@ The version family is organized around six axes:
 
 ## 2. Version matrix
 
-| Version | Construction | Stateful | Sigs/key | Signature | Keygen | Cached sign | Verify | Best use |
+| Version | Construction | Stateful | Sigs/key | Signature | Keygen | Sign | Verify | Best use |
 |---|---|---:|---:|---:|---:|---:|---:|---|
 | **QHS-1** | b=4, h=8 | Yes | 256 | 2,408 B | 10–13 ms | 0.21–0.33 ms | 0.14 ms | speed-first offline signing |
 | **QHS-2** | b=6, h=8 | Yes | 256 | 1,704 B | 27–28 ms | 0.46–0.61 ms | 0.41 ms | compact firmware/release signing |
 | **QHS-3** | b=6, h=12 | Yes | 4,096 | 1,832 B | ≈0.40–0.44 s | ≈1.60–1.70 ms | ≈0.39 ms | high-volume release pipelines |
 | **QHS-3.1** | b=6, h=12, tree cache | Yes | 4,096 | 1,832 B | ≈0.40–0.41 s | **≈0.35–0.36 ms** | ≈0.39 ms | high-volume signing with fast sign |
-| QHS-4 (planned) | stateless hypertree/FORS | No | unbounded | 7–30 KB | fast | slow | ≈ms | concurrent/high-volume services |
+| **QHS-4** | stateless hypertree/FORS | No | ≤2^20 at 128-bit target | 18,216 B | ≈0.19 s | ≈1.51 s | ≈3.0 ms | concurrent/stateless signing |
 | QHS-5 (planned) | 512-bit hash, h=8 | Yes | 256 | ≈3.4 KB | ≈2× QHS-2 | ≈2× QHS-2 | ≈2× QHS-2 | 256-bit quantum margin |
 | QHS-6 (planned) | QHS + classical hybrid | Yes | 256 | QHS + classical | QHS + classical | QHS + classical | QHS + classical | migration/compliance |
 | QHS-E | QHS verifier profile | n/a | n/a | QHS-1/2/3/3.1 | n/a | n/a | same | bootloader/MCU verifier |
@@ -37,8 +37,9 @@ The version family is organized around six axes:
 
 2. **How many signatures per key?**
    - ≤256 → QHS-1 or QHS-2.
-   - ≤4,096 → QHS-3.
-   - >4,096 → QHS-3 with multiple keys, or a future hypertree variant. A single tree beyond h=12 makes keygen/cache large.
+   - ≤4,096 → QHS-3 or QHS-3.1.
+   - Stateless / no counter → QHS-4 (≤2^20 at the 128-bit target).
+   - >4,096 stateful → QHS-3 with multiple keys, or QHS-4 when statelessness matters. A single tree beyond h=12 makes keygen/cache large.
 
 3. **What matters more: size or speed?**
    - Speed → QHS-1.
@@ -90,16 +91,30 @@ Why h=12:
 
 h=16 (65,536 signatures) would require a `u32` counter and a 2 MiB cache; h=12 is the better first high-capacity step.
 
-## 5. QHS-4: stateless (planned, not implemented)
+## 5. QHS-4: stateless hypertree/FORS
 
-A stateless version cannot reuse the single-tree stateful design. It needs a hypertree and a few-time signature layer (SPHINCS+-style) or another stateless construction. That means:
+QHS-4 is implemented as a separate stateless construction, not a parameter tweak:
 
-- 7–30 KB signatures;
-- much slower signing;
-- a new proof, new formats, new tests, and a new implementation;
-- no 256-signature state limit.
+| Parameter | QHS-4 |
+|---|---:|
+| WOTS | 45 × 63, 43+2 base-64 digits |
+| Hypertree | 8 layers × height 8, total h=64 |
+| FORS | 16 trees × height 8 |
+| Public key | 68 B |
+| Private key | 68 B |
+| Signature | **18,216 B** |
+| Keygen | ≈0.19 s |
+| Stateless sign | ≈1.51 s |
+| Verify | ≈3.0 ms |
+| Security target | 128-bit classical / ≥64-bit quantum for q ≤ 2^20 |
 
-It is a separate project and must not be presented as a parameter tweak.
+QHS-4 has no counter, no cache, and no state guard. It is the right profile when
+the signer cannot maintain a single-writer monotonic counter. The trade-off is a
+large signature and slower signing. The proof and limits are in
+`docs/13-qhs4.md`; the ADR is `docs/adr/0006-qhs4-stateless.md`.
+
+QHS-4 does not replace QHS-1/2/3/3.1. All versions remain available and
+version-separated.
 
 ## 6. QHS-5: 256-bit quantum margin (planned)
 

@@ -74,8 +74,9 @@ use std::path::Path;
 use qwp_core::{BRAID_BYTES, Braid, CryptoError, MAX_CROSSINGS, Polynomial};
 use qwp_crypto::{
     PrivateKey, PublicKey, QHS_MAX_SIGNATURES, QHS2_MAX_SIGNATURES, QHS3_MAX_SIGNATURES,
-    Qhs2PrivateKey, Qhs2Signature, Qhs3PrivateKey, Qhs3PublicKey, Qhs3Signature, QhsPrivateKey,
-    QhsSignature, Signature, qhs_keygen, qhs2_keygen, qhs3_keygen_from_leaves,
+    QHS4_SIGNATURE_BYTES, Qhs2PrivateKey, Qhs2Signature, Qhs3PrivateKey, Qhs3PublicKey,
+    Qhs3Signature, Qhs4PublicKey, Qhs4Signature, QhsPrivateKey, QhsSignature, Signature,
+    qhs_keygen, qhs2_keygen, qhs3_keygen_from_leaves, qhs4_keygen,
 };
 use qwp_hash::hash32;
 use qwp_platform::{HostEntropy, qhs3_leaves_parallel};
@@ -145,6 +146,7 @@ pub fn run_all() -> AttackReport {
         attack_qhs1(),
         attack_qhs2(),
         attack_qhs3(),
+        attack_qhs4(),
     ];
     let passed = checks.iter().filter(|result| **result).count();
     let failed = checks.len().saturating_sub(passed);
@@ -457,11 +459,95 @@ pub fn attack_qhs3() -> bool {
         && ff_rejected
 }
 
+/// Attacks QHS-4 with wrong messages, tampering, wrong keys, and statelessness checks.
+#[must_use]
+#[inline]
+#[allow(
+    clippy::large_stack_arrays,
+    reason = "the fixed QHS-4 signature is 18,216 bytes"
+)]
+pub fn attack_qhs4() -> bool {
+    let seed = [7_u8; 32];
+    let Ok((private_key, public_key)) = qhs4_keygen(&seed) else {
+        return false;
+    };
+    let key_before = private_key.to_bytes();
+    let Ok(signature) = private_key.sign(b"qhs4-attack-message") else {
+        return false;
+    };
+    let key_after = private_key.to_bytes();
+    let stateless = key_before == key_after;
+    let accepted = public_key
+        .verify(b"qhs4-attack-message", &signature)
+        .is_ok();
+    let wrong_message = public_key
+        .verify(b"qhs4-wrong-message", &signature)
+        .is_err();
+    let deterministic = private_key
+        .sign(b"qhs4-attack-message")
+        .is_ok_and(|again| again == signature);
+
+    let tamper_offsets = [
+        0_usize, 1, 2, 3, 4, 35, 36, 100, 4_644, 6_000, 18_000, 18_215,
+    ];
+    let mut tampered_rejected = true;
+    for offset in tamper_offsets {
+        let mut tampered_bytes = signature.to_bytes();
+        if let Some(byte) = tampered_bytes.get_mut(offset) {
+            *byte ^= 1;
+        }
+        let tampered = Qhs4Signature::from_bytes(tampered_bytes);
+        if public_key.verify(b"qhs4-attack-message", &tampered).is_ok() {
+            tampered_rejected = false;
+            break;
+        }
+    }
+    let zero_rejected = public_key
+        .verify(
+            b"qhs4-attack-message",
+            &Qhs4Signature::from_bytes([0_u8; QHS4_SIGNATURE_BYTES]),
+        )
+        .is_err();
+    let ff_rejected = public_key
+        .verify(
+            b"qhs4-attack-message",
+            &Qhs4Signature::from_bytes([0xff_u8; QHS4_SIGNATURE_BYTES]),
+        )
+        .is_err();
+
+    let mut wrong_public_bytes = public_key.to_bytes();
+    if let Some(byte) = wrong_public_bytes.get_mut(4) {
+        *byte ^= 1;
+    }
+    let wrong_key = Qhs4PublicKey::from_bytes(&wrong_public_bytes)
+        .is_ok_and(|other| other.verify(b"qhs4-attack-message", &signature).is_err());
+
+    let mut wrong_header_bytes = signature.to_bytes();
+    if let Some(byte) = wrong_header_bytes.get_mut(0) {
+        *byte = 3;
+    }
+    let wrong_header = Qhs4Signature::from_bytes(wrong_header_bytes);
+    let header_rejected = public_key
+        .verify(b"qhs4-attack-message", &wrong_header)
+        .is_err();
+
+    accepted
+        && wrong_message
+        && tampered_rejected
+        && wrong_key
+        && zero_rejected
+        && ff_rejected
+        && stateless
+        && deterministic
+        && header_rejected
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         attack_braid_parser, attack_entropy, attack_hash_vectors, attack_key_formats,
-        attack_polynomial_round_trip, attack_qhs1, attack_qhs2, attack_qhs3, audit, run_all,
+        attack_polynomial_round_trip, attack_qhs1, attack_qhs2, attack_qhs3, attack_qhs4, audit,
+        run_all,
     };
 
     #[test]
@@ -474,6 +560,7 @@ mod tests {
         assert!(attack_qhs1());
         assert!(attack_qhs2());
         assert!(attack_qhs3());
+        assert!(attack_qhs4());
         assert!(run_all().is_ok());
     }
 
