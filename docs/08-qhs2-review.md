@@ -1,6 +1,6 @@
 # QHS-2 Internal Proof Review
 
-**Status:** QHS-2 release candidate; internal review passed; combined 1-hour soak passed.<br>
+**Status:** QHS-2 release candidate; internal review passed; combined 1-hour soak and mutation complete.<br>
 **Reviewers:** qWp crypto lead (engineer), qWp red team (attacker role).<br>
 **Related:** `docs/07-qhs2.md`, `docs/adr/0003-qhs2.md`, `crates/qwp-crypto/src/qhs2.rs`.
 
@@ -85,18 +85,19 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 | Fuzz | Combined 1-hour soak: 333,637,807 iterations, 0 panics (`docs/evidence/fuzz-soak-1h-all.txt`) |
 | KAT | `159fb7dd8498d70589da6e4ea1c52d00d86ca070e028ebcbcfa30fd083dd9385` |
 | CLI | keygen 0.08 s, sign/verify <0.01 s; signature 1,704 B; cache 8,232 B |
+| Mutation | 117 mutants: 88 caught, 26 unviable, 3 documented equivalents (`Drop`, `while count > 1`, OR→XOR shift); no non-equivalent viable survivor |
 
 ## 7. Release obligations
 
 | Obligation | Status | Closure |
 |---|---|---|
 | 1-hour fuzz soak | **Passed** | 333,637,807 iterations, 0 panics; `docs/evidence/fuzz-soak-1h-all.txt` |
-| Mutation | QHS-2 not separately claimed; 99.35% line coverage and full tests. QHS-3/3.1 mutation is separate evidence | `docs/11-qhs3-review.md` §6 |
+| Mutation | **Complete** — 88/88 non-equivalent viable caught; 3 documented equivalents | QHS-2-specific mutation run |
 | External review | Optional | Evidence only, never a gate |
 
 ## 8. Sign-off
 
 - Engineer review: pass with assumptions.
 - Attacker review: pass for implemented abuse cases and tamper matrix.
-- Release status: **QHS-2 release candidate tagged `qhs2-rc1`**; combined 1-hour soak passed, coverage complete.
+- Release status: **QHS-2 release candidate tagged `qhs2-rc1`**; combined 1-hour soak passed, coverage and mutation complete.
 - No standard fallback.
