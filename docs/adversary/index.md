@@ -69,6 +69,12 @@
 | `qhs4_signing_plan` / `qhs4_leaf` / `qhs4_fors_leaf` / tree builders / `qhs4_sign_with_trees` | `qwp-crypto` | `qhs/qhs41.md` | `qwp-attacks/qhs41` | Survived — equivalence + wrong-plan/tree tests |
 | QHS-4.1 CLI `qhs41-*` | `qwp-cli` | `qhs/qhs41.md` | `qwp-cli` tests | Survived — both verifiers; key unchanged; no cache/state |
 | `qhs41_timing` | `qwp-bench` | `qhs/qhs41.md` | timing harness | Survived — speedup 7.4×; \|t\| < 4.5 |
+| `qhs42_keygen` / `Qhs42PrivateKey::sign` / `Qhs42PublicKey::verify` | `qwp-crypto` | `qhs/qhs42.md` | `qwp-attacks/qhs42` | Survived — KAT + attack + timing |
+| `Qhs42PrivateKey` / `Qhs42PublicKey` / `Qhs42Signature` accessors | `qwp-crypto` | `qhs/qhs42.md` | `qwp-attacks/qhs42` | Survived — unit + Kani + fuzz |
+| QHS-4.2 WOTS/FORS/hypertree internals | `qwp-crypto` | `qhs/qhs42.md` | `qwp-attacks/qhs42` | Survived — KAT + layer derivation + fuzz |
+| `qhs42_sign_parallel` | `qwp-platform` | `qhs/qhs42.md` | `qwp-platform` tests | Survived — byte-equivalence + verify |
+| QHS-4.2 CLI `qhs42-*` | `qwp-cli` | `qhs/qhs42.md` | `qwp-cli` tests | Survived — key unchanged; no cache/state |
+| `qhs42_timing` | `qwp-bench` | `qhs/qhs42.md` | timing harness | Survived — \|t\| < 4.5 |
 
 ## Status meanings
 

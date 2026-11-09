@@ -78,14 +78,20 @@ use std::io::Read;
 use qwp_core::CryptoError;
 use qwp_crypto::{
     QHS_LEAF_COUNT, QHS2_LEAF_COUNT, QHS3_LEAF_COUNT, QHS4_FORS_HEIGHT, QHS4_FORS_LEAVES,
-    QHS4_FORS_TREES, QHS4_LAYERS, QHS4_LEAF_COUNT, QHS4_TREE_HEIGHT, Qhs4Contexts, Qhs4ForsTree,
-    Qhs4PrivateKey, Qhs4Signature, Qhs4Tree, qhs_leaf, qhs2_leaf, qhs3_leaf, qhs4_fors_leaf,
-    qhs4_fors_root_and_auth_from_leaves, qhs4_leaf, qhs4_sign_with_trees, qhs4_signing_plan,
-    qhs4_tree_root_and_auth_from_leaves,
+    QHS4_FORS_TREES, QHS4_LAYERS, QHS4_LEAF_COUNT, QHS4_TREE_HEIGHT, QHS42_FORS_HEIGHT,
+    QHS42_FORS_LEAVES, QHS42_FORS_TREES, QHS42_LAYERS, QHS42_LEAF_COUNT, QHS42_TREE_HEIGHT,
+    Qhs4Contexts, Qhs4ForsTree, Qhs4PrivateKey, Qhs4Signature, Qhs4Tree, Qhs42Contexts,
+    Qhs42ForsTree, Qhs42PrivateKey, Qhs42Signature, Qhs42Tree, qhs_leaf, qhs2_leaf, qhs3_leaf,
+    qhs4_fors_leaf, qhs4_fors_root_and_auth_from_leaves, qhs4_leaf, qhs4_sign_with_trees,
+    qhs4_signing_plan, qhs4_tree_root_and_auth_from_leaves, qhs42_fors_leaf,
+    qhs42_fors_root_and_auth_from_leaves, qhs42_leaf, qhs42_sign_with_trees, qhs42_signing_plan,
+    qhs42_tree_root_and_auth_from_leaves,
 };
 
 const QHS4_HYPERTREE_LEAF_TOTAL: usize = QHS4_LAYERS * QHS4_LEAF_COUNT;
 const QHS4_FORS_LEAF_TOTAL: usize = QHS4_FORS_TREES * QHS4_FORS_LEAVES;
+const QHS42_HYPERTREE_LEAF_TOTAL: usize = QHS42_LAYERS * QHS42_LEAF_COUNT;
+const QHS42_FORS_LEAF_TOTAL: usize = QHS42_FORS_TREES * QHS42_FORS_LEAVES;
 
 /// A safe host entropy source backed by `/dev/urandom`.
 pub struct HostEntropy {
@@ -369,11 +375,107 @@ pub fn qhs4_sign_parallel(
     qhs4_sign_with_trees(private_key, message, &plan, &hypertree, &fors)
 }
 
+/// Signs a message with QHS-4.2 using parallel tree generation.
+///
+/// The returned signature is byte-identical to [`Qhs42PrivateKey::sign`].
+///
+/// # Errors
+///
+/// Returns an internal error if a worker fails or a tree layout is malformed.
+#[inline]
+pub fn qhs42_sign_parallel(
+    private_key: &Qhs42PrivateKey,
+    message: &[u8],
+) -> Result<Qhs42Signature, CryptoError> {
+    let plan = qhs42_signing_plan(private_key, message);
+    let contexts = Qhs42Contexts::new();
+    let sk_seed = private_key.sk_seed();
+    let pk_seed = private_key.pk_seed();
+    let threads = std::thread::available_parallelism()
+        .map_or(1, std::num::NonZero::get)
+        .min(16);
+
+    let mut hypertree_leaves = vec![[0_u8; 32]; QHS42_HYPERTREE_LEAF_TOTAL];
+    let tree_indices = *plan.tree_indices();
+    parallel_fill(&mut hypertree_leaves, threads, |index| {
+        let layer = index.checked_div(QHS42_LEAF_COUNT).unwrap_or(0);
+        let leaf = index.checked_rem(QHS42_LEAF_COUNT).unwrap_or(0);
+        let layer_u8 = u8::try_from(layer).map_err(|_| CryptoError::InternalFailure)?;
+        let leaf_u8 = u8::try_from(leaf).map_err(|_| CryptoError::InternalFailure)?;
+        let tree_index_l = *tree_indices
+            .get(layer)
+            .ok_or(CryptoError::InternalFailure)?;
+        Ok(qhs42_leaf(
+            sk_seed,
+            pk_seed,
+            layer_u8,
+            tree_index_l,
+            leaf_u8,
+            &contexts,
+        ))
+    })?;
+
+    let mut fors_leaves = vec![[0_u8; 32]; QHS42_FORS_LEAF_TOTAL];
+    let bottom_tree = plan.bottom_tree();
+    let bottom_leaf = plan.bottom_leaf();
+    parallel_fill(&mut fors_leaves, threads, |index| {
+        let tree = index.checked_div(QHS42_FORS_LEAVES).unwrap_or(0);
+        let leaf = index.checked_rem(QHS42_FORS_LEAVES).unwrap_or(0);
+        let tree_u8 = u8::try_from(tree).map_err(|_| CryptoError::InternalFailure)?;
+        let leaf_u8 = u8::try_from(leaf).map_err(|_| CryptoError::InternalFailure)?;
+        Ok(qhs42_fors_leaf(
+            sk_seed,
+            pk_seed,
+            bottom_tree,
+            bottom_leaf,
+            tree_u8,
+            leaf_u8,
+            &contexts,
+        ))
+    })?;
+
+    let mut hypertree = [Qhs42Tree::new([0_u8; 32], [[0_u8; 32]; QHS42_TREE_HEIGHT]); QHS42_LAYERS];
+    for (layer, slot) in hypertree.iter_mut().enumerate() {
+        let start = layer.checked_mul(QHS42_LEAF_COUNT).unwrap_or(0);
+        let end = start.checked_add(QHS42_LEAF_COUNT).unwrap_or(0);
+        let slice = hypertree_leaves
+            .get(start..end)
+            .ok_or(CryptoError::InternalFailure)?;
+        let leaves: &[[u8; 32]; QHS42_LEAF_COUNT] =
+            slice.try_into().map_err(|_| CryptoError::InternalFailure)?;
+        let leaf_index = *plan
+            .leaf_indices()
+            .get(layer)
+            .ok_or(CryptoError::InternalFailure)?;
+        let (root, auth_path) =
+            qhs42_tree_root_and_auth_from_leaves(leaves, leaf_index, &contexts)?;
+        *slot = Qhs42Tree::new(root, auth_path);
+    }
+
+    let mut fors =
+        [Qhs42ForsTree::new([0_u8; 32], [[0_u8; 32]; QHS42_FORS_HEIGHT]); QHS42_FORS_TREES];
+    let fors_digest = plan.fors_digest();
+    for (tree, slot) in fors.iter_mut().enumerate() {
+        let start = tree.checked_mul(QHS42_FORS_LEAVES).unwrap_or(0);
+        let end = start.checked_add(QHS42_FORS_LEAVES).unwrap_or(0);
+        let slice = fors_leaves
+            .get(start..end)
+            .ok_or(CryptoError::InternalFailure)?;
+        let leaves: &[[u8; 32]; QHS42_FORS_LEAVES] =
+            slice.try_into().map_err(|_| CryptoError::InternalFailure)?;
+        let selected = *fors_digest.get(tree).ok_or(CryptoError::InternalFailure)?;
+        let (root, auth_path) = qhs42_fors_root_and_auth_from_leaves(leaves, selected, &contexts)?;
+        *slot = Qhs42ForsTree::new(root, auth_path);
+    }
+
+    qhs42_sign_with_trees(private_key, message, &plan, &hypertree, &fors)
+}
+
 #[cfg(all(test, unix))]
 mod tests {
     use super::{
         HostEntropy, qhs_leaves_parallel, qhs2_leaves_parallel, qhs3_leaves_parallel,
-        qhs4_sign_parallel,
+        qhs4_sign_parallel, qhs42_sign_parallel,
     };
 
     #[test]
@@ -422,6 +524,31 @@ mod tests {
             public_key.verify(b"wrong", &parallel),
             Err(qwp_core::CryptoError::VerificationFailed)
         );
+    }
+
+    #[test]
+    fn qhs42_parallel_sign_verifies() {
+        let seed = [7_u8; 32];
+        let (private_key, public_key) = qwp_crypto::qhs42_keygen(&seed).unwrap();
+        let message = b"qWp QHS-4.2 parallel verify";
+        let signature = qhs42_sign_parallel(&private_key, message).unwrap();
+        assert_eq!(public_key.verify(message, &signature), Ok(()));
+        assert_eq!(
+            public_key.verify(b"wrong", &signature),
+            Err(qwp_core::CryptoError::VerificationFailed)
+        );
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn qhs42_parallel_sign_matches_sequential() {
+        let seed = [7_u8; 32];
+        let (private_key, public_key) = qwp_crypto::qhs42_keygen(&seed).unwrap();
+        let message = b"qWp QHS-4.2 parallel equivalence";
+        let sequential = private_key.sign(message).unwrap();
+        let parallel = qhs42_sign_parallel(&private_key, message).unwrap();
+        assert_eq!(parallel, sequential);
+        assert_eq!(public_key.verify(message, &parallel), Ok(()));
     }
 
     #[test]

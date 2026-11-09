@@ -153,6 +153,15 @@ It detects accidental corruption only; it is not authentication.
 | QHS-4 subtree height | 8 |
 | QHS-4 FORS trees | 16 |
 | QHS-4 FORS height | 8 |
+| `QHS42_PUBLIC_KEY_BYTES` | 68 |
+| `QHS42_PRIVATE_KEY_BYTES` | 68 |
+| `QHS42_SIGNATURE_BYTES` | 14,344 |
+| `QHS42_TOTAL_HEIGHT` | 56 |
+| `QHS42_FORS_BYTES` | 4,896 |
+| QHS-4.2 WOTS chains | 34 (32 message + 2 checksum) |
+| QHS-4.2 WOTS chain length | 255 |
+| QHS-4.2 hypertree layers | 7 |
+| QHS-4.2 FORS trees | 17 |
 
 ## 10. QHS production formats
 
@@ -511,10 +520,72 @@ and the same checksum. The `qhs41-*` CLI commands use the parallel signer; the
 `qhs4-*` commands remain the sequential reference. `qhs4-verify` and
 `qhs41-verify` accept both profiles. There is no cache or state file.
 
+### 10.24 QHS-4.2 public key (68 bytes)
+
+```
+offset  size  field
+0       1     version        // 5
+1       1     algorithm      // 5 = QHS-4.2
+2       1     height         // 56
+3       1     reserved       // 0
+4       32    PK.seed
+36      32    hypertree_root
+```
+
+### 10.25 QHS-4.2 private key (68 bytes)
+
+```
+offset  size  field
+0       1     version        // 5
+1       1     algorithm      // 5
+2       1     height         // 56
+3       1     reserved       // 0
+4       32    SK.seed
+36      32    PK.seed
+```
+
+The QHS-4.2 private key is stateless: no counter, no cache, no state guard.
+
+### 10.26 QHS-4.2 signature (14,344 bytes)
+
+```
+offset   size    field
+0        1       version        // 5
+1        1       algorithm      // 5
+2        1       height         // 56
+3        1       reserved       // 0
+4        32      randomizer     // R
+36       4896    fors_signature // 17 × (32 secret + 256 auth)
+4932     9408    hypertree      // 7 × (1,088 WOTS + 256 auth)
+14340    4       checksum       // BLAKE3-derived
+```
+
+Canonical rules:
+
+- Header is exactly `[5, 5, 56, 0]`.
+- The checksum matches the first 14,340 bytes.
+- The FORS region is 17 entries of 32-byte secret + 8×32-byte auth path.
+- The hypertree region is seven layers of 1,088-byte WOTS signature
+  (34 × 32) + 8×32-byte auth path.
+- No non-canonical trailing data.
+
+### 10.27 QHS-4.2 checksum
+
+```
+BLAKE3("qWp QHS-4.2 signature-checksum" || first 14340 bytes)[0..4]
+```
+
+### 10.28 QHS-4.2 state and cache
+
+QHS-4.2 has no counter, no public-leaf cache, and no key state guard. The CLI
+`qhs42-sign` command uses the parallel tree path, reads the 68-byte private key,
+and writes only the 14,344-byte signature. It creates no `.cache`,
+`.treecache`, or `.state` files and does not update the key file.
+
 ## 11. Open items
 
 No open production format items. QHS-1, QHS-2, QHS-3, QHS-3.1, QHS-4, the
-QHS-4.1 fast-signing profile (same QHS-4 formats), the QHS-3.1 tree cache, and
-the key state guard are frozen and version-separated. The legacy 160-byte v0
-container remains research-only and is not used for production signing or
-verification.
+QHS-4.1 fast-signing profile (same QHS-4 formats), QHS-4.2 compact, the
+QHS-3.1 tree cache, and the key state guard are frozen and version-separated.
+The legacy 160-byte v0 container remains research-only and is not used for
+production signing or verification.

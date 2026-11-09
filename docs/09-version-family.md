@@ -26,6 +26,7 @@ The version family is organized around six axes:
 | **QHS-3.1** | b=6, h=12, tree cache | Yes | 4,096 | 1,832 B | ≈0.40–0.41 s | **≈0.35–0.36 ms** | ≈0.39 ms | high-volume signing with fast sign |
 | **QHS-4** | stateless hypertree/FORS | No | ≤2^20 at 128-bit target | 18,216 B | ≈0.10 s | ≈0.81 s | ≈1.6 ms | concurrent/stateless signing |
 | **QHS-4.1** | QHS-4 + parallel trees | No | ≤2^20 at 128-bit target | 18,216 B | ≈0.10 s | **≈0.11 s** | ≈1.6 ms | stateless signing with fast sign |
+| **QHS-4.2** | compact WOTS/FORS/hypertree | No | ≤2^20 at 128-bit target | **14,344 B** | ≈0.30 s | ≈0.27 s | ≈4.0 ms | compact stateless signatures |
 | QHS-5 (planned) | 512-bit hash, h=8 | Yes | 256 | ≈3.4 KB | ≈2× QHS-2 | ≈2× QHS-2 | ≈2× QHS-2 | 256-bit quantum margin |
 | QHS-6 (planned) | QHS + classical hybrid | Yes | 256 | QHS + classical | QHS + classical | QHS + classical | QHS + classical | migration/compliance |
 | QHS-E | QHS verifier profile | n/a | n/a | QHS-1/2/3/3.1 | n/a | n/a | same | bootloader/MCU verifier |
@@ -48,6 +49,7 @@ The version family is organized around six axes:
    - Both, with more capacity → QHS-3.
    - More capacity and faster signing → QHS-3.1.
    - Stateless with fast signing → QHS-4.1.
+   - Stateless with a smaller signature → QHS-4.2.
 
 4. **Do you need 256-bit quantum margin?**
    - No → QHS-1/2/3/3.1.
@@ -125,8 +127,18 @@ reference and fallback. The `qhs41-*` CLI commands use the parallel path, and
 `qhs4-verify` / `qhs41-verify` accept the same signatures. The QHS-4.1 1-hour
 soak passed with 94,814,625 iterations and 0 panics.
 
-QHS-4.1 does not replace QHS-1/2/3/3.1 or QHS-4. All versions remain available
-and version-separated.
+QHS-4.2 is the compact stateless profile. It uses WOTS base-256
+(34 chains × 255 steps), a seven-layer height-56 hypertree, and 17 FORS trees.
+The signature is 14,344 bytes (≈21% smaller than QHS-4/4.1), the key remains
+68 bytes, and the security target remains 128-bit classical / ≥64-bit quantum
+for `q ≤ 2^20`. Signing is slower than QHS-4.1 because the WOTS chains are
+longer; the `qhs42-*` CLI uses the parallel tree path.
+
+QHS-4.2 is a new parameter set and format, not a profile of QHS-4/4.1. Its
+signatures and keys are version-separated by the `[5, 5, 56, 0]` header.
+
+QHS-4.2 does not replace QHS-1/2/3/3.1, QHS-4, or QHS-4.1. All versions remain
+available and version-separated.
 
 ## 6. QHS-5: 256-bit quantum margin (planned)
 

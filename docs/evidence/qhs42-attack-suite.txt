@@ -1,0 +1,18 @@
+qWp QHS-4.2 attack-suite evidence
+================================
+
+Date: 2026-11-09
+Command: cargo run -q -p qwp-attacks --release --bin attack-suite
+
+Result:
+attack-suite: passed=11 failed=0
+
+QHS-4.2 checks in `qwp_attacks::attack_qhs42`:
+- Parallel signature equals the sequential signature byte-for-byte.
+- Valid QHS-4.2 signature accepted by the QHS-4.2 verifier.
+- Wrong message rejected.
+- Tampered signature rejected.
+- Wrong public key rejected.
+- Signing leaves the private key bytes unchanged.
+- QHS-4 verifier rejects the 14,344-byte QHS-4.2 signature by length/format.
+- CLI test checks key bytes/mtime unchanged and no cache/state files.

@@ -77,6 +77,7 @@ pub mod qhs;
 pub mod qhs2;
 pub mod qhs3;
 pub mod qhs4;
+pub mod qhs42;
 
 pub use format::{PrivateKey, PublicKey, Signature};
 pub use qhs::{
@@ -102,4 +103,12 @@ pub use qhs4::{
     Qhs4Signature, Qhs4SigningPlan, Qhs4Tree, keygen as qhs4_keygen, qhs4_fors_leaf,
     qhs4_fors_root_and_auth_from_leaves, qhs4_leaf, qhs4_sign_with_trees, qhs4_signing_plan,
     qhs4_tree_root_and_auth_from_leaves, qhs4_wots_public_key,
+};
+pub use qhs42::{
+    QHS42_FORS_BYTES, QHS42_FORS_HEIGHT, QHS42_FORS_LEAVES, QHS42_FORS_TREES, QHS42_LAYERS,
+    QHS42_LEAF_COUNT, QHS42_PRIVATE_KEY_BYTES, QHS42_PUBLIC_KEY_BYTES, QHS42_SIGNATURE_BYTES,
+    QHS42_TOTAL_HEIGHT, QHS42_TREE_HEIGHT, Qhs42Contexts, Qhs42ForsTree, Qhs42PrivateKey,
+    Qhs42PublicKey, Qhs42Signature, Qhs42SigningPlan, Qhs42Tree, keygen as qhs42_keygen,
+    qhs42_fors_leaf, qhs42_fors_root_and_auth_from_leaves, qhs42_leaf, qhs42_sign_with_trees,
+    qhs42_signing_plan, qhs42_tree_root_and_auth_from_leaves, qhs42_wots_public_key,
 };

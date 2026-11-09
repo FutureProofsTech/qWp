@@ -27,6 +27,8 @@
 | BL-0021 | 2026-11-09 | QHS-4 parser/verifier | Malformed header/checksum/auth paths; cross-version confusion; stateless key mutation | **Mitigated.** Fixed header `[4,4,64,0]`, checksum, exact lengths, Kani length proof, attack suite, and CLI tests showing key bytes/mtime unchanged | GAP-QHS-0028 | **Closed — Kani/attack/CLI tests** |
 | BL-0022 | 2026-11-09 | QHS-4.1 parallel signer | Parallel/sequential signature divergence; tree reuse | **No break.** Trees are message-independent; assembly re-derives the plan and checks the selected paths; crypto/platform equivalence tests and attack suite pass byte-for-byte | GAP-QHS-0029 | **Closed — equivalence/attack/timing** |
 | BL-0023 | 2026-11-09 | QHS-4.1 timing | Thread scheduling adds timing noise | **Accepted limitation.** No secret-dependent branch or memory index is introduced; Welch `|t| < 4.5`; this is timing evidence, not a formal constant-time proof | GAP-QHS-0029 | **Closed — timing evidence** |
+| BL-0024 | 2026-11-09 | QHS-4.2 compact | Smaller-signature parameter review | **No break.** WOTS 34×255, height-56 hypertree, FORS 17×256; at q=2^20 the FORS q-fold term is 2^-172, leaf reuse 2^-136, hash collision 2^-128; signature 14,344 B | GAP-QHS-0030 | **Closed — ADR/proof/tests; soak pending** |
+| BL-0025 | 2026-11-09 | QHS-4.2 implementation | QHS-4.2 keygen used layer 7 instead of top layer 6; cross-version confusion | **Found and fixed before release.** Keygen now uses `LAYERS - 1`; headers `[5,5,56,0]` and the 14,344-byte length separate QHS-4.2 from QHS-4/4.1; sign/verify/KAT/CLI tests pass | GAP-QHS-0030 | **Closed — sign/verify/KAT/CLI tests** |
 
 ## Rules
 

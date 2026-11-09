@@ -75,11 +75,12 @@ use qwp_core::{BRAID_BYTES, Braid, CryptoError, MAX_CROSSINGS, Polynomial};
 use qwp_crypto::{
     PrivateKey, PublicKey, QHS_MAX_SIGNATURES, QHS2_MAX_SIGNATURES, QHS3_MAX_SIGNATURES,
     QHS4_SIGNATURE_BYTES, Qhs2PrivateKey, Qhs2Signature, Qhs3PrivateKey, Qhs3PublicKey,
-    Qhs3Signature, Qhs4PublicKey, Qhs4Signature, QhsPrivateKey, QhsSignature, Signature,
-    qhs_keygen, qhs2_keygen, qhs3_keygen_from_leaves, qhs4_keygen,
+    Qhs3Signature, Qhs4PublicKey, Qhs4Signature, Qhs42PublicKey, Qhs42Signature, QhsPrivateKey,
+    QhsSignature, Signature, qhs_keygen, qhs2_keygen, qhs3_keygen_from_leaves, qhs4_keygen,
+    qhs42_keygen,
 };
 use qwp_hash::hash32;
-use qwp_platform::{HostEntropy, qhs3_leaves_parallel, qhs4_sign_parallel};
+use qwp_platform::{HostEntropy, qhs3_leaves_parallel, qhs4_sign_parallel, qhs42_sign_parallel};
 
 /// Summary of an attack run.
 #[non_exhaustive]
@@ -148,6 +149,7 @@ pub fn run_all() -> AttackReport {
         attack_qhs3(),
         attack_qhs4(),
         attack_qhs41(),
+        attack_qhs42(),
     ];
     let passed = checks.iter().filter(|result| **result).count();
     let failed = checks.len().saturating_sub(passed);
@@ -590,12 +592,59 @@ pub fn attack_qhs41() -> bool {
     equivalent && accepted && wrong_message && stateless && tampered_rejected && wrong_key
 }
 
+/// Attacks QHS-4.2 compact: byte equivalence, tampering, wrong key.
+#[must_use]
+#[inline]
+#[allow(
+    clippy::large_stack_arrays,
+    reason = "the fixed QHS-4.2 signature is 14,344 bytes"
+)]
+pub fn attack_qhs42() -> bool {
+    let seed = [7_u8; 32];
+    let Ok((private_key, public_key)) = qhs42_keygen(&seed) else {
+        return false;
+    };
+    let key_before = private_key.to_bytes();
+    let Ok(sequential) = private_key.sign(b"qhs42-attack-message") else {
+        return false;
+    };
+    let Ok(parallel) = qhs42_sign_parallel(&private_key, b"qhs42-attack-message") else {
+        return false;
+    };
+    let key_after = private_key.to_bytes();
+    let equivalent = parallel == sequential;
+    let accepted = public_key
+        .verify(b"qhs42-attack-message", &parallel)
+        .is_ok();
+    let wrong_message = public_key
+        .verify(b"qhs42-wrong-message", &parallel)
+        .is_err();
+    let stateless = key_before == key_after;
+    let tampered_rejected = {
+        let mut bytes = parallel.to_bytes();
+        if let Some(byte) = bytes.get_mut(100) {
+            *byte ^= 1;
+        }
+        public_key
+            .verify(b"qhs42-attack-message", &Qhs42Signature::from_bytes(bytes))
+            .is_err()
+    };
+    let mut wrong_public_bytes = public_key.to_bytes();
+    if let Some(byte) = wrong_public_bytes.get_mut(4) {
+        *byte ^= 1;
+    }
+    let wrong_key = Qhs42PublicKey::from_bytes(&wrong_public_bytes)
+        .is_ok_and(|other| other.verify(b"qhs42-attack-message", &parallel).is_err());
+
+    equivalent && accepted && wrong_message && stateless && tampered_rejected && wrong_key
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         attack_braid_parser, attack_entropy, attack_hash_vectors, attack_key_formats,
         attack_polynomial_round_trip, attack_qhs1, attack_qhs2, attack_qhs3, attack_qhs4,
-        attack_qhs41, audit, run_all,
+        attack_qhs41, attack_qhs42, audit, run_all,
     };
 
     #[test]
@@ -610,6 +659,7 @@ mod tests {
         assert!(attack_qhs3());
         assert!(attack_qhs4());
         assert!(attack_qhs41());
+        assert!(attack_qhs42());
         assert!(run_all().is_ok());
     }
 

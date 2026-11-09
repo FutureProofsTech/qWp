@@ -1,0 +1,20 @@
+qWp QHS-4.2 timing evidence
+===========================
+
+Date: 2026-11-09
+Command: cargo run -q -p qwp-bench --release --bin qhs42_timing
+
+Result:
+qhs42-keygen: mean_a=299601007ns mean_b=298382242ns t=0.991
+qhs42-sign-sequential: mean_a=2078253289ns mean_b=2074080442ns t=0.609
+qhs42-sign-parallel:   mean_a=271201278ns mean_b=273181950ns t=-1.142 speedup=7.63x
+qhs42-verify: mean=3973436ns/op
+timing: ok (threshold |t| < 4.5)
+
+Interpretation:
+- Keygen ≈0.30 s.
+- Sequential sign ≈2.08 s; parallel sign ≈0.27 s; speedup ≈7.6×.
+- Verify ≈3.97 ms.
+- Every parallel signature is checked for byte equality with the sequential
+  signature before timing.
+- Signature size: 14,344 bytes; keys: 68 bytes.
