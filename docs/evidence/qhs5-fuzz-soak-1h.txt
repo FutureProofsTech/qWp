@@ -1,0 +1,26 @@
+qWp QHS-5 1-hour fuzz soak evidence
+===================================
+
+Date: 2026-11-09
+Commit: f1b3a44c05d2186b5e0c04559091b828a7bb7bb9
+Command: taskset -c 1 ./target/release/fuzz 3600
+Start (UTC): 2026-11-09T19:57:11Z
+End (UTC):   2026-11-09T20:57:14Z
+
+Raw driver output:
+fuzz: seconds=3600 iterations=48430620 panics=0
+exit=0
+
+Scope:
+- QHS-1/2/3 random-seed keygen and random-message sign/verify.
+- QHS-3.1 tree-cache signing.
+- QHS-4.1 parallel QHS-4 signing.
+- QHS-4.2 compact parallel keygen/sign/verify and random-message signatures.
+- QHS-5 512-bit keygen/sign/verify and random-message signatures.
+- QHS-1/2/3/4/4.2/5 random public-key/private-key/signature parsing and
+  verification.
+- QHS-4, QHS-4.2, and QHS-5 valid signature verification every 1,000 loop
+  iterations.
+- Random message lengths 0..=256.
+
+Result: PASS. Exactly 3,600 seconds, zero panics, driver exit 0.

@@ -7,7 +7,7 @@
 - Visibility: public/private
 - Owner (engineer): Crypto lead
 - Owner (attacker): Red team
-- Status: survived; FAD closed for the local production path. 1-hour soak pending.
+- Status: survived; FAD closed for the local production path. 1-hour soak passed: 48,430,620 iterations, 0 panics (`docs/evidence/qhs5-fuzz-soak-1h.txt`).
 
 ## Contract
 
@@ -67,7 +67,7 @@
 - Mutation: 129 mutants, 94 caught, 32 unviable, 3 missed (1 best-effort
   `Drop`; 2 equivalent); `docs/evidence/qhs5-mutation.txt`.
 - Break-log entries: BL-0026, BL-0027.
-- Gap IDs: GAP-QHS-0031 — closed; 1-hour soak pending.
+- Gap IDs: GAP-QHS-0031 — closed; 1-hour soak passed (48,430,620 iterations, 0 panics).
 
 ## Closure
 

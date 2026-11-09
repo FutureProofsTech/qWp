@@ -162,6 +162,8 @@ Measured: parallel keygen ≈0.09 s (≈7.0× faster than sequential), cached-le
 sign ≈1.5 ms, uncached sign ≈0.62 s, verify ≈1.2 ms. The CLI writes a
 16,452-byte public-leaf cache and a 38-byte key state guard.
 
+The QHS-5 1-hour soak passed with 48,430,620 iterations and 0 panics.
+
 QHS-5 is a new format, not a profile of any earlier version. Its signatures and
 keys are version-separated by the `[6, 6, 8, 0]` key header and the 6,216-byte
 signature length. QHS-5 does not replace QHS-1/2/3/3.1/4/4.1/4.2.
