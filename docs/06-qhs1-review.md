@@ -79,7 +79,7 @@ These assumptions are explicit. They are not hidden behind a standard or externa
 | Evidence | Result |
 |---|---|
 | Unit/integration tests | 146 workspace tests pass now (83 at the QHS-1 review); includes QHS-1 KAT, domain-context distinctness, cache header/tamper/foreign fallback, entropy fill/debug, selftest aggregation, error paths, and CLI end-to-end |
-| Attack suite | 13/13 current attack groups pass (6/6 at the QHS-1 review, 8/8 before QHS-4); QHS-1 tamper matrix covers version, algorithm, leaf index, WOTS, auth path, checksum, all-zero, all-0xff |
+| Attack suite | 14/14 current attack groups pass (6/6 at the QHS-1 review, 8/8 before QHS-4); QHS-1 tamper matrix covers version, algorithm, leaf index, WOTS, auth path, checksum, all-zero, all-0xff |
 | Kani | 12 current parser/bounds proofs pass (6 at the QHS-1 review) |
 | Miri | `qwp-core` and `qwp-crypto` format tests pass |
 | Fuzz | 13,270,061 iterations / 60s, 0 panics; QHS-1 1-hour soak 793,945,578 iterations; final combined soak 360,181,413 iterations / 3,600s, 0 panics. Final driver covers random-seed keygen, random-message sign/verify, parser/verifier, and QHS-3.1 tree signing (`docs/evidence/fuzz-soak-1h-final.txt`) |

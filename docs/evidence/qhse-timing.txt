@@ -1,0 +1,24 @@
+qWp QHS-E timing evidence
+=========================
+
+Date: 2026-11-10
+Command: cargo run -q -p qwp-bench --release --bin qhse_timing
+
+Result:
+qhse-qhs1: mean=140852ns/op
+qhse-qhs2: mean=312414ns/op
+qhse-qhs3: mean=376890ns/op
+qhse-qhs31: mean=376858ns/op
+timing: ok
+
+Host performance counters (perf stat, 30,000 verifications):
+- cycles: ≈100.27B total → ≈3.34M cycles/verification
+- instructions: ≈301.51B total → ≈10.05M instructions/verification
+- branches: ≈15.13B total → ≈504k branches/verification
+- branch misses: ≈99.6M total → ≈3.3k branch misses/verification
+
+Notes:
+- The host is a mixed P/E-core x86_64 machine; perf sums both core classes.
+- The keygen/sign setup runs once and is negligible over 30,000 verifications.
+- These are host numbers, not MCU cycle claims. The embedded targets are covered
+  by code-size evidence in `docs/evidence/qhse-size.txt`.

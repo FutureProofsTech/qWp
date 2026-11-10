@@ -8,7 +8,7 @@ It is built under three hard constraints:
 2. **Zero external crates** — no dependencies; only `core`/`std` from the pinned toolchain.
 3. **No hidden gaps** — every function gets an adversary dossier and attack harness; every known gap is tracked until closed.
 
-> **Status: QHS-1/2/3/3.1 release candidates; QHS-4 tagged; QHS-4.1 fast profile implemented; QHS-4.2 compact implemented; QHS-5 512-bit implemented; QHS-6 hybrid implemented; zero open production gaps.** Signatures are **QHS-1** (2,408 bytes, 256/key), **QHS-2** (1,704 bytes, 256/key), **QHS-3 / QHS-3.1** (1,832 bytes, 4,096/key), **QHS-4** (18,216 bytes, stateless, 68-byte keys), **QHS-4.1** (same QHS-4 keys/signature, parallel fast signing), **QHS-4.2** (14,344 bytes, compact stateless), **QHS-5** (6,216 bytes, 512-bit hash, 256/key), or **QHS-6** (6,284 bytes, QHS-5 + Ed25519 hybrid, 256/key). QHS-1 passed its 1-hour soak; the combined QHS-1/2/3 1-hour soak passed with 360,181,413 iterations and 0 panics. The QHS-1 72-hour soak was waived by owner decision (2026-11-06). QHS-3.1 uses the same QHS-3 signature format. QHS-4 has no counter, cache, or state guard; its 1-hour soak passed with 91,191,782 iterations and 0 panics. QHS-4.1 uses the same signature and proof; its 1-hour soak passed with 94,814,625 iterations and 0 panics. QHS-4.2 is a compact stateless parameter set; its 1-hour soak passed with 56,556,913 iterations and 0 panics. QHS-5 is a stateful 512-bit-hash profile with a leaf cache and key state guard; its 1-hour soak passed with 48,430,620 iterations and 0 panics. QHS-6 is the QHS-5 + Ed25519 hybrid; its 1-hour soak passed with 36,957,000 iterations and 0 panics. The original topological `P·M·P⁻¹` construction is a confirmed break and is retained only as research. See `docs/05-qhs1.md`, `docs/07-qhs2.md`, `docs/10-qhs3.md`, `docs/12-qhs31.md`, `docs/13-qhs4.md`, `docs/14-qhs41.md`, `docs/15-qhs42.md`, `docs/16-qhs5.md`, and `docs/gap-register.md`.
+> **Status: QHS-1/2/3/3.1 release candidates; QHS-4 tagged; QHS-4.1 fast profile implemented; QHS-4.2 compact implemented; QHS-5 512-bit implemented; QHS-6 hybrid implemented; QHS-E verifier profile implemented; zero open production gaps.** Signatures are **QHS-1** (2,408 bytes, 256/key), **QHS-2** (1,704 bytes, 256/key), **QHS-3 / QHS-3.1** (1,832 bytes, 4,096/key), **QHS-4** (18,216 bytes, stateless, 68-byte keys), **QHS-4.1** (same QHS-4 keys/signature, parallel fast signing), **QHS-4.2** (14,344 bytes, compact stateless), **QHS-5** (6,216 bytes, 512-bit hash, 256/key), or **QHS-6** (6,284 bytes, QHS-5 + Ed25519 hybrid, 256/key). QHS-1 passed its 1-hour soak; the combined QHS-1/2/3 1-hour soak passed with 360,181,413 iterations and 0 panics. The QHS-1 72-hour soak was waived by owner decision (2026-11-06). QHS-3.1 uses the same QHS-3 signature format. QHS-4 has no counter, cache, or state guard; its 1-hour soak passed with 91,191,782 iterations and 0 panics. QHS-4.1 uses the same signature and proof; its 1-hour soak passed with 94,814,625 iterations and 0 panics. QHS-4.2 is a compact stateless parameter set; its 1-hour soak passed with 56,556,913 iterations and 0 panics. QHS-5 is a stateful 512-bit-hash profile with a leaf cache and key state guard; its 1-hour soak passed with 48,430,620 iterations and 0 panics. QHS-6 is the QHS-5 + Ed25519 hybrid; its 1-hour soak passed with 36,957,000 iterations and 0 panics. QHS-E is the verifier-only QHS-1/2/3/3.1 profile for bootloaders/MCUs; its 1-hour soak is pending. The original topological `P·M·P⁻¹` construction is a confirmed break and is retained only as research. See `docs/05-qhs1.md`, `docs/07-qhs2.md`, `docs/10-qhs3.md`, `docs/12-qhs31.md`, `docs/13-qhs4.md`, `docs/14-qhs41.md`, `docs/15-qhs42.md`, `docs/16-qhs5.md`, and `docs/gap-register.md`.
 
 ## Workspace
 
@@ -80,6 +80,8 @@ cargo run -p qwp-cli --bin qwp -- qhs5-verify public5.key message.txt message5.s
 cargo run -p qwp-cli --bin qwp -- qhs6-keygen public6.key private6.key
 cargo run -p qwp-cli --bin qwp -- qhs6-sign private6.key message.txt message6.sig
 cargo run -p qwp-cli --bin qwp -- qhs6-verify public6.key message.txt message6.sig
+
+cargo run -p qwp-cli --bin qwp -- qhse-verify 1 public1.key message.txt message1.sig
 ```
 
 The QHS-1/2/3/3.1 private key is stateful: each signature consumes one leaf and the CLI atomically updates the key counter with `fsync` + rename before writing the signature. The private key file is created with mode `0600` on Unix. Do not copy, roll back, or use the same key concurrently from multiple processes.
@@ -87,6 +89,8 @@ The QHS-1/2/3/3.1 private key is stateful: each signature consumes one leaf and 
 QHS-4, QHS-4.1, and QHS-4.2 are the stateless exception: `qhs4-sign`, `qhs41-sign`, and `qhs42-sign` read the key and write only the signature. They create no cache, tree cache, or state guard, and do not modify the private key. The key file is still protected by mode `0600`.
 
 QHS-6 is the hybrid. `qhs6-keygen` writes 108-byte keys and a QHS-6 leaf cache/state guard; `qhs6-sign` signs a transcript with both QHS-5 and Ed25519, and `qhs6-verify` requires both.
+
+QHS-E is verifier-only. `qhse-verify <version> <public-key> <message> <signature>` verifies QHS-1/2/3/3.1 with the embedded profile; it has no keygen, signing, cache, or state files.
 
 QHS-5 is stateful. `qhs5-keygen` writes a 16,452-byte public-leaf cache and a 38-byte keyed state guard. `qhs5-sign` persists the incremented key counter and state guard before releasing the signature; a guard counter ahead of the key counter is refused as a rollback. Restoring both the key and guard together is not detectable without a hardware monotonic counter.
 
@@ -107,6 +111,7 @@ On the 16-thread reference host:
 | QHS-4.2 | **14,344 B** | ≈0.30 s | parallel ≈0.27 s | ≈4.0 ms |
 | QHS-5 | **6,216 B** | ≈0.09 s parallel | **≈1.5 ms cached** | ≈1.2 ms |
 | QHS-6 | **6,284 B** | ≈0.09 s parallel | ≈2.0 ms cached | ≈1.5 ms |
+| QHS-E | same as base | n/a | n/a | **0.14–0.38 ms** |
 
 ## Doctrine and registers
 
@@ -126,6 +131,7 @@ On the 16-thread reference host:
 - `docs/15-qhs42.md` — QHS-4.2 compact stateless construction and proof
 - `docs/16-qhs5.md` — QHS-5 512-bit stateful construction and proof
 - `docs/17-qhs6.md` — QHS-6 QHS-5 + Ed25519 hybrid construction and proof
+- `docs/18-qhse.md` — QHS-E embedded verifier profile and evidence
 - `docs/09-version-family.md` — QHS version family and use-case matrix
 - `docs/adr/0002-qhs1.md` — QHS-1 acceptance
 - `docs/adr/0003-qhs2.md` — QHS-2 smaller-signature acceptance
@@ -136,6 +142,7 @@ On the 16-thread reference host:
 - `docs/adr/0008-qhs42-compact.md` — QHS-4.2 compact stateless profile
 - `docs/adr/0009-qhs5-512.md` — QHS-5 512-bit stateful profile
 - `docs/adr/0010-qhs6-hybrid.md` — QHS-6 classical hybrid
+- `docs/adr/0011-qhse-embedded.md` — QHS-E embedded verifier profile
 - `docs/adr/0001-signature-paradigm.md` — superseded signature paradigm decision
 - `docs/gap-register.md` — every open gap
 - `docs/traceability.md` — requirement traceability
@@ -147,4 +154,4 @@ On the 16-thread reference host:
 
 ## Warning
 
-This project is not standard and not externally audited. QHS-1, QHS-2, QHS-3, QHS-3.1, QHS-4, QHS-4.1, QHS-4.2, QHS-5, and QHS-6 are closed with internal proofs and evidence, and the production gap register is empty. The combined QHS-1/2/3/3.1 1-hour soak passed with 360,181,413 iterations and 0 panics; the QHS-4 1-hour soak passed with 91,191,782 iterations and 0 panics; the QHS-4.1 1-hour soak passed with 94,814,625 iterations and 0 panics; the QHS-4.2 1-hour soak passed with 56,556,913 iterations and 0 panics. The QHS-5 1-hour soak passed with 48,430,620 iterations and 0 panics; the QHS-6 1-hour soak passed with 36,957,000 iterations and 0 panics. The 72-hour soak was waived by owner decision for QHS-1. Do not use qWp for real security without an independent review of your deployment.
+This project is not standard and not externally audited. QHS-1, QHS-2, QHS-3, QHS-3.1, QHS-4, QHS-4.1, QHS-4.2, QHS-5, QHS-6, and QHS-E are closed with internal proofs and evidence, and the production gap register is empty. The combined QHS-1/2/3/3.1 1-hour soak passed with 360,181,413 iterations and 0 panics; the QHS-4 1-hour soak passed with 91,191,782 iterations and 0 panics; the QHS-4.1 1-hour soak passed with 94,814,625 iterations and 0 panics; the QHS-4.2 1-hour soak passed with 56,556,913 iterations and 0 panics. The QHS-5 1-hour soak passed with 48,430,620 iterations and 0 panics; the QHS-6 1-hour soak passed with 36,957,000 iterations and 0 panics. The QHS-E soak is pending. The 72-hour soak was waived by owner decision for QHS-1. Do not use qWp for real security without an independent review of your deployment.

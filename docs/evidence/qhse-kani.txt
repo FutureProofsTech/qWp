@@ -1,0 +1,19 @@
+qWp QHS-E Kani evidence
+=======================
+
+Date: 2026-11-10
+Status: inherited parser/bounds coverage.
+
+QHS-E is a verifier-only profile with exact-size public APIs. It does not add a
+new parser or format. The QHS-1/2/3 parser and length proofs in `qwp-verify`
+remain authoritative for the accepted formats:
+
+- `qhs_public_key_parse_never_panics`
+- `qhs_private_key_parse_never_panics`
+- `qhs_signature_from_slice_checks_length`
+- the QHS-2 and QHS-3 equivalents
+
+QHS-E's fixed-size entry points, differential tests, wrong-length WOTS test,
+attack suite, and fuzz run cover the profile-specific paths. A direct Kani proof
+of the full verifier would require symbolically executing BLAKE3 chains and is
+not tractable.

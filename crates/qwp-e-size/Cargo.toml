@@ -1,0 +1,25 @@
+[workspace]
+
+[package]
+name = "qwp-e-size"
+description = "QHS-E static-library size probe."
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "LicenseRef-qWp"
+authors = ["qWp"]
+publish = false
+
+[lib]
+crate-type = ["staticlib"]
+test = false
+doctest = false
+
+[dependencies]
+qwp-e = { path = "../qwp-e" }
+
+[build-dependencies]
+# none
+
+[profile.release]
+panic = "abort"

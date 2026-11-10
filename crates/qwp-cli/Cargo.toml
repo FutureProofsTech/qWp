@@ -15,6 +15,7 @@ path = "src/main.rs"
 [dependencies]
 qwp-core = { path = "../qwp-core" }
 qwp-crypto = { path = "../qwp-crypto" }
+qwp-e = { path = "../qwp-e" }
 qwp-hash = { path = "../qwp-hash" }
 qwp-platform = { path = "../qwp-platform" }
 

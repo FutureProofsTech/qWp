@@ -1,0 +1,28 @@
+qWp QHS-E code-size evidence
+=============================
+
+Date: 2026-11-10
+Targets: thumbv7em-none-eabihf, riscv32imac-unknown-none-elf
+Profile: release, panic=abort
+
+Method:
+  cargo build --manifest-path crates/qwp-e-size/Cargo.toml --release --target <target>
+  ar x libqwp_e_size.a
+  llvm-size -A <qwp_e_size/qwp_e/qwp_hash/qwp_core objects>
+
+Only the QHS-E probe, verifier, BLAKE3, and error-type objects are summed.
+`core` and `compiler_builtins` are excluded because they are toolchain runtime
+code, not QHS-E profile code.
+
+Result:
+- thumbv7em-none-eabihf: text 6,776 B + rodata 671 B = 7,447 B.
+- riscv32imac-unknown-none-elf: text 9,660 B + rodata 671 B = 10,331 B.
+
+Notes:
+- The probe links all four verifier entry points (QHS-1/2/3/3.1). A deployment
+  that uses only one version can strip the others with LTO/gc-sections.
+- Stack use is bounded and allocation-free. The verifier reads the auth path
+  and WOTS signature in place; it never copies the full signature. The largest
+  fixed buffers are 67 bytes of digits, 64 bytes of node input, 34 bytes of
+  leaf input, and 32-byte chain/leaf values.
+- Actual MCU cycle counts require hardware and are not claimed.

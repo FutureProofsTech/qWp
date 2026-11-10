@@ -772,6 +772,19 @@ header:  [7, 7, 8, 0]
 mac key: H32_ctx("qWp QHS-6 key state guard", QHS-5 seed)
 ```
 
+### 10.41 QHS-E verifier profile
+
+QHS-E is not a new format. It is a verifier-only profile of QHS-1/2/3/3.1:
+
+- same 64-byte public keys;
+- same 2,408-byte QHS-1, 1,704-byte QHS-2, and 1,832-byte QHS-3/QHS-3.1
+  signatures;
+- same headers, checksums, WOTS chains, and Merkle auth paths;
+- no keygen, signing, cache, or state guard.
+
+The profile API is `verify_qhs1`, `verify_qhs2`, `verify_qhs3`, and
+`verify_qhs31`. It is `no_std`, allocation-free, and verifier-only.
+
 ## 11. Open items
 
 No open production format items. QHS-1, QHS-2, QHS-3, QHS-3.1, QHS-4, the

@@ -23,6 +23,7 @@ use qwp_crypto::{
     qhs_keygen, qhs2_keygen, qhs3_auth_path_from_tree, qhs3_build_tree, qhs3_keygen_from_leaves,
     qhs4_keygen, qhs5_keygen, qhs6_keygen, qhs42_keygen,
 };
+use qwp_e::{verify_qhs1, verify_qhs2, verify_qhs3, verify_qhs31};
 use qwp_platform::{qhs3_leaves_parallel, qhs4_sign_parallel, qhs42_sign_parallel};
 
 struct Rng(u64);
@@ -522,11 +523,42 @@ fn main() {
             let _ = public_key42.verify(message, &signature42);
             let _ = public_key5.verify(message, &signature5);
             let _ = public_key6.verify(message, &signature6);
+
+            let mut qhse_sig1 = [0_u8; 2_408];
+            rng.fill(&mut qhse_sig1);
+            let _ = verify_qhs1(&public_key.to_bytes(), message, &qhse_sig1);
+            let mut qhse_sig2 = [0_u8; 1_704];
+            rng.fill(&mut qhse_sig2);
+            let _ = verify_qhs2(&public_key2.to_bytes(), message, &qhse_sig2);
+            let mut qhse_sig3 = [0_u8; 1_832];
+            rng.fill(&mut qhse_sig3);
+            let _ = verify_qhs3(&public_key3.to_bytes(), message, &qhse_sig3);
+            let _ = verify_qhs31(&public_key3.to_bytes(), message, &qhse_sig3);
             if iterations.is_multiple_of(1_000) {
                 let _ = public_key4.verify(b"fuzz-seed-qhs4", valid_signature4);
                 let _ = public_key42.verify(b"fuzz-seed-qhs42", valid_signature42);
                 let _ = public_key5.verify(b"fuzz-seed-qhs5", valid_signature5);
                 let _ = public_key6.verify(b"fuzz-seed-qhs6", valid_signature6);
+                let _ = verify_qhs1(
+                    &public_key.to_bytes(),
+                    b"fuzz-seed",
+                    &valid_signature.to_bytes(),
+                );
+                let _ = verify_qhs2(
+                    &public_key2.to_bytes(),
+                    b"fuzz-seed-qhs2",
+                    &valid_signature2.to_bytes(),
+                );
+                let _ = verify_qhs3(
+                    &public_key3.to_bytes(),
+                    b"fuzz-seed-qhs3",
+                    &valid_signature3.to_bytes(),
+                );
+                let _ = verify_qhs31(
+                    &public_key3.to_bytes(),
+                    b"fuzz-seed-qhs3",
+                    &valid_signature3.to_bytes(),
+                );
             }
         }));
         if result.is_err() {

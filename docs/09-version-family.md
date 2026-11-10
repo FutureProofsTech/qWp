@@ -29,7 +29,7 @@ The version family is organized around six axes:
 | **QHS-4.2** | compact WOTS/FORS/hypertree | No | ≤2^20 at 128-bit target | **14,344 B** | ≈0.30 s | ≈0.27 s | ≈4.0 ms | compact stateless signatures |
 | **QHS-5** | 512-bit hash, 89×63 WOTS, h=8 | Yes | 256 | **6,216 B** | ≈0.09 s parallel / ≈0.61 s sequential | **≈1.5 ms cached** / ≈0.62 s uncached | ≈1.2 ms | 256-bit classical / ~128-bit quantum margin |
 | **QHS-6** | QHS-5 + Ed25519 hybrid | Yes | 256 | **6,284 B** | ≈0.09 s parallel | **≈2.0 ms cached** | ≈1.5 ms | migration/classical hybrid |
-| QHS-E | QHS verifier profile | n/a | n/a | QHS-1/2/3/3.1 | n/a | n/a | same | bootloader/MCU verifier |
+| **QHS-E** | verifier-only QHS-1/2/3/3.1 profile | n/a | n/a | same as base | n/a | n/a | same | bootloader/MCU verifier |
 
 ## 3. Decision guide
 
@@ -199,12 +199,16 @@ Ed25519 keygen ≈0.125 ms, sign ≈0.257 ms, verify ≈0.258 ms. The QHS-6 1-ho
 
 ## 8. QHS-E: embedded verifier profile
 
-QHS-E is not a new signature. It is a `no_std` verifier profile of QHS-1/2/3/3.1 with:
+QHS-E is not a new signature. It is a `no_std`, allocation-free verifier-only
+profile of QHS-1/2/3/3.1:
 
-- fixed-size stack usage;
-- no heap;
-- code-size and cycle benchmarks on constrained targets;
-- the same public keys and signatures.
+- `verify_qhs1`, `verify_qhs2`, `verify_qhs3`, `verify_qhs31`;
+- same 64-byte public keys and same signatures;
+- fixed-size stack, no heap, no full-signature copy;
+- host verification ≈0.14 ms (QHS-1), ≈0.31 ms (QHS-2), ≈0.38 ms (QHS-3);
+- code size ≈7.4 KB (thumbv7em) / ≈10.3 KB (riscv32imac) for all four
+  verifier entry points;
+- differential equivalence with the `qwp-crypto` verifiers.
 
 ## 9. Release rule
 

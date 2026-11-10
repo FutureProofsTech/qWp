@@ -1,0 +1,15 @@
+qWp QHS-E coverage evidence
+===========================
+
+Date: 2026-11-10
+Command: cargo llvm-cov --release -p qwp-e --summary-only
+
+Result:
+- verifier.rs: 98.44% lines (192 lines, 3 missed); 93.18% regions;
+  100% functions executed.
+
+Notes:
+- The three missed lines are defensive fixed-layout error branches that cannot
+  fail after the exact-size public API checks.
+- Coverage includes 6 differential tests against qwp-crypto for QHS-1/2/3 and
+  QHS-3.1, multiple leaves, random signatures, and wrong-length WOTS tests.

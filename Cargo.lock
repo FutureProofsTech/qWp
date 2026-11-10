@@ -8,6 +8,7 @@ version = "0.1.0"
 dependencies = [
  "qwp-core",
  "qwp-crypto",
+ "qwp-e",
  "qwp-hash",
  "qwp-platform",
 ]
@@ -19,6 +20,7 @@ dependencies = [
  "qwp-classical",
  "qwp-core",
  "qwp-crypto",
+ "qwp-e",
  "qwp-hash",
  "qwp-platform",
 ]
@@ -36,6 +38,7 @@ version = "0.1.0"
 dependencies = [
  "qwp-core",
  "qwp-crypto",
+ "qwp-e",
  "qwp-hash",
  "qwp-platform",
 ]
@@ -50,6 +53,15 @@ version = "0.1.0"
 dependencies = [
  "qwp-classical",
  "qwp-core",
+ "qwp-hash",
+]
+
+[[package]]
+name = "qwp-e"
+version = "0.1.0"
+dependencies = [
+ "qwp-core",
+ "qwp-crypto",
  "qwp-hash",
 ]
 
@@ -72,6 +84,7 @@ dependencies = [
  "qwp-classical",
  "qwp-core",
  "qwp-crypto",
+ "qwp-e",
  "qwp-hash",
  "qwp-platform",
 ]

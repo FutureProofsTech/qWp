@@ -1,0 +1,23 @@
+qWp QHS-E mutation evidence
+===========================
+
+Date: 2026-11-10
+Command:
+  cargo mutants -p qwp-e --in-place --timeout 60 --profile release \
+    --output mutants-qhse.out
+
+Result:
+- 46 mutants tested in 10m.
+- 45 caught.
+- 0 unviable.
+- 1 missed.
+- 0 timeouts.
+
+Missed mutant:
+- `replace | with ^ in message_digits`: equivalent. After
+  `value.wrapping_shl(1)`, the low bit is zero, so OR and XOR with the next bit
+  are identical.
+
+The first run also missed `verify_qhs31 -> Ok(())` and the `||` length check in
+`wots_verify`; added negative tests for QHS-3.1 and a direct wrong-length WOTS
+test close both. No non-equivalent viable survivor remains.

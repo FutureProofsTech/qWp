@@ -20,6 +20,7 @@ path = "src/bin/fuzz.rs"
 qwp-classical = { path = "../qwp-classical" }
 qwp-core = { path = "../qwp-core" }
 qwp-crypto = { path = "../qwp-crypto" }
+qwp-e = { path = "../qwp-e" }
 qwp-hash = { path = "../qwp-hash" }
 qwp-platform = { path = "../qwp-platform" }
 

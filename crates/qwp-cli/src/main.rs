@@ -80,6 +80,7 @@ use qwp_crypto::{
     qhs2_leaves, qhs3_auth_path_from_tree, qhs3_build_tree, qhs3_keygen_from_leaves, qhs3_leaf,
     qhs4_keygen, qhs5_keygen_from_leaves, qhs5_leaves, qhs6_keygen_from_leaves, qhs42_keygen,
 };
+use qwp_e::{verify_qhs1, verify_qhs2, verify_qhs3, verify_qhs31};
 use qwp_hash::{Hasher, derive_key32, hash32};
 use qwp_platform::{
     HostEntropy, qhs_leaves_parallel, qhs2_leaves_parallel, qhs3_leaves_parallel,
@@ -220,6 +221,8 @@ fn main() -> ExitCode {
         Some("qhs6-keygen") => run_qhs6_keygen(&arguments),
         Some("qhs6-sign") => run_qhs6_sign(&arguments),
         Some("qhs6-verify") => run_qhs6_verify(&arguments),
+        Some("qhse-selftest") => run_named_selftest("qhse-selftest", qhse_selftest),
+        Some("qhse-verify") => run_qhse_verify(&arguments),
         Some("help") | None => {
             print_help();
             ExitCode::SUCCESS
@@ -275,6 +278,8 @@ fn print_help() {
     println!("  qhs6-keygen <pub> <key>         write QHS-6 hybrid keys and leaf cache");
     println!("  qhs6-sign <key> <message> <sig> QHS-5 + Ed25519 hybrid signing");
     println!("  qhs6-verify <pub> <message> <sig> verify both hybrid signatures");
+    println!("  qhse-selftest     run QHS-E QHS-1/2/3 verifier profile");
+    println!("  qhse-verify <v> <pub> <message> <sig> embedded verifier (v=1,2,3,31)");
     println!("  help              show this help");
 }
 
@@ -1800,6 +1805,143 @@ fn run_qhs6_verify(arguments: &[String]) -> ExitCode {
             ExitCode::from(1)
         }
     }
+}
+
+fn run_qhse_verify(arguments: &[String]) -> ExitCode {
+    let (Some(version), Some(public_path), Some(message_path), Some(signature_path)) = (
+        arguments.get(2),
+        arguments.get(3),
+        arguments.get(4),
+        arguments.get(5),
+    ) else {
+        eprintln!("usage: qwp qhse-verify <1|2|3|31> <public-key> <message> <signature>");
+        return ExitCode::from(2);
+    };
+    let signature_bytes = match version.as_str() {
+        "1" => 2_408,
+        "2" => 1_704,
+        "3" | "31" => 1_832,
+        _ => {
+            eprintln!("qhse-verify: version must be 1, 2, 3, or 31");
+            return ExitCode::from(2);
+        }
+    };
+    let public_vec = match read_exact_file(public_path, 64) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("qhse-verify: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let Ok(public_bytes) = <[u8; 64]>::try_from(public_vec.as_slice()) else {
+        eprintln!("qhse-verify: invalid public key length");
+        return ExitCode::from(3);
+    };
+    let signature_vec = match read_exact_file(signature_path, signature_bytes) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("qhse-verify: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let message = match fs::read(message_path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("qhse-verify: {message_path}: {error}");
+            return ExitCode::from(3);
+        }
+    };
+    let result = match version.as_str() {
+        "1" => <[u8; 2_408]>::try_from(signature_vec.as_slice())
+            .map_err(|_| "invalid QHS-1 signature length".to_string())
+            .and_then(|signature| {
+                verify_qhs1(&public_bytes, &message, &signature).map_err(|error| error.to_string())
+            }),
+        "2" => <[u8; 1_704]>::try_from(signature_vec.as_slice())
+            .map_err(|_| "invalid QHS-2 signature length".to_string())
+            .and_then(|signature| {
+                verify_qhs2(&public_bytes, &message, &signature).map_err(|error| error.to_string())
+            }),
+        "3" => <[u8; 1_832]>::try_from(signature_vec.as_slice())
+            .map_err(|_| "invalid QHS-3 signature length".to_string())
+            .and_then(|signature| {
+                verify_qhs3(&public_bytes, &message, &signature).map_err(|error| error.to_string())
+            }),
+        "31" => <[u8; 1_832]>::try_from(signature_vec.as_slice())
+            .map_err(|_| "invalid QHS-3.1 signature length".to_string())
+            .and_then(|signature| {
+                verify_qhs31(&public_bytes, &message, &signature).map_err(|error| error.to_string())
+            }),
+        _ => Err("invalid version".to_string()),
+    };
+    match result {
+        Ok(()) => {
+            println!("qhse-verify: ok");
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("qhse-verify: {error}");
+            ExitCode::from(1)
+        }
+    }
+}
+
+fn qhse_selftest() -> bool {
+    let seed = [7_u8; 32];
+    let Ok(leaves1) = qhs_leaves_parallel(&seed) else {
+        return false;
+    };
+    let Ok((mut private1, public1)) = qhs_keygen_from_leaves(&seed, &leaves1) else {
+        return false;
+    };
+    let Ok(signature1) = private1.sign(b"qhse-selftest") else {
+        return false;
+    };
+    let Ok(leaves2) = qhs2_leaves_parallel(&seed) else {
+        return false;
+    };
+    let Ok((mut private2, public2)) = qhs2_keygen_from_leaves(&seed, &leaves2) else {
+        return false;
+    };
+    let Ok(signature2) = private2.sign(b"qhse-selftest") else {
+        return false;
+    };
+    let Ok(leaves3) = qhs3_leaves_parallel(&seed) else {
+        return false;
+    };
+    let Ok((mut private3, public3)) = qhs3_keygen_from_leaves(&seed, &leaves3) else {
+        return false;
+    };
+    let Ok(signature3) = private3.sign(b"qhse-selftest") else {
+        return false;
+    };
+    all_true(&[
+        verify_qhs1(
+            &public1.to_bytes(),
+            b"qhse-selftest",
+            &signature1.to_bytes(),
+        )
+        .is_ok(),
+        verify_qhs2(
+            &public2.to_bytes(),
+            b"qhse-selftest",
+            &signature2.to_bytes(),
+        )
+        .is_ok(),
+        verify_qhs3(
+            &public3.to_bytes(),
+            b"qhse-selftest",
+            &signature3.to_bytes(),
+        )
+        .is_ok(),
+        verify_qhs31(
+            &public3.to_bytes(),
+            b"qhse-selftest",
+            &signature3.to_bytes(),
+        )
+        .is_ok(),
+        verify_qhs1(&public1.to_bytes(), b"wrong", &signature1.to_bytes()).is_err(),
+    ])
 }
 
 fn lock_key(path: &str) -> Result<fs::File, String> {

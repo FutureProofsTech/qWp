@@ -77,9 +77,10 @@ use qwp_crypto::{
     QHS4_SIGNATURE_BYTES, QHS5_MAX_SIGNATURES, QHS6_SIGNATURE_BYTES, Qhs2PrivateKey, Qhs2Signature,
     Qhs3PrivateKey, Qhs3PublicKey, Qhs3Signature, Qhs4PublicKey, Qhs4Signature, Qhs5PrivateKey,
     Qhs5Signature, Qhs6PrivateKey, Qhs6Signature, Qhs42PublicKey, Qhs42Signature, QhsPrivateKey,
-    QhsSignature, Signature, qhs_keygen, qhs2_keygen, qhs3_keygen_from_leaves, qhs4_keygen,
-    qhs5_keygen, qhs6_keygen, qhs42_keygen,
+    QhsSignature, Signature, qhs_keygen, qhs2_keygen, qhs3_keygen, qhs3_keygen_from_leaves,
+    qhs4_keygen, qhs5_keygen, qhs6_keygen, qhs42_keygen,
 };
+use qwp_e::{verify_qhs1, verify_qhs2, verify_qhs3, verify_qhs31};
 use qwp_hash::hash32;
 use qwp_platform::{HostEntropy, qhs3_leaves_parallel, qhs4_sign_parallel, qhs42_sign_parallel};
 
@@ -153,6 +154,7 @@ pub fn run_all() -> AttackReport {
         attack_qhs42(),
         attack_qhs5(),
         attack_qhs6(),
+        attack_qhse(),
     ];
     let passed = checks.iter().filter(|result| **result).count();
     let failed = checks.len().saturating_sub(passed);
@@ -784,12 +786,104 @@ pub fn attack_qhs6() -> bool {
         && exhausted_ok
 }
 
+/// Attacks the QHS-E verifier profile against QHS-1/2/3/3.1.
+#[must_use]
+#[inline]
+#[allow(
+    clippy::large_stack_arrays,
+    reason = "the fixed QHS-1/2/3 signatures are 1.7-2.4 KB"
+)]
+pub fn attack_qhse() -> bool {
+    let seed = [7_u8; 32];
+    let message = b"qhse-attack-message";
+
+    let Ok((mut private1, public1)) = qhs_keygen(&seed) else {
+        return false;
+    };
+    let Ok(signature1) = private1.sign(message) else {
+        return false;
+    };
+    let public1 = public1.to_bytes();
+    let signature1 = signature1.to_bytes();
+    let accepted1 = verify_qhs1(&public1, message, &signature1).is_ok();
+    let wrong1 = verify_qhs1(&public1, b"wrong", &signature1).is_err();
+    let tamper1 = [0_usize, 1, 2, 3, 4, 2_147, 2_148, 2_403, 2_404]
+        .iter()
+        .all(|offset| {
+            let mut bytes = signature1;
+            let Some(byte) = bytes.get_mut(*offset) else {
+                return false;
+            };
+            *byte ^= 1;
+            verify_qhs1(&public1, message, &bytes).is_err()
+        });
+    let zero1 = verify_qhs1(&public1, message, &[0_u8; 2_408]).is_err();
+
+    let Ok((mut private2, public2)) = qhs2_keygen(&seed) else {
+        return false;
+    };
+    let Ok(signature2) = private2.sign(message) else {
+        return false;
+    };
+    let public2 = public2.to_bytes();
+    let signature2 = signature2.to_bytes();
+    let accepted2 = verify_qhs2(&public2, message, &signature2).is_ok();
+    let wrong2 = verify_qhs2(&public2, b"wrong", &signature2).is_err();
+    let tamper2 = [0_usize, 1, 2, 3, 4, 1_443, 1_444, 1_699, 1_700]
+        .iter()
+        .all(|offset| {
+            let mut bytes = signature2;
+            let Some(byte) = bytes.get_mut(*offset) else {
+                return false;
+            };
+            *byte ^= 1;
+            verify_qhs2(&public2, message, &bytes).is_err()
+        });
+    let zero2 = verify_qhs2(&public2, message, &[0_u8; 1_704]).is_err();
+
+    let Ok((mut private3, public3)) = qhs3_keygen(&seed) else {
+        return false;
+    };
+    let Ok(signature3) = private3.sign(message) else {
+        return false;
+    };
+    let public3 = public3.to_bytes();
+    let signature3 = signature3.to_bytes();
+    let accepted3 = verify_qhs3(&public3, message, &signature3).is_ok()
+        && verify_qhs31(&public3, message, &signature3).is_ok();
+    let wrong3 = verify_qhs3(&public3, b"wrong", &signature3).is_err();
+    let tamper3 = [0_usize, 1, 2, 3, 4, 1_443, 1_444, 1_827, 1_828]
+        .iter()
+        .all(|offset| {
+            let mut bytes = signature3;
+            let Some(byte) = bytes.get_mut(*offset) else {
+                return false;
+            };
+            *byte ^= 1;
+            verify_qhs3(&public3, message, &bytes).is_err()
+        });
+    let zero3 = verify_qhs3(&public3, message, &[0_u8; 1_832]).is_err();
+
+    accepted1
+        && wrong1
+        && tamper1
+        && zero1
+        && accepted2
+        && wrong2
+        && tamper2
+        && zero2
+        && accepted3
+        && wrong3
+        && tamper3
+        && zero3
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         attack_braid_parser, attack_entropy, attack_hash_vectors, attack_key_formats,
         attack_polynomial_round_trip, attack_qhs1, attack_qhs2, attack_qhs3, attack_qhs4,
-        attack_qhs5, attack_qhs6, attack_qhs41, attack_qhs42, audit, run_all,
+        attack_qhs5, attack_qhs6, attack_qhs41, attack_qhs42, attack_qhse, audit, run_all,
     };
 
     #[test]
@@ -807,6 +901,7 @@ mod tests {
         assert!(attack_qhs42());
         assert!(attack_qhs5());
         assert!(attack_qhs6());
+        assert!(attack_qhse());
         assert!(run_all().is_ok());
     }
 

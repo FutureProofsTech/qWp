@@ -2,7 +2,7 @@
 
 **Rule:** Every critical asset has an attack tree; every leaf maps to an abuse case, attack harness, and gap if unresolved.
 
-**Scope:** §1–§6 cover the legacy braid research path. §7–§15 cover the production QHS-1/2/3/3.1/4, QHS-4.1, QHS-4.2, QHS-5, and QHS-6 signatures.
+**Scope:** §1–§6 cover the legacy braid research path. §7–§16 cover the production QHS-1/2/3/3.1/4, QHS-4.1, QHS-4.2, QHS-5, QHS-6, and QHS-E profiles.
 
 ## 1. Signature forgery
 
@@ -216,4 +216,18 @@ Forge QHS-6
 ├── Cache corruption / foreign cache              [fingerprint + keyed MAC; recompute]
 ├── Cross-version with QHS-5 / Ed25519-only       [header [7,7,8,0]; 6,284-byte length]
 └── Timing/fault/DoS                              [Welch |t| < 4.5]
+```
+
+## 16. QHS-E embedded verifier
+
+```
+Forge QHS-E
+├── Valid/invalid differential divergence         [5 differential tests vs qwp-crypto]
+├── Header/version/height/leaf tampering          [attack suite]
+├── Checksum/WOTS/auth-path tampering             [attack suite]
+├── Wrong message/key                             [attack suite]
+├── Cross-version QHS-1/2/3 confusion             [fixed-size API; attack suite]
+├── Fixed-layout parser panic                     [exact-size API; fuzz]
+├── Heap/stack exhaustion                         [no heap; bounded fixed buffers]
+└── Timing/fault/DoS                              [host timing + perf counters]
 ```

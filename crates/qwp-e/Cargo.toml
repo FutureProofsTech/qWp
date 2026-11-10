@@ -1,0 +1,22 @@
+[package]
+name = "qwp-e"
+description = "qWp embedded verifier profile for QHS-1/2/3/3.1."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+qwp-core = { path = "../qwp-core" }
+qwp-hash = { path = "../qwp-hash" }
+
+[dev-dependencies]
+qwp-crypto = { path = "../qwp-crypto" }
+
+[build-dependencies]
+# none

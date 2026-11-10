@@ -1,0 +1,17 @@
+qWp QHS-E attack-suite evidence
+================================
+
+Date: 2026-11-10
+Command: cargo run -q -p qwp-attacks --release --bin attack-suite
+
+Result:
+attack-suite: passed=14 failed=0
+
+QHS-E checks in `qwp_attacks::attack_qhse`:
+- Valid QHS-1/2/3/3.1 signatures accepted by QHS-E.
+- Wrong message rejected for each version.
+- Header, leaf-index, WOTS, auth-path, and checksum tampering rejected.
+- All-zero signatures rejected.
+- Differential tests compare QHS-E against the `qwp-crypto` verifiers for
+  valid, tampered, wrong-message, wrong-key, and random signatures.
+- Cross-version fixed-size parsing prevents QHS-1/2/3 signature confusion.

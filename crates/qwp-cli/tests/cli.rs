@@ -74,6 +74,7 @@ fn version_help_and_selftests() {
     assert!(help_text.contains("qhs6-keygen"));
     assert!(help_text.contains("qhs6-sign"));
     assert!(help_text.contains("qhs6-verify"));
+    assert!(help_text.contains("qhse-verify"));
 
     assert!(run(&["selftest"]).status.success());
     assert!(run(&["qhs-selftest"]).status.success());
@@ -85,6 +86,7 @@ fn version_help_and_selftests() {
     assert!(run(&["qhs42-selftest"]).status.success());
     assert!(run(&["qhs5-selftest"]).status.success());
     assert!(run(&["qhs6-selftest"]).status.success());
+    assert!(run(&["qhse-selftest"]).status.success());
 }
 
 #[test]
@@ -135,6 +137,7 @@ fn hash_entropy_and_usage_errors() {
     assert!(!run(&["qhs6-keygen"]).status.success());
     assert!(!run(&["qhs6-sign"]).status.success());
     assert!(!run(&["qhs6-verify"]).status.success());
+    assert!(!run(&["qhse-verify"]).status.success());
     assert!(!run(&["unknown"]).status.success());
 }
 
@@ -665,6 +668,116 @@ fn qhs6_keygen_sign_verify_cache_and_rollback() {
         !run(&["qhs6-sign", &private_text, &message_text, &signature_text])
             .status
             .success()
+    );
+
+    let _ = fs::remove_dir_all(&directory);
+}
+
+#[test]
+fn qhse_verify_profile_end_to_end() {
+    let directory = workspace();
+    let message = directory.join("message.txt");
+    fs::write(&message, b"qWp QHS-E CLI message\n").unwrap();
+    let message_text = message.to_string_lossy().to_string();
+
+    for (version, prefix, signature_size) in [
+        ("1", "qhs", 2_408_u64),
+        ("2", "qhs2", 1_704_u64),
+        ("3", "qhs3", 1_832_u64),
+    ] {
+        let public = directory.join(format!("{prefix}-public.key"));
+        let private = directory.join(format!("{prefix}-private.key"));
+        let signature = directory.join(format!("{prefix}.sig"));
+        let public_text = public.to_string_lossy().to_string();
+        let private_text = private.to_string_lossy().to_string();
+        let signature_text = signature.to_string_lossy().to_string();
+
+        assert!(
+            run(&[&format!("{prefix}-keygen"), &public_text, &private_text])
+                .status
+                .success()
+        );
+        assert!(
+            run(&[
+                &format!("{prefix}-sign"),
+                &private_text,
+                &message_text,
+                &signature_text
+            ])
+            .status
+            .success()
+        );
+        assert_eq!(fs::metadata(&signature).unwrap().len(), signature_size);
+        assert!(
+            run(&[
+                "qhse-verify",
+                version,
+                &public_text,
+                &message_text,
+                &signature_text
+            ])
+            .status
+            .success()
+        );
+        let original_signature = fs::read(&signature).unwrap();
+        let mut tampered = original_signature.clone();
+        tampered[10] ^= 1;
+        fs::write(&signature, &tampered).unwrap();
+        assert!(
+            !run(&[
+                "qhse-verify",
+                version,
+                &public_text,
+                &message_text,
+                &signature_text
+            ])
+            .status
+            .success()
+        );
+
+        fs::write(&message, b"wrong message\n").unwrap();
+        assert!(
+            !run(&[
+                "qhse-verify",
+                version,
+                &public_text,
+                &message_text,
+                &signature_text
+            ])
+            .status
+            .success()
+        );
+        fs::write(&signature, &original_signature).unwrap();
+        fs::write(&message, b"qWp QHS-E CLI message\n").unwrap();
+        if version != "2" {
+            assert!(
+                !run(&[
+                    "qhse-verify",
+                    "2",
+                    &public_text,
+                    &message_text,
+                    &signature_text
+                ])
+                .status
+                .success()
+            );
+        }
+    }
+
+    let public3 = directory.join("qhs3-public.key");
+    let signature3 = directory.join("qhs3.sig");
+    let public3_text = public3.to_string_lossy().to_string();
+    let signature3_text = signature3.to_string_lossy().to_string();
+    assert!(
+        run(&[
+            "qhse-verify",
+            "31",
+            &public3_text,
+            &message_text,
+            &signature3_text
+        ])
+        .status
+        .success()
     );
 
     let _ = fs::remove_dir_all(&directory);
