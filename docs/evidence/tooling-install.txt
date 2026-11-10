@@ -1,0 +1,37 @@
+qWp tooling installation record
+===============================
+
+Date: 2026-11-10
+Host: Fedora Linux 44, x86_64
+
+Installed or already present:
+- Kani 0.68.0 (CBMC 6.11.0): `cargo install kani-verifier`
+- cargo-fuzz 0.13.2: `cargo install cargo-fuzz`
+- cargo-tarpaulin 0.37.6: `cargo install cargo-tarpaulin --locked`
+- cargo-show-asm 0.2.64: `cargo install cargo-show-asm --locked`
+- Miri: `rustup component add miri --toolchain nightly-2026-08-21`
+- Frama-C 33.0 / AORAI: system package
+- Alt-Ergo 2.4.3: system package
+- Z3 4.16.0: `sudo dnf install -y z3`
+- Why3 1.8.2: system package
+- opam 2.6.1: `sudo dnf install -y opam`
+- Creusot 0.15.0-dev: built from source with
+  `./INSTALL --external z3 --external alt-ergo`
+- cargo-llvm-cov 0.9.1, cargo-mutants 27.1.0: already present
+- cargo-audit, cargo-deny, cargo-outdated, cargo-semver-checks: already present
+
+Not installable:
+- Ferrocene: releases.ferrocene.dev and CriticalUp require a Ferrocene
+  customer account/token. No public toolchain archive is available. Stable
+  rustc 1.99 remains the build compiler.
+
+Tooling-only workspaces:
+- `fuzz/`
+- `tools/proptest-suite/`
+- `tools/loom-model/`
+- `tools/dudect-suite/`
+- `tools/aorai-model/`
+- `tools/creusot-proofs/`
+
+The production workspace remains zero-dependency. `cargo tree --workspace`
+lists only `qwp-*` crates.

@@ -1,0 +1,25 @@
+qWp qwp-classical mutation evidence
+===================================
+
+Date: 2026-11-10
+Tool: cargo-mutants 27.1.0
+Commands:
+  cargo mutants -p qwp-classical --file crates/qwp-classical/src/field.rs \
+    --timeout 30 --profile release --output /tmp/opencode/final-mutants-classical-field
+  cargo mutants -p qwp-classical --file crates/qwp-classical/src/scalar.rs \
+    --timeout 30 --profile release --output /tmp/opencode/final-mutants-classical-scalar
+
+Results (post-refactor):
+- field.rs: 253 mutants, 229 caught, 9 missed, 15 unviable, 0 timeouts.
+- scalar.rs: 48 mutants, 40 caught, 3 missed, 5 unviable, 0 timeouts.
+
+All 12 missed mutants are equivalent:
+- field.rs `|` -> `^` in `Fe::from_bytes` / `Fe::to_bytes` /
+  `Fe::conditional_select`: the OR operands occupy disjoint bit ranges after
+  shifts and masks, so OR and XOR are identical.
+- scalar.rs `|` -> `^` in `Scalar::reduce_512`: the shifted low bit is zero, or
+  the mask selects disjoint bits, so OR and XOR are identical.
+- scalar.rs `>>` -> `<<` in `Scalar::mul_add` line 122: the carry is a dead
+  store after the final propagation loop.
+
+No non-equivalent viable survivor remains.

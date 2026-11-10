@@ -1,0 +1,26 @@
+qWp Creusot evidence
+====================
+
+Date: 2026-11-10
+Tool: Creusot 0.15.0-dev, Why3 1.8.2+git, Alt-Ergo 2.4.3, Z3 4.16.0
+Workspace: `tools/creusot-proofs` (standalone, tooling-only)
+Command: cd tools/creusot-proofs && cargo creusot
+
+Result: Proved (7 files).
+
+Proved contracts:
+- `base64_digit`: for `index < 43`, every 6-bit digit is `< 64`; the digest byte
+  index stays `< 32`.
+- `hex_digit`: for `index < 64`, the nibble is `< 16`; the digest byte index
+  stays `< 32`.
+- `hex_checksum`: for 64 nibbles `<= 15`, the checksum sum is `<= 960`.
+- `base64_checksum`: for 43 digits `<= 63`, the checksum sum is `<= 2709`.
+- `auth_path_offset`: for `level < 12`, the offset is `< 384`.
+- `qhs12_leaf_valid` / `qhs3_leaf_valid`: leaf-index predicates match the
+  `< 256` / `< 4096` bounds.
+
+Scope note:
+- This is a proof model of the digit/checksum/Merkle arithmetic copied from the
+  QHS-E verifier logic. It is not a second production implementation and does
+  not prove BLAKE3 itself. The production verifier is covered by Kani,
+  differential tests, proptest, libFuzzer, and the attack suite.

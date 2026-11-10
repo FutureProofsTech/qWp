@@ -6,8 +6,8 @@ Command:
   cargo mutants -p qwp-e --in-place --timeout 60 --profile release \
     --output mutants-qhse.out
 
-Result:
-- 46 mutants tested in 10m.
+Result (final rerun, 2026-11-10):
+- 46 mutants tested in 11m.
 - 45 caught.
 - 0 unviable.
 - 1 missed.

@@ -1,0 +1,16 @@
+[workspace]
+
+[package]
+name = "qwp-dudect-suite"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+qwp-core = { path = "../../crates/qwp-core" }
+qwp-crypto = { path = "../../crates/qwp-crypto" }
+qwp-e = { path = "../../crates/qwp-e" }
+dudect-bencher = "0.7"
+
+[profile.release]
+opt-level = 3

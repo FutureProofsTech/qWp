@@ -199,7 +199,10 @@ fn verify_common(
     let wots_signature = signature
         .get(params.wots_offset..params.auth_offset)
         .ok_or(CryptoError::VerificationFailed)?;
-    let wots_pk = wots_verify(params, wots_signature, &digits[..params.chains])?;
+    let wots_digits = digits
+        .get(..params.chains)
+        .ok_or(CryptoError::InvalidLength)?;
+    let wots_pk = wots_verify(params, wots_signature, wots_digits)?;
     let mut node = leaf_hash(params, leaf_index, &wots_pk);
     let auth_path = signature
         .get(params.auth_offset..params.checksum_offset)

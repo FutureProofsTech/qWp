@@ -137,7 +137,9 @@ impl Sha512 {
                 destination.copy_from_slice(source);
             }
             self.buffer_len = end;
-            self.total_len = self.total_len.saturating_add(take as u128);
+            self.total_len = self
+                .total_len
+                .saturating_add(u128::try_from(take).unwrap_or(u128::MAX));
             if let Some(tail) = input.get(take..) {
                 input = tail;
             } else {
@@ -204,24 +206,18 @@ fn compress(state: &mut [u64; 8], block: &[u8; BLOCK_BYTES]) {
         }
     }
     for index in 16..80 {
-        let s0 =
-            w[index - 15].rotate_right(1) ^ w[index - 15].rotate_right(8) ^ (w[index - 15] >> 7);
-        let s1 =
-            w[index - 2].rotate_right(19) ^ w[index - 2].rotate_right(61) ^ (w[index - 2] >> 6);
-        w[index] = w[index - 16]
+        let word = crate::util::limb(&w, index - 15);
+        let s0 = word.rotate_right(1) ^ word.rotate_right(8) ^ (word >> 7);
+        let word = crate::util::limb(&w, index - 2);
+        let s1 = word.rotate_right(19) ^ word.rotate_right(61) ^ (word >> 6);
+        let value = crate::util::limb(&w, index - 16)
             .wrapping_add(s0)
-            .wrapping_add(w[index - 7])
+            .wrapping_add(crate::util::limb(&w, index - 7))
             .wrapping_add(s1);
+        crate::util::set_limb(&mut w, index, value);
     }
 
-    let mut a = state[0];
-    let mut b = state[1];
-    let mut c = state[2];
-    let mut d = state[3];
-    let mut e = state[4];
-    let mut f = state[5];
-    let mut g = state[6];
-    let mut h = state[7];
+    let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut h] = *state;
 
     for index in 0..80 {
         let s1 = e.rotate_right(14) ^ e.rotate_right(18) ^ e.rotate_right(41);
@@ -229,8 +225,8 @@ fn compress(state: &mut [u64; 8], block: &[u8; BLOCK_BYTES]) {
         let temp1 = h
             .wrapping_add(s1)
             .wrapping_add(ch)
-            .wrapping_add(K[index])
-            .wrapping_add(w[index]);
+            .wrapping_add(K.get(index).copied().unwrap_or(0))
+            .wrapping_add(crate::util::limb(&w, index));
         let s0 = a.rotate_right(28) ^ a.rotate_right(34) ^ a.rotate_right(39);
         let maj = (a & b) ^ (a & c) ^ (b & c);
         let temp2 = s0.wrapping_add(maj);
@@ -245,14 +241,9 @@ fn compress(state: &mut [u64; 8], block: &[u8; BLOCK_BYTES]) {
         a = temp1.wrapping_add(temp2);
     }
 
-    state[0] = state[0].wrapping_add(a);
-    state[1] = state[1].wrapping_add(b);
-    state[2] = state[2].wrapping_add(c);
-    state[3] = state[3].wrapping_add(d);
-    state[4] = state[4].wrapping_add(e);
-    state[5] = state[5].wrapping_add(f);
-    state[6] = state[6].wrapping_add(g);
-    state[7] = state[7].wrapping_add(h);
+    for (slot, value) in state.iter_mut().zip([a, b, c, d, e, f, g, h]) {
+        *slot = slot.wrapping_add(value);
+    }
 }
 
 #[cfg(test)]

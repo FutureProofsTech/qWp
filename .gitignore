@@ -6,3 +6,12 @@
 /mutants.out.old
 /mutants-qhs4.out
 crates/qwp-e-size/target/
+/fuzz/target/
+/fuzz/artifacts/
+/fuzz/corpus/
+/tools/*/target/
+/tools/*/verif/
+/tools/*/why3find.proofs/
+/tools/*/.why3find/
+*.proptest-regressions
+/tools/*/.frama-c/

@@ -183,6 +183,10 @@ It detects accidental corruption only; it is not authentication.
 | QHS-6 Ed25519 component | 32-byte key / 64-byte signature |
 | QHS-6 leaf cache | 16,452 |
 | QHS-6 state guard | 38 |
+| `QHS_E_PUBLIC_KEY_BYTES` | 64 |
+| `QHS_E_QHS1_SIGNATURE_BYTES` | 2,408 |
+| `QHS_E_QHS2_SIGNATURE_BYTES` | 1,704 |
+| `QHS_E_QHS3_SIGNATURE_BYTES` | 1,832 |
 
 ## 10. QHS production formats
 
@@ -789,7 +793,8 @@ The profile API is `verify_qhs1`, `verify_qhs2`, `verify_qhs3`, and
 
 No open production format items. QHS-1, QHS-2, QHS-3, QHS-3.1, QHS-4, the
 QHS-4.1 fast-signing profile (same QHS-4 formats), QHS-4.2 compact, QHS-5
-512-bit, QHS-6 hybrid, the QHS-3.1 tree cache, the QHS-5/QHS-6 leaf caches, and
-the key state guard are frozen and version-separated. The legacy 160-byte v0
+512-bit, QHS-6 hybrid, QHS-E verifier profile, the QHS-3.1 tree cache, the
+QHS-5/QHS-6 leaf caches, and the key state guard are frozen and
+version-separated. The legacy 160-byte v0
 container remains research-only and is not used for production signing or
 verification.

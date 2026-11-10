@@ -5,7 +5,7 @@ Date: 2026-11-10
 Command: cargo llvm-cov --release -p qwp-e --summary-only
 
 Result:
-- verifier.rs: 98.44% lines (192 lines, 3 missed); 93.18% regions;
+- verifier.rs: 98.46% lines (195 lines, 3 missed); 93.05% regions;
   100% functions executed.
 
 Notes:

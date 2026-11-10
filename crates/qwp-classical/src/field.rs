@@ -130,37 +130,44 @@ impl Fe {
             *limb = value & MASK51;
             carry = value >> 51;
         }
-        h[4] = h[4].wrapping_add(carry);
-        carry = h[4] >> 51;
-        h[4] &= MASK51;
-        h[0] = h[0].wrapping_add(carry.wrapping_mul(19));
-        carry = h[0] >> 51;
-        h[0] &= MASK51;
-        h[1] = h[1].wrapping_add(carry);
+        let carry_value = crate::util::limb(&h, 4).wrapping_add(carry);
+        crate::util::set_limb(&mut h, 4, carry_value);
+        carry = carry_value >> 51;
+        crate::util::set_limb(&mut h, 4, carry_value & MASK51);
+        let first = crate::util::limb(&h, 0).wrapping_add(carry.wrapping_mul(19));
+        crate::util::set_limb(&mut h, 0, first);
+        carry = first >> 51;
+        crate::util::set_limb(&mut h, 0, first & MASK51);
+        let second = crate::util::limb(&h, 1).wrapping_add(carry);
+        crate::util::set_limb(&mut h, 1, second);
 
         let p = [P0, P1, P2, P3, P4];
         let mut diff = [0_u64; 5];
         let mut borrow = 0_u64;
-        for index in 0..5 {
-            let sub = p[index].wrapping_add(borrow);
-            let (value, next) = h[index].overflowing_sub(sub);
-            diff[index] = value;
+        for ((slot, value), prime) in diff.iter_mut().zip(h.iter()).zip(p.iter()) {
+            let sub = prime.wrapping_add(borrow);
+            let (value, next) = value.overflowing_sub(sub);
+            *slot = value;
             borrow = u64::from(next);
         }
         let mask = 0_u64.wrapping_sub(1_u64.wrapping_sub(borrow));
-        for index in 0..5 {
-            h[index] = (h[index] & !mask) | (diff[index] & mask);
+        for (slot, replacement) in h.iter_mut().zip(diff.iter()) {
+            *slot = (*slot & !mask) | (*replacement & mask);
         }
 
-        let w0 = h[0] | (h[1] << 51);
-        let w1 = (h[1] >> 13) | (h[2] << 38);
-        let w2 = (h[2] >> 26) | (h[3] << 25);
-        let w3 = (h[3] >> 39) | (h[4] << 12);
+        let w0 = crate::util::limb(&h, 0) | (crate::util::limb(&h, 1) << 51);
+        let w1 = (crate::util::limb(&h, 1) >> 13) | (crate::util::limb(&h, 2) << 38);
+        let w2 = (crate::util::limb(&h, 2) >> 26) | (crate::util::limb(&h, 3) << 25);
+        let w3 = (crate::util::limb(&h, 3) >> 39) | (crate::util::limb(&h, 4) << 12);
         let mut output = [0_u8; 32];
-        output[0..8].copy_from_slice(&w0.to_le_bytes());
-        output[8..16].copy_from_slice(&w1.to_le_bytes());
-        output[16..24].copy_from_slice(&w2.to_le_bytes());
-        output[24..32].copy_from_slice(&w3.to_le_bytes());
+        for (chunk, word) in output
+            .as_chunks_mut::<8>()
+            .0
+            .iter_mut()
+            .zip([w0, w1, w2, w3])
+        {
+            chunk.copy_from_slice(&word.to_le_bytes());
+        }
         output
     }
 
@@ -168,8 +175,8 @@ impl Fe {
     #[inline]
     pub(crate) fn add(self, other: Self) -> Self {
         let mut limbs = [0_u128; 5];
-        for index in 0..5 {
-            limbs[index] = u128::from(self.0[index]) + u128::from(other.0[index]);
+        for (slot, (left, right)) in limbs.iter_mut().zip(self.0.iter().zip(other.0.iter())) {
+            *slot = u128::from(*left) + u128::from(*right);
         }
         Self::carry_u128(limbs)
     }
@@ -178,10 +185,13 @@ impl Fe {
     #[inline]
     pub(crate) fn sub(self, other: Self) -> Self {
         let mut limbs = [0_u128; 5];
-        for index in 0..5 {
-            limbs[index] = u128::from(self.0[index])
-                + u128::from([P0, P1, P2, P3, P4][index]).wrapping_mul(2)
-                - u128::from(other.0[index]);
+        for (((slot, left), right), prime) in limbs
+            .iter_mut()
+            .zip(self.0.iter())
+            .zip(other.0.iter())
+            .zip([P0, P1, P2, P3, P4].iter())
+        {
+            *slot = u128::from(*left) + u128::from(*prime).wrapping_mul(2) - u128::from(*right);
         }
         Self::carry_u128(limbs)
     }
@@ -196,11 +206,13 @@ impl Fe {
                 *limb = value & u128::from(MASK51);
                 carry = value >> 51;
             }
-            limbs[0] = limbs[0].wrapping_add(carry.wrapping_mul(19));
+            if let Some(first) = limbs.first_mut() {
+                *first = first.wrapping_add(carry.wrapping_mul(19));
+            }
         }
         let mut output = [0_u64; 5];
-        for index in 0..5 {
-            output[index] = limbs[index] as u64;
+        for (slot, value) in output.iter_mut().zip(limbs.iter()) {
+            *slot = crate::util::low_u64(*value);
         }
         let mut carry = 0_u64;
         for limb in &mut output {
@@ -208,13 +220,16 @@ impl Fe {
             *limb = value & MASK51;
             carry = value >> 51;
         }
-        output[0] = output[0].wrapping_add(carry.wrapping_mul(19));
-        let mut carry = output[0] >> 51;
-        output[0] &= MASK51;
-        output[1] = output[1].wrapping_add(carry);
-        carry = output[1] >> 51;
-        output[1] &= MASK51;
-        output[2] = output[2].wrapping_add(carry);
+        let first = crate::util::limb(&output, 0).wrapping_add(carry.wrapping_mul(19));
+        crate::util::set_limb(&mut output, 0, first);
+        let mut carry = first >> 51;
+        crate::util::set_limb(&mut output, 0, first & MASK51);
+        let second = crate::util::limb(&output, 1).wrapping_add(carry);
+        crate::util::set_limb(&mut output, 1, second);
+        carry = second >> 51;
+        crate::util::set_limb(&mut output, 1, second & MASK51);
+        let third = crate::util::limb(&output, 2).wrapping_add(carry);
+        crate::util::set_limb(&mut output, 2, third);
         Self(output)
     }
 
@@ -248,33 +263,41 @@ impl Fe {
 
         let mut h = [0_u64; 5];
         let mut carry = 0_u128;
-        for (index, value) in [c0, c1, c2, c3].into_iter().enumerate() {
+        for (slot, value) in h.iter_mut().zip([c0, c1, c2, c3]) {
             let value = value + carry;
-            h[index] = (value & u128::from(MASK51)) as u64;
+            *slot = crate::util::low_u64(value & u128::from(MASK51));
             carry = value >> 51;
         }
         let value = c4 + carry;
-        h[4] = (value & u128::from(MASK51)) as u64;
+        crate::util::set_limb(&mut h, 4, crate::util::low_u64(value & u128::from(MASK51)));
         carry = value >> 51;
-        h[0] = h[0].wrapping_add((carry as u64).wrapping_mul(19));
-        let mut carry = h[0] >> 51;
-        h[0] &= MASK51;
-        h[1] = h[1].wrapping_add(carry);
-        carry = h[1] >> 51;
-        h[1] &= MASK51;
-        h[2] = h[2].wrapping_add(carry);
-        carry = h[2] >> 51;
-        h[2] &= MASK51;
-        h[3] = h[3].wrapping_add(carry);
-        carry = h[3] >> 51;
-        h[3] &= MASK51;
-        h[4] = h[4].wrapping_add(carry);
-        carry = h[4] >> 51;
-        h[4] &= MASK51;
-        h[0] = h[0].wrapping_add(carry.wrapping_mul(19));
-        carry = h[0] >> 51;
-        h[0] &= MASK51;
-        h[1] = h[1].wrapping_add(carry);
+        let first =
+            crate::util::limb(&h, 0).wrapping_add(crate::util::low_u64(carry).wrapping_mul(19));
+        crate::util::set_limb(&mut h, 0, first);
+        let mut carry = first >> 51;
+        crate::util::set_limb(&mut h, 0, first & MASK51);
+        let second = crate::util::limb(&h, 1).wrapping_add(carry);
+        crate::util::set_limb(&mut h, 1, second);
+        carry = second >> 51;
+        crate::util::set_limb(&mut h, 1, second & MASK51);
+        let third = crate::util::limb(&h, 2).wrapping_add(carry);
+        crate::util::set_limb(&mut h, 2, third);
+        carry = third >> 51;
+        crate::util::set_limb(&mut h, 2, third & MASK51);
+        let fourth = crate::util::limb(&h, 3).wrapping_add(carry);
+        crate::util::set_limb(&mut h, 3, fourth);
+        carry = fourth >> 51;
+        crate::util::set_limb(&mut h, 3, fourth & MASK51);
+        let fifth = crate::util::limb(&h, 4).wrapping_add(carry);
+        crate::util::set_limb(&mut h, 4, fifth);
+        carry = fifth >> 51;
+        crate::util::set_limb(&mut h, 4, fifth & MASK51);
+        let wrap = crate::util::limb(&h, 0).wrapping_add(carry.wrapping_mul(19));
+        crate::util::set_limb(&mut h, 0, wrap);
+        carry = wrap >> 51;
+        crate::util::set_limb(&mut h, 0, wrap & MASK51);
+        let last = crate::util::limb(&h, 1).wrapping_add(carry);
+        crate::util::set_limb(&mut h, 1, last);
         Self(h)
     }
 
@@ -290,7 +313,7 @@ impl Fe {
         let mut result = Self::ONE;
         for bit_index in (0..256).rev() {
             result = result.square();
-            let bit = (exponent[bit_index / 8] >> (bit_index % 8)) & 1;
+            let bit = (crate::util::byte(exponent, bit_index / 8) >> (bit_index % 8)) & 1;
             let product = result.mul(self);
             result = Self::conditional_select(&result, &product, u64::from(bit));
         }
@@ -314,8 +337,8 @@ impl Fe {
     pub(crate) fn conditional_select(first: &Self, second: &Self, choice: u64) -> Self {
         let mask = 0_u64.wrapping_sub(choice & 1);
         let mut output = [0_u64; 5];
-        for index in 0..5 {
-            output[index] = (first.0[index] & !mask) | (second.0[index] & mask);
+        for (slot, (left, right)) in output.iter_mut().zip(first.0.iter().zip(second.0.iter())) {
+            *slot = (*left & !mask) | (*right & mask);
         }
         Self(output)
     }

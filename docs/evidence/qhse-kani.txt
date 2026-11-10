@@ -2,6 +2,8 @@ qWp QHS-E Kani evidence
 =======================
 
 Date: 2026-11-10
+Command: cargo kani -p qwp-verify
+Result: 24/24 harnesses verified, 0 failures.
 Status: inherited parser/bounds coverage.
 
 QHS-E is a verifier-only profile with exact-size public APIs. It does not add a

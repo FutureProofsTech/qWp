@@ -67,9 +67,8 @@ impl Scalar {
     #[inline]
     pub(crate) fn to_bytes(self) -> [u8; 32] {
         let mut output = [0_u8; 32];
-        for (index, word) in self.0.iter().enumerate() {
-            let start = index * 8;
-            output[start..start + 8].copy_from_slice(&word.to_le_bytes());
+        for (chunk, word) in output.as_chunks_mut::<8>().0.iter_mut().zip(self.0.iter()) {
+            chunk.copy_from_slice(&word.to_le_bytes());
         }
         output
     }
@@ -80,16 +79,16 @@ impl Scalar {
     pub(crate) fn add(self, other: Self) -> Self {
         let mut sum = [0_u64; 4];
         let mut carry = 0_u128;
-        for index in 0..4 {
-            let value = u128::from(self.0[index]) + u128::from(other.0[index]) + carry;
-            sum[index] = value as u64;
+        for (slot, (left, right)) in sum.iter_mut().zip(self.0.iter().zip(other.0.iter())) {
+            let value = u128::from(*left) + u128::from(*right) + carry;
+            *slot = crate::util::low_u64(value);
             carry = value >> 64;
         }
         let (diff, borrow) = sub_l(sum, L);
         let mask = 0_u64.wrapping_sub(1_u64.wrapping_sub(borrow));
         let mut output = [0_u64; 4];
-        for index in 0..4 {
-            output[index] = (sum[index] & !mask) | (diff[index] & mask);
+        for (slot, (value, replacement)) in output.iter_mut().zip(sum.iter().zip(diff.iter())) {
+            *slot = (*value & !mask) | (*replacement & mask);
         }
         Self(output)
     }
@@ -98,26 +97,28 @@ impl Scalar {
     #[inline]
     pub(crate) fn mul_add(self, other: Self, addend: Self) -> Self {
         let mut product = [0_u64; 8];
-        for i in 0..4 {
+        for (i, left) in self.0.iter().enumerate() {
             let mut carry = 0_u128;
-            for j in 0..4 {
-                let value = u128::from(product[i + j])
-                    + u128::from(self.0[i]) * u128::from(other.0[j])
-                    + carry;
-                product[i + j] = value as u64;
+            for (slot, right) in product.iter_mut().skip(i).take(4).zip(other.0.iter()) {
+                let value = u128::from(*slot) + u128::from(*left) * u128::from(*right) + carry;
+                *slot = crate::util::low_u64(value);
                 carry = value >> 64;
             }
-            product[i + 4] = carry as u64;
+            crate::util::set_limb(
+                &mut product,
+                i.saturating_add(4),
+                crate::util::low_u64(carry),
+            );
         }
         let mut carry = 0_u128;
-        for index in 0..4 {
-            let value = u128::from(product[index]) + u128::from(addend.0[index]) + carry;
-            product[index] = value as u64;
+        for (slot, addend_limb) in product.iter_mut().take(4).zip(addend.0.iter()) {
+            let value = u128::from(*slot) + u128::from(*addend_limb) + carry;
+            *slot = crate::util::low_u64(value);
             carry = value >> 64;
         }
-        for index in 4..8 {
-            let value = u128::from(product[index]) + carry;
-            product[index] = value as u64;
+        for slot in product.iter_mut().skip(4) {
+            let value = u128::from(*slot) + carry;
+            *slot = crate::util::low_u64(value);
             carry = value >> 64;
         }
         Self::reduce_512(product)
@@ -135,7 +136,7 @@ impl Scalar {
     fn reduce_512(words: [u64; 8]) -> Self {
         let mut result = [0_u64; 4];
         for bit_index in (0..512).rev() {
-            let bit = (words[bit_index / 64] >> (bit_index % 64)) & 1;
+            let bit = (crate::util::limb(&words, bit_index / 64) >> (bit_index % 64)) & 1;
             let mut carry = bit;
             for limb in &mut result {
                 let next = *limb >> 63;
@@ -144,8 +145,8 @@ impl Scalar {
             }
             let (diff, borrow) = sub_l(result, L);
             let mask = 0_u64.wrapping_sub(1_u64.wrapping_sub(borrow));
-            for index in 0..4 {
-                result[index] = (result[index] & !mask) | (diff[index] & mask);
+            for (slot, replacement) in result.iter_mut().zip(diff.iter()) {
+                *slot = (*slot & !mask) | (*replacement & mask);
             }
         }
         Self(result)
@@ -155,10 +156,10 @@ impl Scalar {
 fn sub_l(first: [u64; 4], second: [u64; 4]) -> ([u64; 4], u64) {
     let mut output = [0_u64; 4];
     let mut borrow = 0_u64;
-    for index in 0..4 {
-        let (value, first_borrow) = first[index].overflowing_sub(second[index]);
+    for ((slot, left), right) in output.iter_mut().zip(first.iter()).zip(second.iter()) {
+        let (value, first_borrow) = left.overflowing_sub(*right);
         let (value, second_borrow) = value.overflowing_sub(borrow);
-        output[index] = value;
+        *slot = value;
         borrow = u64::from(first_borrow || second_borrow);
     }
     (output, borrow)
@@ -494,8 +495,8 @@ mod tests {
         bytes[0] = 1;
         assert!(Scalar::from_canonical_bytes(&bytes).is_some());
         let mut order = [0_u8; 32];
-        for (index, word) in L.iter().enumerate() {
-            order[index * 8..index * 8 + 8].copy_from_slice(&word.to_le_bytes());
+        for (chunk, word) in order.as_chunks_mut::<8>().0.iter_mut().zip(L.iter()) {
+            chunk.copy_from_slice(&word.to_le_bytes());
         }
         assert!(Scalar::from_canonical_bytes(&order).is_none());
     }

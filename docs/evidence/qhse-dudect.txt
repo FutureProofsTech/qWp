@@ -1,0 +1,22 @@
+qWp dudect evidence
+===================
+
+Date: 2026-11-10
+Tool: dudect-bencher 0.7.0
+Workspace: `tools/dudect-suite` (standalone, tooling-only)
+Command: taskset -c 1 ./target/release/qhse_dudect
+
+Results (max |t| over the run):
+- qhse_valid_leaf_order (QHS-1, two valid leaves): -1.29545
+- qhse_qhs2_valid (QHS-2, two valid leaves):     -1.68552
+- qhse_qhs3_valid (QHS-3, two valid leaves):     -1.12622
+- qhse_checksum_reject_control (valid vs early
+  checksum rejection, positive control):        +23135.88634
+
+Interpretation:
+- All valid-signature probes are below the usual |t| = 5 threshold.
+- The positive control shows the harness detects a real timing difference, so
+  the low valid-path values are meaningful for this machine.
+- Verification is public-data work; the early-rejection difference is not a
+  secret-dependent leak. Signing constant-time evidence remains the custom
+  Welch harness in `docs/evidence/`.

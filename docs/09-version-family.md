@@ -206,7 +206,7 @@ profile of QHS-1/2/3/3.1:
 - same 64-byte public keys and same signatures;
 - fixed-size stack, no heap, no full-signature copy;
 - host verification ≈0.14 ms (QHS-1), ≈0.31 ms (QHS-2), ≈0.38 ms (QHS-3);
-- code size ≈7.4 KB (thumbv7em) / ≈10.3 KB (riscv32imac) for all four
+- code size ≈12.5 KB (thumbv7em) / ≈14.0 KB (riscv32imac) for all four
   verifier entry points;
 - differential equivalence with the `qwp-crypto` verifiers.
 

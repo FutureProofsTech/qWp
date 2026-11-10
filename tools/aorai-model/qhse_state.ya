@@ -1,0 +1,20 @@
+%init: S0;
+%accept: S16;
+
+S0  : { CALL(main) }                  -> S1;
+S1  : { CALL(qhse_verify) }           -> S2;
+S2  : { CALL(qhse_parse_header) }     -> S3;
+S3  : { RETURN(qhse_parse_header) }   -> S4;
+S4  : { CALL(qhse_check_leaf) }       -> S5;
+S5  : { RETURN(qhse_check_leaf) }     -> S6;
+S6  : { CALL(qhse_check_checksum) }   -> S7;
+S7  : { RETURN(qhse_check_checksum) } -> S8;
+S8  : { CALL(qhse_verify_wots) }      -> S9;
+S9  : { RETURN(qhse_verify_wots) }    -> S10;
+S10 : { CALL(qhse_verify_merkle) }    -> S11;
+S11 : { RETURN(qhse_verify_merkle) }  -> S12;
+S12 : { CALL(qhse_accept) }           -> S13;
+S13 : { RETURN(qhse_accept) }         -> S14;
+S14 : { RETURN(qhse_verify) }         -> S15;
+S15 : { RETURN(main) }                -> S16;
+S16 : -> S16;

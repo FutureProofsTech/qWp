@@ -1,0 +1,27 @@
+qWp cargo-show-asm evidence
+===========================
+
+Date: 2026-11-10
+Tool: cargo-show-asm 0.2.64
+Command: cargo asm -p qwp-e --lib --release <function>
+
+Functions inspected:
+- `qwp_e::verifier::verify_common`
+- `qwp_e::verifier::wots_verify`
+- `qwp_e::verifier::message_digits`
+- `qwp_e::verifier::leaf_hash`
+- `qwp_e::verifier::node_hash`
+- `qwp_e::verifier::signature_checksum`
+
+Observations:
+- The public `verify_qhs1/2/3/31` wrappers are inlined; `verify_common` is the
+  emitted shared verifier body.
+- Calls are direct or GOT-indirect calls to named BLAKE3/hash helpers; there is
+  no secret-dependent indirect dispatch.
+- No `lfence`, `mfence`, `sfence`, or `ud2` instructions are emitted.
+- The only branches are fixed-layout validation, loop control, and hash
+  implementation control flow. Verification operates on public data.
+- Speculative-execution fences are not injected: LFENCE is x86-specific, is not
+  a general Spectre mitigation, and the verifier has no secret-dependent memory
+  access. The signing code's constant-time behavior is measured separately with
+  the Welch/dudect harnesses.

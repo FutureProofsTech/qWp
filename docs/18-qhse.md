@@ -105,16 +105,24 @@ same formats. ∎
 
 ## 6. Code-size and stack evidence
 
-Planned commands:
+Commands:
 
 ```text
-cargo build --release --target thumbv7em-none-eabihf -p qwp-e --features size-probe
-cargo build --release --target riscv32imac-unknown-none-elf -p qwp-e --features size-probe
-llvm-size -A <staticlib>
+./scripts/qhse-size.sh
 ```
 
-The `size-probe` feature adds a minimal panic handler so a `staticlib` can be
-built. Normal users provide their own panic handler.
+The script builds the standalone `qwp-e-size` staticlib for
+`thumbv7em-none-eabihf` and `riscv32imac-unknown-none-elf`, extracts the
+QHS-E/verifier/BLAKE3/error objects, and sums `.text` + `.rodata` with
+`llvm-size`.
+
+Measured:
+
+- thumbv7em-none-eabihf: **12,533 B**.
+- riscv32imac-unknown-none-elf: **14,039 B**.
+
+These totals include all four verifier entry points. A single-version
+deployment can strip the others with LTO/gc-sections.
 
 Stack bounds are documented by inspection and, where tooling allows, by
 `-Z emit-stack-sizes`; the verifier never allocates and never copies the full
@@ -125,6 +133,9 @@ signature.
 A host timing harness verifies fixed KAT signatures for QHS-1/2/3/3.1 and
 reports ns/op, plus `perf stat` cycles/instructions for the verification loop.
 This is host evidence, not an MCU cycle claim.
+
+Measured: QHS-1 ≈0.14 ms, QHS-2 ≈0.31 ms, QHS-3/3.1 ≈0.38 ms per verification.
+Host perf counters: ≈3.34M cycles / ≈10.05M instructions per verification.
 
 ## 8. Limitations
 
@@ -158,16 +169,30 @@ or stop.
 - Tests: 6 differential tests for QHS-1/2/3/3.1, multiple leaves, random
   signatures, wrong-length WOTS, and negative QHS-3.1 cases.
 - Attack harness: `qwp-attacks::attack_qhse`; suite 14/14.
-- Kani: inherited QHS-1/2/3 parser/length proofs; QHS-E fixed-size API and
-  profile paths are covered by differential tests/fuzz.
-- Fuzz: 60-second run 460,745 iterations, 0 panics; 1-hour soak pending in
-  `docs/evidence/qhse-fuzz-soak-1h.txt`.
+- Kani: 24/24 inherited parser/length proofs; QHS-E fixed-size API and profile
+  paths are covered by differential tests/fuzz.
+- libFuzzer: 16,137,359 QHS-E runs / 61 s, 0 crashes; 29,378,990 and 28,951,672
+  parser runs / 46 s each; evidence in `docs/evidence/qhse-libfuzzer.txt`.
+- Proptest: 5 properties × 64 cases plus 4 regressions; evidence in
+  `docs/evidence/qhse-proptest.txt`.
+- Creusot: 7/7 digit/checksum/Merkle arithmetic contracts proved; evidence in
+  `docs/evidence/qhse-creusot.txt`.
+- Custom fuzz/soak: 60-second run 460,745 iterations, 0 panics; 1-hour soak
+  pending in `docs/evidence/qhse-fuzz-soak-1h.txt`.
 - Timing: host ≈0.14 ms (QHS-1), ≈0.31 ms (QHS-2), ≈0.38 ms (QHS-3/3.1);
   perf ≈3.34M cycles / ≈10.05M instructions per verification.
-- Code size: 7,447 B (thumbv7em) / 10,331 B (riscv32imac) for all four verifier
+- dudect: valid paths max |t| ≤ 1.69; positive control +23,135; evidence in
+  `docs/evidence/qhse-dudect.txt`.
+- Code size: 12,533 B (thumbv7em) / 14,039 B (riscv32imac) for all four verifier
   entry points; evidence in `docs/evidence/qhse-size.txt`.
-- Coverage: 98.44% lines; 100% functions; evidence in
-  `docs/evidence/qhse-coverage.txt`.
+- Coverage: 98.46% lines; 100% functions; evidence in
+  `docs/evidence/qhse-coverage.txt`. cargo-tarpaulin independently reports
+  45/47 QHS-E lines.
 - Mutation: 46 mutants, 45 caught, 0 unviable, 1 equivalent `|`/`^` miss;
   evidence in `docs/evidence/qhse-mutation.txt`.
+- Miri: qwp-classical 30/30; qwp-e 1/1; evidence in
+  `docs/evidence/qhse-miri.txt`.
+- Assembly: verifier inspected with `cargo-show-asm`; no secret-dependent
+  indirect dispatch and no LFENCE/ud2; evidence in
+  `docs/evidence/qhse-asm.txt`.
 - Soak: 1-hour run pending before `qhse-rc1`.

@@ -1,0 +1,28 @@
+qWp cargo-tarpaulin evidence
+============================
+
+Date: 2026-11-10
+Tool: cargo-tarpaulin 0.37.6
+
+Commands:
+  cargo tarpaulin --release -p qwp-e --out Xml --output-dir /tmp/opencode/tarpaulin-qhse
+  cargo tarpaulin --release -p qwp-classical --include-files 'crates/qwp-classical/src/*' --out Xml
+  cargo tarpaulin --release --workspace --include-files 'crates/qwp-classical/src/*' --out Xml
+
+Results:
+- QHS-E: 45/47 lines covered (95.74%).
+- qwp-classical, package run (post-refactor): 223/502 lines (44.42%).
+- qwp-classical, workspace run (pre-refactor): 247/491 lines (50.31%).
+- qwp-classical per file (final package run):
+  ed25519.rs 33/79, edwards.rs 59/80, field.rs 83/198,
+  scalar.rs 22/80, sha512.rs 25/56, util.rs 1/9.
+
+Interpretation:
+- Tarpaulin instruments the test binary of the selected package. Most Ed25519
+  code is exercised by `qwp-crypto`/`qwp-e` integration tests, so the
+  qwp-classical package-only number undercounts real execution.
+- cargo-llvm-cov with the full test graph is the authoritative coverage number:
+  qwp-classical 99.67% lines / 100% functions; qwp-e 98.46% lines / 100%
+  functions.
+- Tarpaulin is used as an independent second coverage engine, not as a claim
+  of 100% path execution.

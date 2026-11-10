@@ -14,24 +14,22 @@
     clippy::cargo_common_metadata,
     reason = "qWp is local-only; release metadata is finalized at packaging time"
 )]
-#![allow(
-    clippy::indexing_slicing,
-    reason = "fixed signature offsets are validated by exact-length parsing"
-)]
-#![allow(
-    clippy::arithmetic_side_effects,
-    reason = "checksum and digit arithmetic uses fixed-width wrapping operations"
-)]
 #![deny(clippy::alloc_instead_of_core)]
 #![deny(clippy::std_instead_of_core)]
 #![deny(clippy::std_instead_of_alloc)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
+#![deny(clippy::indexing_slicing)]
 #![deny(clippy::panic)]
 #![deny(clippy::todo)]
 #![deny(clippy::unimplemented)]
 #![deny(clippy::unreachable)]
+#![deny(clippy::as_conversions)]
+#![deny(clippy::cast_lossless)]
+#![deny(clippy::cast_possible_truncation)]
+#![deny(clippy::cast_possible_wrap)]
 #![deny(clippy::float_arithmetic)]
+#![deny(clippy::arithmetic_side_effects)]
 #![deny(clippy::missing_inline_in_public_items)]
 #![deny(clippy::exhaustive_structs)]
 #![deny(clippy::exhaustive_enums)]

@@ -15,8 +15,8 @@ Only the QHS-E probe, verifier, BLAKE3, and error-type objects are summed.
 code, not QHS-E profile code.
 
 Result:
-- thumbv7em-none-eabihf: text 6,776 B + rodata 671 B = 7,447 B.
-- riscv32imac-unknown-none-elf: text 9,660 B + rodata 671 B = 10,331 B.
+- thumbv7em-none-eabihf: text 11,926 B + rodata 607 B = 12,533 B.
+- riscv32imac-unknown-none-elf: text 13,432 B + rodata 607 B = 14,039 B.
 
 Notes:
 - The probe links all four verifier entry points (QHS-1/2/3/3.1). A deployment

@@ -23,3 +23,7 @@ qwp-e = { path = "../qwp-e" }
 
 [profile.release]
 panic = "abort"
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = "symbols"

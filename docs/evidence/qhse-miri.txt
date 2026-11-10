@@ -1,0 +1,22 @@
+qWp Miri evidence
+=================
+
+Date: 2026-11-10
+Tool: Miri 0.1.0 (nightly-2026-08-21)
+Commands:
+  cargo +nightly-2026-08-21 miri test -p qwp-classical --lib
+  cargo +nightly-2026-08-21 miri test -p qwp-e --lib
+
+Results:
+- qwp-classical: 30 passed, 0 failed (1,276 s).
+- qwp-e: 1 passed, 0 failed.
+
+Scope:
+- qwp-classical: field, scalar, Edwards, SHA-512, Ed25519 unit tests.
+- qwp-e: wrong-length WOTS guard.
+
+Miri interprets the code and checks undefined behavior, aliasing, and many
+integer/pointer invariants. No UB was reported. The long-running differential
+QHS-E tests were not run under Miri because BLAKE3 signing is prohibitively slow
+in the interpreter; they run under normal release tests, libFuzzer, proptest,
+and the attack suite.

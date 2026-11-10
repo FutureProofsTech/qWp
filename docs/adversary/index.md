@@ -87,7 +87,7 @@
 | QHS-6 CLI `qhs6-*`, leaf cache, state guard | `qwp-cli` | `qhs/qhs6.md` | `qwp-cli` tests | Survived — cache/rollback/cross-version tests |
 | `qhs6_timing` | `qwp-bench` | `qhs/qhs6.md` | timing harness | Survived — \|t\| < 4.5 |
 | QHS-E `verify_qhs1/2/3/31` | `qwp-e` | `qhs/qhse.md` | `qwp-attacks/qhse`, differential tests | Attacked — differential + attack + fuzz |
-| `qhse_timing` / code-size probe | `qwp-bench`, `qwp-e-size` | `qhs/qhse.md` | timing + `scripts/qhse-size.sh` | Attacked — 7.4/10.3 KB; host timing |
+| `qhse_timing` / code-size probe | `qwp-bench`, `qwp-e-size` | `qhs/qhse.md` | timing + `scripts/qhse-size.sh` | Attacked — 12.5/14.0 KB; host timing |
 
 ## Status meanings
 

@@ -42,6 +42,22 @@ Local CI:
 ./scripts/ci.sh
 ```
 
+## Verification tooling
+
+The production workspace stays zero-dependency. Optional verification tools run
+in standalone workspaces under `fuzz/` and `tools/`:
+
+```bash
+./scripts/tooling.sh          # libFuzzer, proptest, loom, dudect, Creusot, AORAI, asm
+cargo kani -p qwp-verify      # Kani proofs
+cargo +nightly-2026-08-21 miri test -p qwp-classical --lib
+cargo +nightly-2026-08-21 miri test -p qwp-e --lib
+```
+
+Evidence is recorded in `docs/evidence/qhse-*.txt`; the full matrix, including
+tools that cannot be installed (Ferrocene) or that need a model (AORAI), is in
+`docs/19-code-standard-audit.md`.
+
 ## QHS CLI
 
 ```bash

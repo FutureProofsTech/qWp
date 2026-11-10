@@ -1,0 +1,46 @@
+[package]
+name = "qwp-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.qwp-core]
+path = "../crates/qwp-core"
+
+[dependencies.qwp-e]
+path = "../crates/qwp-e"
+
+[dependencies.qwp-crypto]
+path = "../crates/qwp-crypto"
+
+[dependencies.qwp-classical]
+path = "../crates/qwp-classical"
+
+[[bin]]
+name = "qhse_verify"
+path = "fuzz_targets/qhse_verify.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "qhs_parse"
+path = "fuzz_targets/qhs_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "qhs6_parse"
+path = "fuzz_targets/qhs6_parse.rs"
+test = false
+doc = false
+bench = false

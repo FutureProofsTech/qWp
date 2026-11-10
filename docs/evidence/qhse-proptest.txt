@@ -1,0 +1,29 @@
+qWp Proptest evidence
+=====================
+
+Date: 2026-11-10
+Tool: proptest 1.12.0
+Workspace: `tools/proptest-suite` (standalone, tooling-only)
+
+Command:
+  cd tools/proptest-suite && cargo test --release
+
+Result: 5 properties passed, 64 cases each (320 cases total), 393 s.
+
+Properties:
+- `qhse_rejects_any_other_message`: QHS-E accepts the valid QHS-1/2/3/3.1
+  signature and rejects every other generated message.
+- `qhse_rejects_single_byte_mutations`: every generated single-byte mutation of
+  a valid QHS-1/2/3/3.1 signature is rejected.
+- `fixed_signature_parsers_round_trip`: QHS-1/2/3 fixed parsers round-trip
+  arbitrary 2,408/1,704/1,832-byte arrays.
+- `variable_signature_parsers_round_trip`: QHS-4/4.2/5/6 parsers round-trip
+  every accepted byte string.
+- `qhs6_hybrid_round_trip`: QHS-6 accepts its own hybrid signature and rejects
+  a message with an appended byte.
+
+Additional regression tests (`tests/repro.rs`):
+- Ed25519 empty-message sign/verify.
+- QHS-5 empty-message sign/verify.
+- QHS-6 one-byte-message sign/verify.
+- Ed25519 public-key parse round-trip.

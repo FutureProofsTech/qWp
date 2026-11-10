@@ -83,7 +83,7 @@ impl Point {
         for bit_index in (0..256).rev() {
             result = result.double();
             let sum = result.add(self);
-            let bit = (scalar[bit_index / 8] >> (bit_index % 8)) & 1;
+            let bit = (crate::util::byte(scalar, bit_index / 8) >> (bit_index % 8)) & 1;
             result = Self::conditional_select(&result, &sum, u64::from(bit));
         }
         result

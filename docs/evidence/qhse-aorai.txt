@@ -1,0 +1,26 @@
+qWp AORAI evidence
+==================
+
+Date: 2026-11-10
+Tool: Frama-C 33.0 (Arsenic), AORAI plugin
+Provers: Alt-Ergo 2.4.3, Z3 5.1.0 (Frama-C's bundled version)
+Model: `tools/aorai-model/qhse_state.c` + `qhse_state.ya`
+
+Command:
+  frama-c qhse_state.c -aorai-automata qhse_state.ya \
+    -then-last -wp -wp-rte -wp-timeout 60 -wp-prover alt-ergo,z3
+
+Result:
+- 1050 / 1051 goals proved.
+- 1015 Qed, 3 Alt-Ergo, 16 terminating, 16 unreachable.
+- 1 timeout: `typed_qhse_verify_call_qhse_verify_post_func_requires`, a
+  tool-generated typing precondition, not an AORAI temporal property.
+
+The automaton enforces the QHS-E verification order:
+main -> qhse_verify -> parse header -> leaf index -> checksum -> WOTS ->
+Merkle path -> accept -> return.
+
+Limitation: AORAI analyzes C, not Rust. This is an illustrative temporal model
+of the QHS-E control-flow order, not a proof of the Rust implementation. The
+Rust implementation is covered by Kani, differential tests, proptest, libFuzzer,
+and the attack suite.

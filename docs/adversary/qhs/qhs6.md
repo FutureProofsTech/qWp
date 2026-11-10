@@ -59,7 +59,7 @@
   `ed25519_signature_from_slice_checks_length`. The QHS-6 public-key parser
   decodes Ed25519 and is covered by RFC vectors/fuzz rather than Kani (CBMC
   memory).
-- Coverage: qhs6.rs 99.25% lines; qwp-classical 99.66% lines; 100% functions.
+- Coverage: qhs6.rs 99.25% lines; qwp-classical 99.67% lines; 100% functions.
 - Timing: QHS-6 parallel keygen ≈0.09 s, cached sign ≈2.0 ms, verify ≈1.5 ms;
   Ed25519 keygen ≈0.125 ms, sign ≈0.257 ms, verify ≈0.258 ms; Welch `|t| < 4.5`.
 - CLI tests: keygen/sign/verify; cache/state sizes, headers, fingerprints,

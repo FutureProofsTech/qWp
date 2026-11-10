@@ -1,0 +1,23 @@
+qWp Loom evidence
+=================
+
+Date: 2026-11-10
+Tool: loom 0.7.3
+Workspace: `tools/loom-model` (standalone, tooling-only)
+Command: LOOM_MAX_PREEMPTIONS=2 cargo test --release
+
+Result: 1 model passed.
+
+Model: `disjoint_chunks_are_written_exactly_once`
+- Mirrors `qwp-platform`'s parallel leaf derivation: `chunks_mut`, one scoped
+  worker per chunk, join all workers.
+- Checks that each output index is written exactly once and is visible after
+  join.
+- Loom explored the interleavings of 3 workers over 7 leaves with 2
+  preemptions.
+
+Scope note:
+- The production code has no shared mutable state or synchronization
+  primitives: workers own disjoint `&mut` slices and are joined by
+  `std::thread::scope`. Loom cannot model Rust's aliasing guarantee directly,
+  so this model validates the chunk/join protocol used by the implementation.

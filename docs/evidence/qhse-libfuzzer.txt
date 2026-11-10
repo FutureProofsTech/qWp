@@ -1,0 +1,27 @@
+qWp libFuzzer evidence
+======================
+
+Date: 2026-11-10
+Tool: cargo-fuzz 0.13.2 / libFuzzer, nightly-2026-08-21
+
+Targets are in `fuzz/`, a standalone workspace excluded from the main
+zero-dependency workspace. The fuzz target dependencies (`libfuzzer-sys`) are
+tooling-only and never enter the production crates.
+
+Commands:
+  cargo +nightly-2026-08-21 fuzz run qhse_verify -- -max_total_time=60
+  cargo +nightly-2026-08-21 fuzz run qhs_parse -- -max_total_time=45
+  cargo +nightly-2026-08-21 fuzz run qhs6_parse -- -max_total_time=45
+
+Results:
+- qhse_verify: 16,137,359 runs in 61 s; cov 168, ft 247; no crash.
+- qhs_parse:   29,378,990 runs in 46 s; cov 27, ft 28; no crash.
+- qhs6_parse:  28,951,672 runs in 46 s; cov 19, ft 20; no crash.
+
+Scope:
+- QHS-E verifier with arbitrary selector, message, key bytes, and fixed-size
+  QHS-1/2/3/3.1 signature buffers.
+- QHS-1/2/3/4/4.2/5/6 signature parsers.
+- QHS-6 hybrid parser and Ed25519 signature parser.
+
+No artifact was written to the artifact directory.

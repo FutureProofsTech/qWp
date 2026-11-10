@@ -15,21 +15,6 @@
     reason = "qWp is local-only; release metadata is finalized at packaging time"
 )]
 #![allow(
-    clippy::arithmetic_side_effects,
-    reason = "field and scalar arithmetic uses fixed-width wrapping operations on 51-bit limbs"
-)]
-#![allow(
-    clippy::indexing_slicing,
-    reason = "fixed-size limb arrays are indexed at constant positions"
-)]
-#![allow(
-    clippy::as_conversions,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_lossless,
-    reason = "limb conversions are bounded u64/u128 casts in fixed-width arithmetic"
-)]
-#![allow(
     clippy::many_single_char_names,
     reason = "SHA-512 and Edwards formulas use the conventional a..h and x..y names"
 )]
@@ -41,10 +26,6 @@
     clippy::redundant_pub_crate,
     reason = "internal modules keep explicit pub(crate) for audit clarity"
 )]
-#![allow(
-    clippy::needless_range_loop,
-    reason = "fixed-width limb loops index parallel arrays by the same position"
-)]
 #![deny(clippy::alloc_instead_of_core)]
 #![deny(clippy::std_instead_of_core)]
 #![deny(clippy::std_instead_of_alloc)]
@@ -54,6 +35,11 @@
 #![deny(clippy::todo)]
 #![deny(clippy::unimplemented)]
 #![deny(clippy::unreachable)]
+#![deny(clippy::indexing_slicing)]
+#![deny(clippy::as_conversions)]
+#![deny(clippy::cast_lossless)]
+#![deny(clippy::cast_possible_truncation)]
+#![deny(clippy::cast_possible_wrap)]
 #![deny(clippy::float_arithmetic)]
 #![deny(clippy::missing_inline_in_public_items)]
 #![deny(clippy::exhaustive_structs)]
@@ -103,6 +89,7 @@ pub mod sha512;
 mod edwards;
 mod field;
 mod scalar;
+mod util;
 
 pub use ed25519::{
     ED25519_PUBLIC_KEY_BYTES, ED25519_SEED_BYTES, ED25519_SIGNATURE_BYTES, Ed25519PrivateKey,

@@ -1,0 +1,19 @@
+[workspace]
+
+[package]
+name = "qwp-proptest-suite"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+qwp-core = { path = "../../crates/qwp-core" }
+qwp-crypto = { path = "../../crates/qwp-crypto" }
+qwp-classical = { path = "../../crates/qwp-classical" }
+qwp-e = { path = "../../crates/qwp-e" }
+
+[dev-dependencies]
+proptest = "1.12"
+
+[profile.release]
+opt-level = 3
