@@ -1,6 +1,6 @@
 # QHS-E — Embedded Verifier Profile
 
-**Status:** Design accepted; implementation and local evidence complete; 1-hour soak pending.
+**Status:** Accepted, implemented, soaked, and tagged `qhse-rc1`.
 
 **Scope:** verifier-only profile of QHS-1/2/3/3.1. Same public keys, same
 signatures, same security proof.
@@ -181,7 +181,7 @@ or stop.
 - Creusot: 7/7 digit/checksum/Merkle arithmetic contracts proved; evidence in
   `docs/evidence/qhse-creusot.txt`.
 - Custom fuzz/soak: 60-second run 394,881 iterations, 0 panics; 1-hour soak
-  pending in `docs/evidence/qhse-fuzz-soak-1h.txt`.
+  passed in `docs/evidence/qhse-fuzz-soak-1h.txt` (28,798,916 iterations, 0 panics).
 - Timing: host ≈0.14 ms (QHS-1), ≈0.32 ms (QHS-2), ≈0.39 ms (QHS-3/3.1);
   perf ≈2.34M cycles / ≈8.51M instructions per verification.
 - dudect: valid paths max |t| ≤ 1.07; positive control +25,747; evidence in
@@ -198,4 +198,4 @@ or stop.
 - Assembly: verifier inspected with `cargo-show-asm`; no secret-dependent
   indirect dispatch and no LFENCE/ud2; evidence in
   `docs/evidence/qhse-asm.txt`.
-- Soak: 1-hour run pending before `qhse-rc1`.
+- Soak: 1-hour run passed with 28,798,916 iterations and 0 panics on `cdc5106`; evidence in `docs/evidence/qhse-fuzz-soak-1h.txt`.

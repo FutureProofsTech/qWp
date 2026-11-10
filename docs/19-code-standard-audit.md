@@ -246,7 +246,7 @@ Latest results:
    LFENCE was applied.
 6. **Host tooling is not `no_std`.** This is intentional; the production crypto
    core and QHS-E are `no_std`.
-7. **QHS-E 1-hour soak** is pending before `qhse-rc1`.
+7. **QHS-E 1-hour soak** passed with 28,798,916 iterations and 0 panics; tagged `qhse-rc1`.
 
 No claim is made that the project is fully compliant with every tool in the
 requested matrix. The production crypto core meets the requested security lint

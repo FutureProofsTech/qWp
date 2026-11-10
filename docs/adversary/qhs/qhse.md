@@ -7,7 +7,7 @@
 - Visibility: public
 - Owner (engineer): Embedded lead
 - Owner (attacker): Red team
-- Status: attacked; FAD open until the 1-hour soak.
+- Status: attacked; FAD closed after the 1-hour soak passed.
 
 ## Contract
 
@@ -52,6 +52,7 @@
   perf counters ≈2.34M cycles / ≈8.51M instructions per verification.
 - Coverage: 98.50% lines; 100% functions.
 - Mutation: 46 mutants, 45 caught, 1 equivalent `|`/`^` miss.
+- Soak: 1-hour run passed with 28,798,916 iterations and 0 panics on `cdc5106`.
 - Gap IDs: GAP-QHS-0033.
 - Break-log entry: BL-0030.
 
@@ -63,3 +64,4 @@
 - Bounds: no heap; fixed buffers; exact-size public API.
 - Red-team sign-off: role-separated review complete.
 - Date: 2026-11-10
+- Tag: `qhse-rc1`

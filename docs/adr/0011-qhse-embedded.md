@@ -1,6 +1,6 @@
 # ADR-0011: QHS-E Embedded Verifier Profile
 
-**Status:** Accepted and implemented — local evidence; 1-hour soak pending; `qhse-rc1` pending
+**Status:** Accepted, implemented, soaked, and tagged `qhse-rc1`
 
 **Date:** 2026-11-10
 
