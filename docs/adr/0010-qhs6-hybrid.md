@@ -1,6 +1,6 @@
 # ADR-0010: QHS-6 Classical Hybrid
 
-**Status:** Accepted and implemented — local evidence; 1-hour soak pending; `qhs6-rc1` pending
+**Status:** Accepted and implemented — local evidence; 1-hour soak passed; `qhs6-rc1`
 
 **Date:** 2026-11-09
 

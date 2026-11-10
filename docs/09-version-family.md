@@ -195,7 +195,7 @@ the hybrid is secure if **either** component is secure. The in-tree Ed25519
 implementation follows RFC 8032 and is tested against its vectors.
 
 Measured: parallel keygen ≈0.09 s, cached hybrid sign ≈2.0 ms, verify ≈1.5 ms;
-Ed25519 keygen ≈0.125 ms, sign ≈0.257 ms, verify ≈0.258 ms.
+Ed25519 keygen ≈0.125 ms, sign ≈0.257 ms, verify ≈0.258 ms. The QHS-6 1-hour soak passed with 36,957,000 iterations and 0 panics.
 
 ## 8. QHS-E: embedded verifier profile
 

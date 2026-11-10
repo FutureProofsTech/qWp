@@ -17,3 +17,8 @@ Notes:
   on that harness, so it is covered by RFC 8032 vectors and fuzz instead.
 - The QHS-6 private-key parser and hybrid/Ed25519 signature length checks are
   verified.
+
+Full workspace run:
+  cargo kani -p qwp-verify
+Manual Harness Summary:
+Complete - 24 successfully verified harnesses, 0 failures, 24 total.
