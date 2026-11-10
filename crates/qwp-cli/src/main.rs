@@ -2002,16 +2002,22 @@ fn write_state_guard(
     write_atomic(&state_path(private_path), &bytes, true)
 }
 
-fn read_state_guard(private_path: &str, seed: &[u8; 32]) -> Option<[u8; 6]> {
-    let bytes = read_exact_file(&state_path(private_path), STATE_GUARD_BYTES).ok()?;
-    let body = bytes.get(..6)?;
+fn read_state_guard(private_path: &str, seed: &[u8; 32]) -> Result<Option<[u8; 6]>, String> {
+    let path = state_path(private_path);
+    if !Path::new(&path).exists() {
+        return Ok(None);
+    }
+    let bytes = read_exact_file(&path, STATE_GUARD_BYTES)?;
+    let body = bytes
+        .get(..6)
+        .ok_or_else(|| "state guard layout".to_string())?;
     let expected = state_guard_mac(seed, body);
-    if bytes.get(6..)? != expected.as_slice() {
-        return None;
+    if bytes.get(6..) != Some(expected.as_slice()) {
+        return Err("state guard is corrupt or belongs to a different key".to_string());
     }
     let mut output = [0_u8; 6];
     output.copy_from_slice(body);
-    Some(output)
+    Ok(Some(output))
 }
 
 fn check_state_guard(
@@ -2020,8 +2026,18 @@ fn check_state_guard(
     key_bytes: &[u8],
     counter: u16,
 ) -> Result<(), String> {
-    let Some(guard) = read_state_guard(private_path, seed) else {
-        return write_state_guard(private_path, seed, key_bytes, counter);
+    let guard = match read_state_guard(private_path, seed) {
+        Ok(Some(guard)) => guard,
+        Ok(None) => {
+            if counter > 0 {
+                return Err(
+                    "state guard is missing for an advanced key; restore the guard file"
+                        .to_string(),
+                );
+            }
+            return write_state_guard(private_path, seed, key_bytes, counter);
+        }
+        Err(error) => return Err(error),
     };
     let Some(header) = key_bytes.get(..4) else {
         return Err("state guard key layout".to_string());
@@ -2364,16 +2380,22 @@ fn write_qhs5_state_guard(
     write_atomic(&state_path(private_path), &bytes, true)
 }
 
-fn read_qhs5_state_guard(private_path: &str, seed: &[u8; 64]) -> Option<[u8; 6]> {
-    let bytes = read_exact_file(&state_path(private_path), STATE_GUARD_BYTES).ok()?;
-    let body = bytes.get(..6)?;
+fn read_qhs5_state_guard(private_path: &str, seed: &[u8; 64]) -> Result<Option<[u8; 6]>, String> {
+    let path = state_path(private_path);
+    if !Path::new(&path).exists() {
+        return Ok(None);
+    }
+    let bytes = read_exact_file(&path, STATE_GUARD_BYTES)?;
+    let body = bytes
+        .get(..6)
+        .ok_or_else(|| "state guard layout".to_string())?;
     let expected = qhs5_state_guard_mac(seed, body);
-    if bytes.get(6..)? != expected.as_slice() {
-        return None;
+    if bytes.get(6..) != Some(expected.as_slice()) {
+        return Err("state guard is corrupt or belongs to a different key".to_string());
     }
     let mut output = [0_u8; 6];
     output.copy_from_slice(body);
-    Some(output)
+    Ok(Some(output))
 }
 
 fn check_qhs5_state_guard(
@@ -2382,8 +2404,18 @@ fn check_qhs5_state_guard(
     key_bytes: &[u8],
     counter: u16,
 ) -> Result<(), String> {
-    let Some(guard) = read_qhs5_state_guard(private_path, seed) else {
-        return write_qhs5_state_guard(private_path, seed, key_bytes, counter);
+    let guard = match read_qhs5_state_guard(private_path, seed) {
+        Ok(Some(guard)) => guard,
+        Ok(None) => {
+            if counter > 0 {
+                return Err(
+                    "state guard is missing for an advanced key; restore the guard file"
+                        .to_string(),
+                );
+            }
+            return write_qhs5_state_guard(private_path, seed, key_bytes, counter);
+        }
+        Err(error) => return Err(error),
     };
     let Some(header) = key_bytes.get(..4) else {
         return Err("state guard key layout".to_string());
@@ -2542,16 +2574,22 @@ fn write_qhs6_state_guard(
     write_atomic(&state_path(private_path), &bytes, true)
 }
 
-fn read_qhs6_state_guard(private_path: &str, seed: &[u8; 64]) -> Option<[u8; 6]> {
-    let bytes = read_exact_file(&state_path(private_path), STATE_GUARD_BYTES).ok()?;
-    let body = bytes.get(..6)?;
+fn read_qhs6_state_guard(private_path: &str, seed: &[u8; 64]) -> Result<Option<[u8; 6]>, String> {
+    let path = state_path(private_path);
+    if !Path::new(&path).exists() {
+        return Ok(None);
+    }
+    let bytes = read_exact_file(&path, STATE_GUARD_BYTES)?;
+    let body = bytes
+        .get(..6)
+        .ok_or_else(|| "state guard layout".to_string())?;
     let expected = qhs6_state_guard_mac(seed, body);
-    if bytes.get(6..)? != expected.as_slice() {
-        return None;
+    if bytes.get(6..) != Some(expected.as_slice()) {
+        return Err("state guard is corrupt or belongs to a different key".to_string());
     }
     let mut output = [0_u8; 6];
     output.copy_from_slice(body);
-    Some(output)
+    Ok(Some(output))
 }
 
 fn check_qhs6_state_guard(
@@ -2560,8 +2598,18 @@ fn check_qhs6_state_guard(
     key_bytes: &[u8],
     counter: u16,
 ) -> Result<(), String> {
-    let Some(guard) = read_qhs6_state_guard(private_path, seed) else {
-        return write_qhs6_state_guard(private_path, seed, key_bytes, counter);
+    let guard = match read_qhs6_state_guard(private_path, seed) {
+        Ok(Some(guard)) => guard,
+        Ok(None) => {
+            if counter > 0 {
+                return Err(
+                    "state guard is missing for an advanced key; restore the guard file"
+                        .to_string(),
+                );
+            }
+            return write_qhs6_state_guard(private_path, seed, key_bytes, counter);
+        }
+        Err(error) => return Err(error),
     };
     let Some(header) = key_bytes.get(..4) else {
         return Err("state guard key layout".to_string());
@@ -3000,7 +3048,7 @@ mod tests {
 
         write_state_guard(&path_text, &seed, &key_bytes, 0).unwrap();
         check_state_guard(&path_text, &seed, &key_bytes, 1).unwrap();
-        let guard = read_state_guard(&path_text, &seed).unwrap();
+        let guard = read_state_guard(&path_text, &seed).unwrap().unwrap();
         assert_eq!(u16::from_le_bytes([guard[4], guard[5]]), 1);
 
         drop(std::fs::remove_file(&path_text));

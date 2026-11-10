@@ -1,0 +1,62 @@
+qWp extended attack evidence
+============================
+
+Date: 2026-11-10
+Command: cargo run --release -p qwp-attacks --bin attack-suite
+Result: attack-suite: passed=20 failed=0
+
+New attack groups:
+1. Structural tampering with a recomputed signature checksum:
+   - leaf-index boundaries (1, 2, 255, 256, 4095, 4096, 65535);
+   - first/middle/last WOTS chunk;
+   - first/middle/last Merkle auth-path node;
+   - QHS-4/4.2 FORS entry, randomizer, header, hypertree layer;
+   - full 32/64-byte WOTS chunk transplants and 288/1344/1696-byte FORS/layer
+     transplants;
+   - QHS-6 embedded QHS-5 leaf and component tampering with repaired checksum.
+   All rejected by both `qwp-crypto` and QHS-E where applicable.
+
+2. Message-length boundaries:
+   - lengths 0, 1, 31, 32, 33, 63, 64, 65, 255, 256, 1024 for QHS-1/2/3/5/6;
+   - QHS-4/4.2 at 0, 1, 32, 64, 256;
+   - QHS-E differential for QHS-1/2/3/3.1.
+   All valid signatures accepted; wrong lengths rejected.
+
+3. Public-key mutation:
+   - every byte of QHS-1/2/3/4/4.2/5/6 public keys flipped;
+   - parse error or verification failure required.
+   Found and fixed: QHS-1/2/3 accepted non-zero bytes 36..64 as reserved.
+   QHS-E had the same gap for bytes 36..64.
+
+4. Cross-version confusion:
+   - QHS-1/2/3 key headers fed to each other;
+   - QHS-4 vs QHS-4.2 keys and signatures;
+   - QHS-5 vs QHS-6 keys and signatures;
+   - QHS-E key/signature version mismatches.
+   All rejected.
+
+5. QHS-6 component binding:
+   - Ed25519 component from another message with a matching leaf index;
+   - QHS-5 component from another message;
+   - QHS-5 or Ed25519 component from another key;
+   - zero Ed25519 component;
+   - embedded QHS-5 signature against the raw message (transcript separation);
+   - embedded QHS-5 header validation.
+   All rejected or parse-rejected.
+
+6. Ed25519 edge cases:
+   - identity, order-2, order-4, and all-0xff public keys;
+   - identity R, zero S, S = L, S = valid S + L;
+   - invalid R encodings.
+   All rejected.
+
+CLI hardening found and fixed:
+- A corrupted or missing `.state` guard was silently recreated. Signing now
+  fails closed if the guard is corrupt or missing for an advanced key.
+- New integration test: `state_guard_corruption_and_missing_guard_fail` for
+  QHS-1/5/6.
+
+Residual limitation:
+- A missing guard for a key at counter 0 is treated as a fresh key and
+  recreated. Deleting the guard and rolling the key counter back to 0 is
+  indistinguishable from a fresh key without external trusted state.

@@ -122,6 +122,13 @@ fn random_rounds(rng: &mut Rng) {
     }
 }
 
+fn fallback_qhs5_signature() -> Qhs5Signature {
+    let mut bytes = [0_u8; QHS5_SIGNATURE_BYTES];
+    bytes[0] = 6;
+    bytes[1] = 6;
+    Qhs5Signature::from_bytes(bytes)
+}
+
 fn main() {
     let seconds = std::env::args()
         .nth(1)
@@ -344,7 +351,7 @@ fn main() {
     );
     let fallback_signature6 = match Qhs6Signature::from_parts(
         0,
-        Qhs5Signature::from_bytes([0_u8; QHS5_SIGNATURE_BYTES]),
+        fallback_qhs5_signature(),
         Ed25519Signature::from_bytes([0_u8; 64]),
     ) {
         Ok(signature) => signature,
@@ -500,7 +507,7 @@ fn main() {
                 Ok(signature) => signature,
                 Err(_) => match Qhs6Signature::from_parts(
                     0,
-                    Qhs5Signature::from_bytes([0_u8; QHS5_SIGNATURE_BYTES]),
+                    fallback_qhs5_signature(),
                     Ed25519Signature::from_bytes([0_u8; 64]),
                 ) {
                     Ok(signature) => signature,

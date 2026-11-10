@@ -292,6 +292,9 @@ impl Qhs6Signature {
         qhs5: Qhs5Signature,
         ed25519: Ed25519Signature,
     ) -> Result<Self, CryptoError> {
+        if qhs5.as_bytes().get(..2) != Some([6, 6].as_slice()) {
+            return Err(CryptoError::InvalidLength);
+        }
         if qhs5.leaf_index()? != leaf_index {
             return Err(CryptoError::InvalidLength);
         }
@@ -325,6 +328,9 @@ impl Qhs6Signature {
                 .get(QHS5_SIGNATURE_OFFSET..ED25519_SIGNATURE_OFFSET)
                 .ok_or(CryptoError::InvalidLength)?,
         )?;
+        if qhs5.as_bytes().get(..2) != Some([6, 6].as_slice()) {
+            return Err(CryptoError::InvalidLength);
+        }
         let ed25519 = Ed25519Signature::from_slice(
             source
                 .get(ED25519_SIGNATURE_OFFSET..)
@@ -464,7 +470,7 @@ mod tests {
         QHS6_PRIVATE_KEY_BYTES, QHS6_PUBLIC_KEY_BYTES, QHS6_SIGNATURE_BYTES, Qhs6PrivateKey,
         Qhs6PublicKey, Qhs6Signature, qhs6_keygen, qhs6_keygen_from_leaves,
     };
-    use crate::qhs5::qhs5_leaves;
+    use crate::qhs5::{Qhs5Signature, qhs5_leaves};
     use qwp_core::CryptoError;
     use qwp_hash::hash32;
 
@@ -589,6 +595,27 @@ mod tests {
         bytes[0] = 7;
         bytes[3] = 1;
         assert!(Qhs6PublicKey::from_bytes(&bytes).is_err());
+    }
+
+    #[test]
+    fn rejects_bad_embedded_qhs5_header() {
+        let (mut private_key, _public_key) = qhs6_keygen(&QHS5_SEED, &ED_SEED).unwrap();
+        let signature = private_key.sign(b"embedded header").unwrap();
+        let mut bytes = signature.to_bytes();
+        bytes[4] = 5;
+        assert!(Qhs6Signature::from_slice(&bytes).is_err());
+
+        let mut qhs5_bytes = signature.qhs5_signature().unwrap().to_bytes();
+        qhs5_bytes[0] = 5;
+        let bad_qhs5 = Qhs5Signature::from_bytes(qhs5_bytes);
+        assert!(
+            Qhs6Signature::from_parts(
+                signature.leaf_index().unwrap(),
+                bad_qhs5,
+                signature.ed25519_signature().unwrap(),
+            )
+            .is_err()
+        );
     }
 
     #[test]

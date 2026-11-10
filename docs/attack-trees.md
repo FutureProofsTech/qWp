@@ -218,15 +218,22 @@ Forge QHS-6
 └── Timing/fault/DoS                              [Welch |t| < 4.5]
 ```
 
-## 16. QHS-E embedded verifier
+## 16. QHS-E embedded verifier and extended attacks
 
 ```
 Forge QHS-E
-├── Valid/invalid differential divergence         [5 differential tests vs qwp-crypto]
-├── Header/version/height/leaf tampering          [attack suite]
-├── Checksum/WOTS/auth-path tampering             [attack suite]
+├── Valid/invalid differential divergence         [7 differential tests vs qwp-crypto]
+├── Header/version/height/leaf tampering          [attack suite; repaired checksums]
+├── Checksum/WOTS/auth-path tampering             [attack suite; repaired checksums]
+├── Full single-byte mutation sweep               [every byte, every bit]
+├── WOTS/auth-path/FORS/layer transplants         [extended attack suite]
+├── Public-key tail/non-canonical encoding        [BL-0031; parser + differential]
 ├── Wrong message/key                             [attack suite]
-├── Cross-version QHS-1/2/3 confusion             [fixed-size API; attack suite]
+├── Message-length boundaries (0..1024)           [extended attack suite]
+├── Cross-version QHS-1/2/3/4/4.2/5/6 confusion  [extended attack suite]
+├── QHS-6 component mixing/downgrade              [extended attack suite]
+├── Ed25519 small-order/non-canonical/malleable   [extended attack suite]
+├── State guard corruption/rollback/deletion      [BL-0032; CLI fail-closed]
 ├── Fixed-layout parser panic                     [exact-size API; fuzz]
 ├── Heap/stack exhaustion                         [no heap; bounded fixed buffers]
 └── Timing/fault/DoS                              [host timing + perf counters]

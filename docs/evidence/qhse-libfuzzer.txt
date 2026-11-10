@@ -14,7 +14,7 @@ Commands:
   cargo +nightly-2026-08-21 fuzz run qhs6_parse -- -max_total_time=45
 
 Results:
-- qhse_verify: 16,137,359 runs in 61 s; cov 168, ft 247; no crash.
+- qhse_verify: 17,961,180 runs in 61 s; no crash.
 - qhs_parse:   29,378,990 runs in 46 s; cov 27, ft 28; no crash.
 - qhs6_parse:  28,951,672 runs in 46 s; cov 19, ft 20; no crash.
 

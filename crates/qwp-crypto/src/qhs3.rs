@@ -96,10 +96,14 @@ impl Qhs3PublicKey {
         let algorithm = bytes.get(1).copied().ok_or(CryptoError::InvalidLength)?;
         let height = bytes.get(2).copied().ok_or(CryptoError::InvalidLength)?;
         let reserved = bytes.get(3).copied().ok_or(CryptoError::InvalidLength)?;
+        let tail = bytes
+            .get(36..QHS3_PUBLIC_KEY_BYTES)
+            .ok_or(CryptoError::InvalidLength)?;
         if version != 3
             || algorithm != 3
             || height != u8::try_from(TREE_HEIGHT).unwrap_or(0)
             || reserved != 0
+            || tail.iter().any(|byte| *byte != 0)
         {
             return Err(CryptoError::InvalidLength);
         }
@@ -1116,6 +1120,9 @@ mod tests {
         assert!(Qhs3PublicKey::from_bytes(&bytes).is_err());
         bytes = original;
         bytes[3] = 1;
+        assert!(Qhs3PublicKey::from_bytes(&bytes).is_err());
+        bytes = original;
+        bytes[36] = 1;
         assert!(Qhs3PublicKey::from_bytes(&bytes).is_err());
     }
 

@@ -5,7 +5,7 @@ Date: 2026-11-10
 Command: cargo run -q -p qwp-tests --release --bin fuzz -- 60
 
 Result:
-fuzz: seconds=60 iterations=460745 panics=0
+fuzz: seconds=60 iterations=394881 panics=0
 
 Scope:
 - QHS-E verification of QHS-1/2/3/3.1 valid signatures every 1,000 iterations.

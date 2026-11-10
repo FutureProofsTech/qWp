@@ -82,6 +82,13 @@ use qwp_crypto::{
 };
 use qwp_e::{verify_qhs1, verify_qhs2, verify_qhs3, verify_qhs31};
 use qwp_hash::hash32;
+
+mod extended;
+
+pub use extended::{
+    attack_cross_version, attack_ed25519_edge_cases, attack_message_boundaries,
+    attack_public_key_mutations, attack_qhs6_component_binding, attack_structural_checksums,
+};
 use qwp_platform::{HostEntropy, qhs3_leaves_parallel, qhs4_sign_parallel, qhs42_sign_parallel};
 
 /// Summary of an attack run.
@@ -155,6 +162,12 @@ pub fn run_all() -> AttackReport {
         attack_qhs5(),
         attack_qhs6(),
         attack_qhse(),
+        attack_structural_checksums(),
+        attack_message_boundaries(),
+        attack_public_key_mutations(),
+        attack_cross_version(),
+        attack_qhs6_component_binding(),
+        attack_ed25519_edge_cases(),
     ];
     let passed = checks.iter().filter(|result| **result).count();
     let failed = checks.len().saturating_sub(passed);
@@ -881,9 +894,11 @@ pub fn attack_qhse() -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        attack_braid_parser, attack_entropy, attack_hash_vectors, attack_key_formats,
-        attack_polynomial_round_trip, attack_qhs1, attack_qhs2, attack_qhs3, attack_qhs4,
-        attack_qhs5, attack_qhs6, attack_qhs41, attack_qhs42, attack_qhse, audit, run_all,
+        attack_braid_parser, attack_cross_version, attack_ed25519_edge_cases, attack_entropy,
+        attack_hash_vectors, attack_key_formats, attack_message_boundaries,
+        attack_polynomial_round_trip, attack_public_key_mutations, attack_qhs1, attack_qhs2,
+        attack_qhs3, attack_qhs4, attack_qhs5, attack_qhs6, attack_qhs6_component_binding,
+        attack_qhs41, attack_qhs42, attack_qhse, attack_structural_checksums, audit, run_all,
     };
 
     #[test]
@@ -902,6 +917,12 @@ mod tests {
         assert!(attack_qhs5());
         assert!(attack_qhs6());
         assert!(attack_qhse());
+        assert!(attack_structural_checksums());
+        assert!(attack_message_boundaries());
+        assert!(attack_public_key_mutations());
+        assert!(attack_cross_version());
+        assert!(attack_qhs6_component_binding());
+        assert!(attack_ed25519_edge_cases());
         assert!(run_all().is_ok());
     }
 

@@ -173,6 +173,10 @@ fn verify_common(
     if key_header != [params.version, params.version, params.height, 0] {
         return Err(CryptoError::InvalidLength);
     }
+    let key_tail = public_key.get(36..).ok_or(CryptoError::InvalidLength)?;
+    if key_tail.iter().any(|byte| *byte != 0) {
+        return Err(CryptoError::InvalidLength);
+    }
     if signature.get(..2) != Some([params.version, params.version].as_slice()) {
         return Err(CryptoError::VerificationFailed);
     }

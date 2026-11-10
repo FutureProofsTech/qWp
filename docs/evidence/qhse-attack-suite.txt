@@ -5,9 +5,9 @@ Date: 2026-11-10
 Command: cargo run -q -p qwp-attacks --release --bin attack-suite
 
 Result:
-attack-suite: passed=14 failed=0
+attack-suite: passed=20 failed=0
 
-QHS-E checks in `qwp_attacks::attack_qhse`:
+QHS-E checks in `qwp_attacks::attack_qhse` and the extended suite:
 - Valid QHS-1/2/3/3.1 signatures accepted by QHS-E.
 - Wrong message rejected for each version.
 - Header, leaf-index, WOTS, auth-path, and checksum tampering rejected.
@@ -15,3 +15,11 @@ QHS-E checks in `qwp_attacks::attack_qhse`:
 - Differential tests compare QHS-E against the `qwp-crypto` verifiers for
   valid, tampered, wrong-message, wrong-key, and random signatures.
 - Cross-version fixed-size parsing prevents QHS-1/2/3 signature confusion.
+- Repaired-checksum structural tampering (leaf, WOTS, auth path, FORS,
+  hypertree layer) rejected.
+- Full WOTS/auth-path/FORS/layer chunk transplants rejected.
+- Message-length boundaries 0..1024 accepted only for valid signatures.
+- Every public-key byte mutation rejected after the BL-0031 tail fix.
+- Cross-version QHS-1/2/3/4/4.2/5/6 key/signature confusion rejected.
+- QHS-6 component mixing and transcript separation rejected.
+- Ed25519 small-order, non-canonical-S, and identity-R cases rejected.

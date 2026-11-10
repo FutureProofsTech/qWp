@@ -274,8 +274,12 @@ fn qhs_keygen_sign_verify_end_to_end() {
 
     fs::remove_file(&state).unwrap();
     let sign_after_guard_loss = run(&["qhs-sign", &private_text, &message_text, &signature_text]);
-    assert!(sign_after_guard_loss.status.success());
-    assert!(state.exists());
+    assert!(!sign_after_guard_loss.status.success());
+    assert!(
+        String::from_utf8_lossy(&sign_after_guard_loss.stderr).contains("missing"),
+        "{sign_after_guard_loss:?}"
+    );
+    fs::write(&state, &caught_up_state).unwrap();
 
     fs::remove_file(&cache).unwrap();
     let sign_again = run(&["qhs-sign", &private_text, &message_text, &signature_text]);
@@ -764,6 +768,25 @@ fn qhse_verify_profile_end_to_end() {
         }
     }
 
+    let public1 = directory.join("qhs-public.key");
+    let signature1 = directory.join("qhs.sig");
+    let public1_text = public1.to_string_lossy().to_string();
+    let signature1_text = signature1.to_string_lossy().to_string();
+    let mut tail_key = fs::read(&public1).unwrap();
+    tail_key[36] ^= 1;
+    fs::write(&public1, &tail_key).unwrap();
+    assert!(
+        !run(&[
+            "qhse-verify",
+            "1",
+            &public1_text,
+            &message_text,
+            &signature1_text
+        ])
+        .status
+        .success()
+    );
+
     let public3 = directory.join("qhs3-public.key");
     let signature3 = directory.join("qhs3.sig");
     let public3_text = public3.to_string_lossy().to_string();
@@ -781,6 +804,104 @@ fn qhse_verify_profile_end_to_end() {
     );
 
     let _ = fs::remove_dir_all(&directory);
+}
+
+#[test]
+fn state_guard_corruption_and_missing_guard_fail() {
+    for (prefix, signature_size) in [("qhs", 2_408_u64), ("qhs5", 6_216), ("qhs6", 6_284)] {
+        let directory = workspace();
+        let public = directory.join(format!("{prefix}-public.key"));
+        let private = directory.join(format!("{prefix}-private.key"));
+        let message = directory.join("message.txt");
+        let signature = directory.join("message.sig");
+        fs::write(&message, b"qWp state guard attack message\n").unwrap();
+        let public_text = public.to_string_lossy().to_string();
+        let private_text = private.to_string_lossy().to_string();
+        let message_text = message.to_string_lossy().to_string();
+        let signature_text = signature.to_string_lossy().to_string();
+
+        assert!(
+            run(&[&format!("{prefix}-keygen"), &public_text, &private_text])
+                .status
+                .success()
+        );
+        assert!(
+            run(&[
+                &format!("{prefix}-sign"),
+                &private_text,
+                &message_text,
+                &signature_text
+            ])
+            .status
+            .success()
+        );
+        assert_eq!(fs::metadata(&signature).unwrap().len(), signature_size);
+
+        let state = directory.join(format!("{prefix}-private.key.state"));
+        let good_state = fs::read(&state).unwrap();
+        let mut corrupt = good_state.clone();
+        corrupt[0] ^= 1;
+        fs::write(&state, &corrupt).unwrap();
+        let corrupt_result = run(&[
+            &format!("{prefix}-sign"),
+            &private_text,
+            &message_text,
+            &signature_text,
+        ]);
+        assert!(!corrupt_result.status.success());
+        assert!(
+            String::from_utf8_lossy(&corrupt_result.stderr).contains("corrupt"),
+            "{corrupt_result:?}"
+        );
+
+        fs::write(&state, &good_state).unwrap();
+        fs::remove_file(&state).unwrap();
+        let missing_result = run(&[
+            &format!("{prefix}-sign"),
+            &private_text,
+            &message_text,
+            &signature_text,
+        ]);
+        assert!(!missing_result.status.success());
+        assert!(
+            String::from_utf8_lossy(&missing_result.stderr).contains("missing"),
+            "{missing_result:?}"
+        );
+
+        let fresh = workspace();
+        let fresh_public = fresh.join("public.key");
+        let fresh_private = fresh.join("private.key");
+        let fresh_message = fresh.join("message.txt");
+        let fresh_signature = fresh.join("message.sig");
+        fs::write(&fresh_message, b"fresh key\n").unwrap();
+        let fresh_public_text = fresh_public.to_string_lossy().to_string();
+        let fresh_private_text = fresh_private.to_string_lossy().to_string();
+        let fresh_message_text = fresh_message.to_string_lossy().to_string();
+        let fresh_signature_text = fresh_signature.to_string_lossy().to_string();
+        assert!(
+            run(&[
+                &format!("{prefix}-keygen"),
+                &fresh_public_text,
+                &fresh_private_text
+            ])
+            .status
+            .success()
+        );
+        fs::remove_file(fresh.join("private.key.state")).unwrap();
+        assert!(
+            run(&[
+                &format!("{prefix}-sign"),
+                &fresh_private_text,
+                &fresh_message_text,
+                &fresh_signature_text
+            ])
+            .status
+            .success()
+        );
+
+        let _ = fs::remove_dir_all(&directory);
+        let _ = fs::remove_dir_all(&fresh);
+    }
 }
 
 #[test]

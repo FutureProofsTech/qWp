@@ -39,15 +39,18 @@
 
 ## Evidence
 
-- Differential tests: 5 tests comparing QHS-E against `qwp-crypto` for valid,
-  tampered, wrong-message, wrong-key, random signatures, and multiple leaves.
-- Attack harness: `qwp-attacks::attack_qhse`; suite 14/14.
+- Differential tests: 7 tests comparing QHS-E against `qwp-crypto` for valid,
+  tampered, wrong-message, wrong-key, random signatures, multiple leaves, and
+  non-zero public-key tails.
+- Attack harness: `qwp-attacks::attack_qhse` plus extended attacks; suite 20/20.
+- Full byte sweep: every bit of every signature byte rejected; structural
+  tampering with repaired checksums and chunk transplants rejected.
 - Fuzz: random fixed-layout keys/signatures/messages through QHS-E.
-- Code size: 12,533 B (thumbv7em) / 14,039 B (riscv32imac), text+rodata for the
+- Code size: 12,771 B (thumbv7em) / 14,247 B (riscv32imac), text+rodata for the
   QHS-E probe/verifier/BLAKE3/error objects.
-- Timing: host ≈0.14 ms (QHS-1), ≈0.31 ms (QHS-2), ≈0.38 ms (QHS-3/3.1);
-  perf counters ≈3.34M cycles / ≈10.05M instructions per verification.
-- Coverage: 98.46% lines; 100% functions.
+- Timing: host ≈0.14 ms (QHS-1), ≈0.32 ms (QHS-2), ≈0.39 ms (QHS-3/3.1);
+  perf counters ≈2.34M cycles / ≈8.51M instructions per verification.
+- Coverage: 98.50% lines; 100% functions.
 - Mutation: 46 mutants, 45 caught, 1 equivalent `|`/`^` miss.
 - Gap IDs: GAP-QHS-0033.
 - Break-log entry: BL-0030.

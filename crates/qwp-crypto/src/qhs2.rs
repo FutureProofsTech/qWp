@@ -94,10 +94,14 @@ impl Qhs2PublicKey {
         let algorithm = bytes.get(1).copied().ok_or(CryptoError::InvalidLength)?;
         let height = bytes.get(2).copied().ok_or(CryptoError::InvalidLength)?;
         let reserved = bytes.get(3).copied().ok_or(CryptoError::InvalidLength)?;
+        let tail = bytes
+            .get(36..QHS2_PUBLIC_KEY_BYTES)
+            .ok_or(CryptoError::InvalidLength)?;
         if version != 2
             || algorithm != 2
             || height != u8::try_from(TREE_HEIGHT).unwrap_or(0)
             || reserved != 0
+            || tail.iter().any(|byte| *byte != 0)
         {
             return Err(CryptoError::InvalidLength);
         }
@@ -821,6 +825,9 @@ mod tests {
         assert!(Qhs2PublicKey::from_bytes(&bytes).is_err());
         bytes[2] = 8;
         bytes[3] = 1;
+        assert!(Qhs2PublicKey::from_bytes(&bytes).is_err());
+        bytes[3] = 0;
+        bytes[36] = 1;
         assert!(Qhs2PublicKey::from_bytes(&bytes).is_err());
     }
 

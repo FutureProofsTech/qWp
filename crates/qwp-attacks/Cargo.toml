@@ -17,12 +17,17 @@ name = "attack-suite"
 path = "src/bin/attack_suite.rs"
 
 [[bin]]
+name = "byte-sweep"
+path = "src/bin/byte_sweep.rs"
+
+[[bin]]
 name = "audit"
 path = "src/bin/audit.rs"
 
 [dependencies]
 qwp-core = { path = "../qwp-core" }
 qwp-crypto = { path = "../qwp-crypto" }
+qwp-classical = { path = "../qwp-classical" }
 qwp-e = { path = "../qwp-e" }
 qwp-hash = { path = "../qwp-hash" }
 qwp-platform = { path = "../qwp-platform" }

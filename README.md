@@ -32,6 +32,7 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-features
 cargo test --workspace --release
 cargo run -p qwp-attacks --bin attack-suite
+cargo run -p qwp-attacks --bin byte-sweep
 cargo run -p qwp-attacks --bin audit
 cargo run -p qwp-cli --bin qwp -- selftest
 ```
@@ -127,7 +128,7 @@ On the 16-thread reference host:
 | QHS-4.2 | **14,344 B** | ≈0.30 s | parallel ≈0.27 s | ≈4.0 ms |
 | QHS-5 | **6,216 B** | ≈0.09 s parallel | **≈1.5 ms cached** | ≈1.2 ms |
 | QHS-6 | **6,284 B** | ≈0.09 s parallel | ≈2.0 ms cached | ≈1.5 ms |
-| QHS-E | same as base | n/a | n/a | **0.14–0.38 ms** |
+| QHS-E | same as base | n/a | n/a | **0.14–0.39 ms** |
 
 ## Doctrine and registers
 

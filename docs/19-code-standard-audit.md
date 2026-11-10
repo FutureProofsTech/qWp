@@ -116,11 +116,11 @@ Cargo workspaces and do not add dependencies to the production workspace.
 | Kani | **Used** | 24/24 parser/bounds proofs; not a full functional-correctness proof |
 | Creusot | **Used** | 7/7 contracts proved on the QHS-E digit/checksum/Merkle model; `docs/evidence/qhse-creusot.txt` |
 | AORAI | **Used** | Frama-C 33 AORAI + WP on the QHS-E order model: 1050/1051 goals, 1 tool-generated typing timeout; `docs/evidence/qhse-aorai.txt` |
-| cargo-fuzz / libFuzzer | **Used** | 16,137,359 QHS-E runs / 61 s; 29,378,990 parser runs / 46 s; 28,951,672 QHS-6 parser runs / 46 s; 0 crashes; `docs/evidence/qhse-libfuzzer.txt` |
+| cargo-fuzz / libFuzzer | **Used** | 17,961,180 QHS-E runs / 61 s; 29,378,990 parser runs / 46 s; 28,951,672 QHS-6 parser runs / 46 s; 0 crashes; `docs/evidence/qhse-libfuzzer.txt` |
 | Proptest | **Used** | 5 properties × 64 cases, plus 4 regression tests; `docs/evidence/qhse-proptest.txt` |
 | cargo-tarpaulin | **Used** | Package/workspace run; line-count differs from llvm-cov because tarpaulin only instruments the selected package tests; `docs/evidence/qhse-tarpaulin.txt` |
 | Loom | **Used** | Chunk/join model passed; `docs/evidence/qhse-loom.txt` |
-| dudect-bencher | **Used** | Valid-path max \|t\| ≤ 1.69; positive control +23,135; `docs/evidence/qhse-dudect.txt` |
+| dudect-bencher | **Used** | Valid-path max \|t\| ≤ 1.07; positive control +25,747; `docs/evidence/qhse-dudect.txt` |
 | cargo-show-asm | **Used** | Verifier assembly inspected; no secret-dependent indirect dispatch; `docs/evidence/qhse-asm.txt` |
 | Speculative-execution fences | **Not injected — documented** | Pure safe Rust; verification is public; no secret-dependent memory access. LFENCE is x86-specific and not a general Spectre fix. Assembly reviewed with `cargo-show-asm`. |
 | Ferrocene | **GAP** | Customer-portal-only toolchain; no public download. Stable rustc 1.99 used. |
@@ -192,37 +192,40 @@ cargo +nightly-2026-08-21 fuzz run qhs6_parse -- -max_total_time=45
 (cd tools/aorai-model && frama-c qhse_state.c -aorai-automata qhse_state.ya -then-last -wp -wp-rte -wp-timeout 60 -wp-prover alt-ergo,z3)
 cargo asm -p qwp-e --lib --release verify_common
 cargo tarpaulin --release -p qwp-e --out Xml
+cargo run --release -p qwp-attacks --bin attack-suite
+cargo run --release -p qwp-attacks --bin byte-sweep
 cargo +nightly-2026-08-21 miri test -p qwp-classical --lib
 cargo +nightly-2026-08-21 miri test -p qwp-e --lib
 ```
 
 Latest results:
 
-- 295 release tests, 0 failures.
+- 304 release tests, 0 failures.
 - Clippy workspace clean with `-D warnings`.
 - Kani 24/24.
-- QHS-E coverage 98.46% lines, 100% functions.
+- QHS-E coverage 98.50% lines, 100% functions.
 - qwp-classical coverage 99.67% lines, 100% functions.
 - qwp-crypto coverage 99.27% lines.
 - No external crates in the production dependency graph.
 - No `unsafe` code in first-party source.
-- QHS-E code size: 12,533 B (thumbv7em) / 14,039 B (riscv32imac).
-- libFuzzer: 16,137,359 QHS-E runs / 61 s; 29,378,990 + 28,951,672
+- QHS-E code size: 12,771 B (thumbv7em) / 14,247 B (riscv32imac).
+- libFuzzer: 17,961,180 QHS-E runs / 61 s; 29,378,990 + 28,951,672
   parser runs / 46 s each; 0 crashes.
 - Proptest: 5 properties × 64 cases + 4 regressions.
 - Loom: chunk/join model passed.
-- dudect: valid paths max |t| ≤ 1.69; positive control +23,135.
+- dudect: valid paths max |t| ≤ 1.07; positive control +25,747.
 - AORAI: 1050/1051 goals; 1 generated typing timeout.
 - Miri: qwp-classical 30/30; qwp-e 1/1.
 - Tarpaulin: QHS-E 45/47 lines; qwp-classical package-only run 223/502
   (tarpaulin instruments only the package test binary).
-- Mutation: QHS-E 46/45/0/1 equivalent; qwp-classical field 253/229/15/9
+- Extended attacks: 20/20; full bit sweep 0 accepted; BL-0031/0032/0033 fixed.
+- Mutation: QHS-E 47/46/0/1 equivalent; qwp-classical field 253/229/15/9
   equivalent; scalar 48/40/5/3 equivalent; evidence in
   `docs/evidence/classical-mutation-final.txt`.
 
 ## 6. Gaps and decisions
 
-1. **100% path execution** is not met. The measured crates are 98.46–99.67%
+1. **100% path execution** is not met. The measured crates are 98.50–99.67%
    line coverage; the remaining lines are defensive fixed-layout branches.
    Raising this to 100% would require tests for unreachable defensive paths.
    cargo-tarpaulin also reports lower line counts than llvm-cov because it
@@ -248,3 +251,31 @@ Latest results:
 No claim is made that the project is fully compliant with every tool in the
 requested matrix. The production crypto core meets the requested security lint
 set; the remaining gaps are Ferrocene, 100% coverage, and the QHS-E soak.
+
+## 7. Gaps found by the extended attack suite
+
+The extended suite (20 attack groups, full bit sweep, structural tampering with
+repaired checksums) found and closed:
+
+1. **QHS-1/2/3 public-key reserved tail was not validated.** Bytes 36..64 are
+   documented as zero, but non-zero tails parsed and verified. Multiple
+   encodings of one key were possible. Fixed in all three parsers and in QHS-E;
+   public-key mutation and differential tests cover it. `BL-0031`.
+2. **QHS-E ignored the same public-key tail.** Fixed with the same zero check;
+   `qhse_rejects_nonzero_public_key_tail` compares against `qwp-crypto`.
+3. **CLI state guard corruption/missing silently reset rollback protection.**
+   A corrupt guard and a missing guard for an advanced key now fail closed;
+   only counter 0 may recreate a guard. `BL-0032`.
+4. **QHS-6 parser accepted a non-QHS-5 embedded header.** `from_parts` and
+   `from_slice` now require `[6,6]`. `BL-0033`.
+
+Residual limitations:
+
+- Deleting the guard and rolling the key counter back to 0 is indistinguishable
+  from a fresh key without external trusted state. This is documented, not
+  claimed solved.
+- Single-byte mutation and structural transplant attacks are rejected for every
+  signature format; no forgery was found.
+- Full bit sweep covers all signature bytes. It does not cover every possible
+  multi-byte combination; structural transplants and proptest/libFuzzer cover
+  representative combinations.

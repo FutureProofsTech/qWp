@@ -5,17 +5,17 @@ Date: 2026-11-10
 Command: cargo run -q -p qwp-bench --release --bin qhse_timing
 
 Result:
-qhse-qhs1: mean=140852ns/op
-qhse-qhs2: mean=312414ns/op
-qhse-qhs3: mean=376890ns/op
-qhse-qhs31: mean=376858ns/op
+qhse-qhs1: mean=141667ns/op
+qhse-qhs2: mean=319974ns/op
+qhse-qhs3: mean=385541ns/op
+qhse-qhs31: mean=385427ns/op
 timing: ok
 
 Host performance counters (perf stat, 30,000 verifications):
-- cycles: ≈100.27B total → ≈3.34M cycles/verification
-- instructions: ≈301.51B total → ≈10.05M instructions/verification
-- branches: ≈15.13B total → ≈504k branches/verification
-- branch misses: ≈99.6M total → ≈3.3k branch misses/verification
+- cycles: ≈70.29B total → ≈2.34M cycles/verification
+- instructions: ≈255.27B total → ≈8.51M instructions/verification
+- branches: ≈9.81B total → ≈327k branches/verification
+- branch misses: ≈2.25M total → ≈75 branch misses/verification
 
 Notes:
 - The host is a mixed P/E-core x86_64 machine; perf sums both core classes.

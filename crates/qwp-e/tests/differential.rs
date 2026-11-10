@@ -194,3 +194,28 @@ fn qhs31_rejects_invalid_signatures() {
     tampered[100] ^= 1;
     assert!(verify_qhs31(&public_bytes, message, &tampered).is_err());
 }
+
+#[test]
+fn qhse_rejects_nonzero_public_key_tail() {
+    let (mut private1, public1) = qhs_keygen(&SEED).unwrap();
+    let signature1 = private1.sign(b"tail").unwrap().to_bytes();
+    let mut key1 = public1.to_bytes();
+    key1[36] = 1;
+    assert!(verify_qhs1(&key1, b"tail", &signature1).is_err());
+    assert!(qwp_crypto::QhsPublicKey::from_bytes(&key1).is_err());
+
+    let (mut private2, public2) = qhs2_keygen(&SEED).unwrap();
+    let signature2 = private2.sign(b"tail").unwrap().to_bytes();
+    let mut key2 = public2.to_bytes();
+    key2[63] = 1;
+    assert!(verify_qhs2(&key2, b"tail", &signature2).is_err());
+    assert!(qwp_crypto::Qhs2PublicKey::from_bytes(&key2).is_err());
+
+    let (mut private3, public3) = qhs3_keygen(&SEED).unwrap();
+    let signature3 = private3.sign(b"tail").unwrap().to_bytes();
+    let mut key3 = public3.to_bytes();
+    key3[40] = 1;
+    assert!(verify_qhs3(&key3, b"tail", &signature3).is_err());
+    assert!(verify_qhs31(&key3, b"tail", &signature3).is_err());
+    assert!(qwp_crypto::Qhs3PublicKey::from_bytes(&key3).is_err());
+}

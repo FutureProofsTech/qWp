@@ -7,11 +7,11 @@ Workspace: `tools/dudect-suite` (standalone, tooling-only)
 Command: taskset -c 1 ./target/release/qhse_dudect
 
 Results (max |t| over the run):
-- qhse_valid_leaf_order (QHS-1, two valid leaves): -1.29545
-- qhse_qhs2_valid (QHS-2, two valid leaves):     -1.68552
-- qhse_qhs3_valid (QHS-3, two valid leaves):     -1.12622
+- qhse_valid_leaf_order (QHS-1, two valid leaves): -1.07385
+- qhse_qhs2_valid (QHS-2, two valid leaves):     -0.93428
+- qhse_qhs3_valid (QHS-3, two valid leaves):     -1.06388
 - qhse_checksum_reject_control (valid vs early
-  checksum rejection, positive control):        +23135.88634
+  checksum rejection, positive control):        +25747.41033
 
 Interpretation:
 - All valid-signature probes are below the usual |t| = 5 threshold.

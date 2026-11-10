@@ -1,0 +1,25 @@
+qWp exhaustive single-byte mutation evidence
+============================================
+
+Date: 2026-11-10
+Command: cargo run --release -p qwp-attacks --bin byte-sweep
+Scope: every byte, every bit, every signature format; QHS-1/2/3 also through
+the QHS-E verifier.
+
+Result:
+- qhs1 accepted mutations: []
+- qhs1 qhse accepted mutations: []
+- qhs2 accepted mutations: []
+- qhs2 qhse accepted mutations: []
+- qhs3 accepted mutations: []
+- qhs3 qhse accepted mutations: []
+- qhs4 accepted mutations: []
+- qhs42 accepted mutations: []
+- qhs5 accepted mutations: []
+- qhs6 accepted mutations: []
+- sweep: done, exit 0
+
+The sweep flips each bit of every signature byte and requires verification to
+reject. A mutation in the unkeyed checksum can be rejected by corruption
+detection; the structural suite below repairs the checksum and repeats the
+attack on the cryptographic fields.

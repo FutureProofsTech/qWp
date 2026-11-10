@@ -22,7 +22,7 @@ Interpretation:
   code is exercised by `qwp-crypto`/`qwp-e` integration tests, so the
   qwp-classical package-only number undercounts real execution.
 - cargo-llvm-cov with the full test graph is the authoritative coverage number:
-  qwp-classical 99.67% lines / 100% functions; qwp-e 98.46% lines / 100%
+  qwp-classical 99.67% lines / 100% functions; qwp-e 98.50% lines / 100%
   functions.
 - Tarpaulin is used as an independent second coverage engine, not as a claim
   of 100% path execution.

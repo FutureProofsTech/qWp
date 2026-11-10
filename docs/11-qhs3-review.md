@@ -74,8 +74,8 @@
 
 | Evidence | Result |
 |---|---|
-| Unit/integration tests | 295 tests pass workspace-wide (release, including QHS-3.1, QHS-4, QHS-4.1, and QHS-4.2; 146 at the QHS-3 review) |
-| Attack suite | 14/14 attack groups pass, including QHS-3, QHS-4.1, and QHS-4.2 (8/8 at the QHS-3 review, before QHS-4) |
+| Unit/integration tests | 304 tests pass workspace-wide (release, including QHS-3.1, QHS-4, QHS-4.1, and QHS-4.2; 146 at the QHS-3 review) |
+| Attack suite | 20/20 attack groups pass, including QHS-3, QHS-4.1, and QHS-4.2 (8/8 at the QHS-3 review, before QHS-4) |
 | Kani | 12 parser/bounds proofs pass, including 3 QHS-3 proofs |
 | Timing | QHS-3: keygen ≈0.40–0.44 s, sign ≈1.60–1.70 ms, verify ≈0.39 ms; QHS-3.1: sign ≈0.35–0.36 ms; Welch \|t\| < 4.5 |
 | KAT | `e1c5fd67b35c6c86e0d4e9e436598e30394984db311c99392fd610f82b7ae03b` |
