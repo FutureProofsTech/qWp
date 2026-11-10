@@ -1,0 +1,41 @@
+qWp QHS-E stack-size evidence
+=============================
+
+Date: 2026-11-10
+Tool: nightly-2026-08-21 `-Z emit-stack-sizes`, `llvm-readobj --stack-sizes`
+Targets: thumbv7em-none-eabihf, riscv32imac-unknown-none-elf
+Build: release, panic=abort, LTO, codegen-units=1
+
+Command:
+  rustup target add --toolchain nightly-2026-08-21 \
+    thumbv7em-none-eabihf riscv32imac-unknown-none-elf
+  RUSTFLAGS='-Z emit-stack-sizes' \
+    cargo +nightly-2026-08-21 build \
+      --manifest-path crates/qwp-e-size/Cargo.toml --release --target <target>
+  llvm-readobj --stack-sizes <libqwp_e_size.a>
+
+Measured frames (bytes):
+
+| Function | thumbv7em | riscv32imac |
+|---|---:|---:|
+| `qwp_e::verifier::wots_verify` | 6,048 | 5,968 |
+| `qwp_hash::blake3::hash32_with_key` | 5,808 | 5,808 |
+| `qwp_e::verifier::verify_common` | 264 | 256 |
+| `qwp_hash::blake3::Hasher::combine_root` | 296 | 192 |
+| `qwp_hash::blake3::Hasher::push_chunk_cv` | 240 | 192 |
+| `qwp_hash::blake3::compress` | 216 | 160 |
+| `qwp_hash::blake3::Hasher::finalize_chunk` | 152 | 144 |
+
+Interpretation:
+- The peak verifier frame is about **6.0 KB**, driven by the BLAKE3 hasher
+  (`chunk_buf[1024]` plus the 54-level `stack`). It is fixed-size and
+  allocation-free, but it is much larger than the 67-byte digit buffer.
+- The `qwp-e-size` probe functions additionally place the caller-owned
+  signature/key buffers on the stack (1.8-2.5 KB); a real caller that keeps the
+  signature in RAM can avoid that copy.
+- A deployment on a small MCU must budget roughly 6 KB of stack for the
+  verifier plus the caller's key/signature storage. This is a documented
+  constraint, not a claim that QHS-E fits an 8 KB device.
+
+No stack overflow was observed in host tests; the numbers are static frame
+sizes, not a runtime high-water mark.

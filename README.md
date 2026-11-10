@@ -50,6 +50,7 @@ in standalone workspaces under `fuzz/` and `tools/`:
 
 ```bash
 ./scripts/tooling.sh          # libFuzzer, proptest, loom, dudect, Creusot, AORAI, asm
+./scripts/soak-72h.sh         # 72-hour all-version fuzz soak (next days)
 cargo kani -p qwp-verify      # Kani proofs
 cargo +nightly-2026-08-21 miri test -p qwp-classical --lib
 cargo +nightly-2026-08-21 miri test -p qwp-e --lib
@@ -171,4 +172,4 @@ On the 16-thread reference host:
 
 ## Warning
 
-This project is not standard and not externally audited. QHS-1, QHS-2, QHS-3, QHS-3.1, QHS-4, QHS-4.1, QHS-4.2, QHS-5, QHS-6, and QHS-E are closed with internal proofs and evidence, and the production gap register is empty. The combined QHS-1/2/3/3.1 1-hour soak passed with 360,181,413 iterations and 0 panics; the QHS-4 1-hour soak passed with 91,191,782 iterations and 0 panics; the QHS-4.1 1-hour soak passed with 94,814,625 iterations and 0 panics; the QHS-4.2 1-hour soak passed with 56,556,913 iterations and 0 panics. The QHS-5 1-hour soak passed with 48,430,620 iterations and 0 panics; the QHS-6 1-hour soak passed with 36,957,000 iterations and 0 panics. The QHS-E 1-hour soak passed with 28,798,916 iterations and 0 panics. The 72-hour soak was waived by owner decision for QHS-1. Do not use qWp for real security without an independent review of your deployment.
+This project is not standard and not externally audited. QHS-1, QHS-2, QHS-3, QHS-3.1, QHS-4, QHS-4.1, QHS-4.2, QHS-5, QHS-6, and QHS-E are closed with internal proofs and evidence, and the production gap register is empty. The combined QHS-1/2/3/3.1 1-hour soak passed with 360,181,413 iterations and 0 panics; the QHS-4 1-hour soak passed with 91,191,782 iterations and 0 panics; the QHS-4.1 1-hour soak passed with 94,814,625 iterations and 0 panics; the QHS-4.2 1-hour soak passed with 56,556,913 iterations and 0 panics. The QHS-5 1-hour soak passed with 48,430,620 iterations and 0 panics; the QHS-6 1-hour soak passed with 36,957,000 iterations and 0 panics. The QHS-E 1-hour soak passed with 28,798,916 iterations and 0 panics. A 72-hour all-version soak runner is prepared but has not been run yet. The earlier QHS-1 72-hour soak was waived by owner decision. Do not use qWp for real security without an independent review of your deployment.

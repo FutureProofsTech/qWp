@@ -134,8 +134,14 @@ fn main() {
         .nth(1)
         .and_then(|value| value.parse::<u64>().ok())
         .unwrap_or(5);
-    let deadline = Instant::now() + Duration::from_secs(seconds);
-    let mut rng = Rng::new(0x9e37_79b9_7f4a_7c15);
+    let started = Instant::now();
+    let deadline = started + Duration::from_secs(seconds);
+    let rng_seed = std::env::args()
+        .nth(2)
+        .and_then(|value| u64::from_str_radix(value.trim_start_matches("0x"), 16).ok())
+        .unwrap_or(0x9e37_79b9_7f4a_7c15);
+    println!("fuzz: start seconds={seconds} seed=0x{rng_seed:016x}");
+    let mut rng = Rng::new(rng_seed);
     let seed = [7_u8; 32];
     let Ok((mut private_key, public_key)) = qhs_keygen(&seed) else {
         eprintln!("fuzz: keygen failed");
@@ -393,6 +399,7 @@ fn main() {
 
     let mut iterations: u64 = 0;
     let mut panics: u64 = 0;
+    let mut last_progress = Instant::now();
     while Instant::now() < deadline {
         iterations = iterations.saturating_add(1);
         let result = catch_unwind(AssertUnwindSafe(|| {
@@ -573,9 +580,19 @@ fn main() {
             eprintln!("fuzz: panic at iteration {iterations}");
             break;
         }
+        if iterations.is_multiple_of(100_000) && last_progress.elapsed() >= Duration::from_secs(60)
+        {
+            println!(
+                "fuzz: progress seconds={} iterations={iterations} panics={panics}",
+                started.elapsed().as_secs()
+            );
+            last_progress = Instant::now();
+        }
     }
 
-    println!("fuzz: seconds={seconds} iterations={iterations} panics={panics}");
+    println!(
+        "fuzz: seconds={seconds} iterations={iterations} panics={panics} seed=0x{rng_seed:016x}"
+    );
     if panics == 0 {
         std::process::exit(0);
     }

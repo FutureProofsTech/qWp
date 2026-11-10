@@ -94,12 +94,16 @@ same formats. ∎
 
 - `#![no_std]`, `#![forbid(unsafe_code)]`.
 - No heap, no `alloc`, no threads.
-- Fixed-size arrays only. The largest stack objects are a 32-byte chain value,
-  a 32-byte WOTS public-key hash, and the caller-owned signature/key buffers.
+- Fixed-size arrays only; no heap and no allocation.
+- Measured peak verifier frame: **≈6.0 KB**, driven by the BLAKE3 hasher
+  (`chunk_buf[1024]` plus the 54-level stack). `verify_common` itself is
+  ≈256-264 B. The caller-owned signature/key buffers are separate.
 - The auth path is read in place; QHS-E does not copy the whole signature.
 - QHS-3's 12-level auth path is 384 bytes; the verifier still does not copy it.
 - Code size is measured for `thumbv7em-none-eabihf` and
   `riscv32imac-unknown-none-elf` on the release profile.
+- Stack sizes are measured with nightly `-Z emit-stack-sizes` and
+  `llvm-readobj --stack-sizes`; see `docs/evidence/qhse-stack.txt`.
 - Cycle/instruction evidence is measured on the host; actual MCU cycles require
   hardware and are not claimed.
 
@@ -124,9 +128,16 @@ Measured:
 These totals include all four verifier entry points. A single-version
 deployment can strip the others with LTO/gc-sections.
 
-Stack bounds are documented by inspection and, where tooling allows, by
-`-Z emit-stack-sizes`; the verifier never allocates and never copies the full
-signature.
+Stack frames were measured with nightly `-Z emit-stack-sizes` and
+`llvm-readobj --stack-sizes`:
+
+- `wots_verify`: 6,048 B (thumbv7em) / 5,968 B (riscv32imac);
+- `hash32_with_key`: 5,808 B (both);
+- `verify_common`: 264 B / 256 B.
+
+The peak is ≈6.0 KB from the BLAKE3 hasher. The verifier never allocates and
+never copies the full signature; caller-owned key/signature storage is
+separate. See `docs/evidence/qhse-stack.txt`.
 
 ## 7. Timing evidence
 
@@ -188,6 +199,9 @@ or stop.
   `docs/evidence/qhse-dudect.txt`.
 - Code size: 12,771 B (thumbv7em) / 14,247 B (riscv32imac) for all four verifier
   entry points; evidence in `docs/evidence/qhse-size.txt`.
+- Stack: peak verifier frame ≈6.0 KB (BLAKE3 hasher); `verify_common` ≈256 B;
+  evidence in `docs/evidence/qhse-stack.txt`. Small-MCU deployments must budget
+  for this.
 - Coverage: 98.50% lines; 100% functions; evidence in
   `docs/evidence/qhse-coverage.txt`. cargo-tarpaulin independently reports
   45/47 QHS-E lines.

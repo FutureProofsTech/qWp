@@ -194,6 +194,7 @@ cargo asm -p qwp-e --lib --release verify_common
 cargo tarpaulin --release -p qwp-e --out Xml
 cargo run --release -p qwp-attacks --bin attack-suite
 cargo run --release -p qwp-attacks --bin byte-sweep
+./scripts/soak-72h.sh
 cargo +nightly-2026-08-21 miri test -p qwp-classical --lib
 cargo +nightly-2026-08-21 miri test -p qwp-e --lib
 ```
@@ -209,6 +210,9 @@ Latest results:
 - No external crates in the production dependency graph.
 - No `unsafe` code in first-party source.
 - QHS-E code size: 12,771 B (thumbv7em) / 14,247 B (riscv32imac).
+- QHS-E peak stack frame: ≈6.0 KB (BLAKE3 hasher); `verify_common` ≈256 B.
+- 72-hour all-version soak runner is prepared: `scripts/soak-72h.sh` and
+  `docs/evidence/soak-72h-plan.md`. It has not been run yet.
 - libFuzzer: 17,961,180 QHS-E runs / 61 s; 29,378,990 + 28,951,672
   parser runs / 46 s each; 0 crashes.
 - Proptest: 5 properties × 64 cases + 4 regressions.
@@ -274,6 +278,9 @@ Residual limitations:
 - Deleting the guard and rolling the key counter back to 0 is indistinguishable
   from a fresh key without external trusted state. This is documented, not
   claimed solved.
+- QHS-E's peak verifier frame is ≈6.0 KB because of the BLAKE3 hasher. It is
+  fixed-size and allocation-free, but small MCUs must budget for it; it is not
+  an 8 KB-device profile. See `docs/evidence/qhse-stack.txt`.
 - Single-byte mutation and structural transplant attacks are rejected for every
   signature format; no forgery was found.
 - Full bit sweep covers all signature bytes. It does not cover every possible
