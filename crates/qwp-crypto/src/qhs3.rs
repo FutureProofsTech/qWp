@@ -1057,6 +1057,8 @@ mod tests {
         assert!(qhs3_build_tree(&leaves[..super::LEAF_COUNT - 1], &mut nodes).is_err());
         let mut short_nodes = vec![[0_u8; 32]; QHS3_TREE_NODES - 1];
         assert!(qhs3_build_tree(leaves, &mut short_nodes).is_err());
+        let mut large_nodes = vec![[0_u8; 32]; QHS3_TREE_NODES + 1];
+        assert!(qhs3_build_tree(leaves, &mut large_nodes).is_ok());
         assert!(qhs3_auth_path_from_tree(&leaves[..super::LEAF_COUNT - 1], &nodes, 0).is_err());
         assert!(qhs3_auth_path_from_tree(leaves, &nodes[..QHS3_TREE_NODES - 1], 0).is_err());
         assert!(qhs3_auth_path_from_tree(leaves, &nodes, QHS3_MAX_SIGNATURES).is_err());
