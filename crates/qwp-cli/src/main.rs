@@ -3021,12 +3021,18 @@ fn selftest() -> bool {
 mod tests {
     #![allow(
         clippy::unwrap_used,
-        reason = "tests use fixed valid fixtures and expect construction to succeed"
+        clippy::indexing_slicing,
+        let_underscore_drop,
+        clippy::let_underscore_must_use,
+        reason = "tests use fixed fixtures, fixed arrays, and temporary files"
     )]
 
     use super::{
-        Braid, QHS3_LEAF_COUNT, QHS3_TREE_NODES, Qhs31Tree, all_true, braid_selftest,
-        check_state_guard, read_state_guard, write_qhs31_cache, write_state_guard,
+        Braid, QHS3_LEAF_COUNT, QHS3_TREE_NODES, QHS5_LEAF_COUNT, Qhs31Tree, all_true,
+        braid_selftest, check_qhs5_state_guard, check_qhs6_state_guard, check_state_guard,
+        read_qhs5_cache, read_qhs5_state_guard, read_qhs6_cache, read_qhs6_state_guard,
+        read_state_guard, write_qhs5_cache, write_qhs5_state_guard, write_qhs6_cache,
+        write_qhs6_state_guard, write_qhs31_cache, write_state_guard,
     };
 
     #[test]
@@ -3052,6 +3058,76 @@ mod tests {
         assert_eq!(u16::from_le_bytes([guard[4], guard[5]]), 1);
 
         drop(std::fs::remove_file(&path_text));
+    }
+
+    #[test]
+    fn qhs5_state_guard_advances_and_detects_rollback() {
+        let seed = [7_u8; 64];
+        let path =
+            std::env::temp_dir().join(format!("qwp-qhs5-state-guard-test-{}", std::process::id()));
+        let text = path.to_string_lossy().to_string();
+        let _ = std::fs::remove_file(format!("{text}.state"));
+        let mut key_bytes = [0_u8; 72];
+        key_bytes[..4].copy_from_slice(&[6, 6, 8, 0]);
+
+        write_qhs5_state_guard(&text, &seed, &key_bytes, 0).unwrap();
+        check_qhs5_state_guard(&text, &seed, &key_bytes, 1).unwrap();
+        let guard = read_qhs5_state_guard(&text, &seed).unwrap().unwrap();
+        assert_eq!(u16::from_le_bytes([guard[4], guard[5]]), 1);
+        assert!(check_qhs5_state_guard(&text, &seed, &key_bytes, 0).is_err());
+
+        let _ = std::fs::remove_file(format!("{text}.state"));
+    }
+
+    #[test]
+    fn qhs6_state_guard_advances_and_detects_rollback() {
+        let seed = [7_u8; 64];
+        let path =
+            std::env::temp_dir().join(format!("qwp-qhs6-state-guard-test-{}", std::process::id()));
+        let text = path.to_string_lossy().to_string();
+        let _ = std::fs::remove_file(format!("{text}.state"));
+        let mut key_bytes = [0_u8; 108];
+        key_bytes[..4].copy_from_slice(&[7, 7, 8, 0]);
+
+        write_qhs6_state_guard(&text, &seed, &key_bytes, 0).unwrap();
+        check_qhs6_state_guard(&text, &seed, &key_bytes, 1).unwrap();
+        let guard = read_qhs6_state_guard(&text, &seed).unwrap().unwrap();
+        assert_eq!(u16::from_le_bytes([guard[4], guard[5]]), 1);
+        assert!(check_qhs6_state_guard(&text, &seed, &key_bytes, 0).is_err());
+
+        let _ = std::fs::remove_file(format!("{text}.state"));
+    }
+
+    #[test]
+    fn qhs5_cache_mac_rejects_tampered_leaf() {
+        let seed = [7_u8; 64];
+        let path = std::env::temp_dir().join(format!("qwp-qhs5-cache-test-{}", std::process::id()));
+        let text = path.to_string_lossy().to_string();
+        let leaves = [[0_u8; 64]; QHS5_LEAF_COUNT];
+        write_qhs5_cache(&text, &seed, &leaves).unwrap();
+        let cache_path = format!("{text}.cache");
+        assert!(read_qhs5_cache(&cache_path, &seed).is_some());
+        let mut bytes = std::fs::read(&cache_path).unwrap();
+        bytes[36] ^= 1;
+        std::fs::write(&cache_path, &bytes).unwrap();
+        assert!(read_qhs5_cache(&cache_path, &seed).is_none());
+        let _ = std::fs::remove_file(&cache_path);
+    }
+
+    #[test]
+    fn qhs6_cache_mac_rejects_tampered_leaf() {
+        let seed = [7_u8; 64];
+        let path = std::env::temp_dir().join(format!("qwp-qhs6-cache-test-{}", std::process::id()));
+        let text = path.to_string_lossy().to_string();
+        let leaves = [[0_u8; 64]; QHS5_LEAF_COUNT];
+        write_qhs6_cache(&text, &seed, &leaves).unwrap();
+        let cache_path = format!("{text}.cache");
+        assert!(read_qhs6_cache(&cache_path, &seed).is_some());
+        let mut bytes = std::fs::read(&cache_path).unwrap();
+        bytes[36] ^= 1;
+        std::fs::write(&cache_path, &bytes).unwrap();
+        assert!(read_qhs6_cache(&cache_path, &seed).is_none());
+        let _ = std::fs::remove_file(&cache_path);
     }
 
     #[test]

@@ -1,0 +1,32 @@
+qWp qwp-cli mutation evidence
+=============================
+
+Date: 2026-11-10
+Tool: cargo-mutants 27.1.0
+Command:
+  cargo mutants -p qwp-cli --file crates/qwp-cli/src/main.rs \
+    --timeout 45 --profile release \
+    --output /tmp/opencode/final-mutants-cli-main
+
+Result:
+- 271 mutants tested in 61m.
+- 241 caught.
+- 23 missed.
+- 7 unviable.
+- 0 timeouts.
+
+Missed mutants and disposition:
+- 13 selftest functions and run_named_selftest: diagnostic return-value
+  mutations that still make the CLI self-test command succeed. These are
+  diagnostic, not signing or verification paths; the selftests are also
+  exercised by end-to-end CLI tests.
+- check_state_guard guard-behind update: an equivalent rewrite when the guard
+  is already equal; the generic guard catch-up test covers the behavior.
+- qhs5/qhs6 state-guard behind-comparison mutations: closed by new unit tests
+  that write a guard at counter 0, check at counter 1, assert the guard
+  advances to 1, and assert a rollback to 0 is refused.
+- qhs5/qhs6 cache MAC constant-return mutations: closed by new unit tests that
+  write a valid cache, flip one leaf byte, and assert the cache is rejected.
+
+The recorded run predates the new guard/cache tests. The remaining missed
+mutants are diagnostic selftest returns and one equivalent comparison.

@@ -58,7 +58,8 @@ cargo +nightly-2026-08-21 miri test -p qwp-e --lib
 
 Evidence is recorded in `docs/evidence/qhse-*.txt`; the full matrix, including
 tools that cannot be installed (Ferrocene) or that need a model (AORAI), is in
-`docs/19-code-standard-audit.md`.
+`docs/19-code-standard-audit.md`. The long-form white paper is
+`docs/whitepaper/qwp-whitepaper.pdf`, with LaTeX source in the same directory.
 
 ## QHS CLI
 

@@ -201,7 +201,7 @@ cargo +nightly-2026-08-21 miri test -p qwp-e --lib
 
 Latest results:
 
-- 304 release tests, 0 failures.
+- 308 release tests, 0 failures.
 - Clippy workspace clean with `-D warnings`.
 - Kani 24/24.
 - QHS-E coverage 98.50% lines, 100% functions.
@@ -227,7 +227,9 @@ Latest results:
   equivalent; scalar 48/40/5/3 equivalent; qwp-crypto qhs 114/110/2/2,
   qhs2 119/113/3/3, qhs3 165/131/7/27, qhs6 66/34/0/32; all missed mutants
   are documented equivalents; evidence in `docs/evidence/classical-mutation-final.txt`
-  and `docs/evidence/crypto-mutation-final.txt`.
+  and `docs/evidence/crypto-mutation-final.txt`; qwp-cli 271/241/7/23
+  with diagnostic-selftest and equivalent-comparison survivors, and new
+  guard/cache tests for the actionable ones.
 
 ## 6. Gaps and decisions
 
