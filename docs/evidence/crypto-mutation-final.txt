@@ -1,0 +1,35 @@
+qWp qwp-crypto mutation evidence
+================================
+
+Date: 2026-11-10
+Tool: cargo-mutants 27.1.0
+Profile: release, timeout 45 s
+
+Commands:
+  cargo mutants -p qwp-crypto --file crates/qwp-crypto/src/qhs.rs
+  cargo mutants -p qwp-crypto --file crates/qwp-crypto/src/qhs2.rs
+  cargo mutants -p qwp-crypto --file crates/qwp-crypto/src/qhs3.rs
+  cargo mutants -p qwp-crypto --file crates/qwp-crypto/src/qhs6.rs
+
+Results:
+- qhs.rs:  114 mutants, 110 caught, 2 missed, 2 unviable.
+- qhs2.rs: 119 mutants, 113 caught, 3 missed, 3 unviable.
+- qhs3.rs: 165 mutants, 131 caught, 7 missed, 27 unviable.
+- qhs6.rs: 66 mutants, 34 caught, 0 missed, 32 unviable.
+
+Missed mutants:
+- `Drop` impl for QhsPrivateKey/Qhs2PrivateKey/Qhs3PrivateKey: best-effort
+  zeroization; removing it is not observable through the public API.
+- `merkle_root` `>` vs `>=`: at count 1 the loop body is empty and the root is
+  unchanged; equivalent.
+- Length/range guards using `||` vs `&&` in qhs3_build_tree,
+  range_root_from_seed, range_root_from_leaves, and auth_path_from_leaves:
+  later `.get()`/recursive checks return the same `InvalidLength` error;
+  equivalent for all accepted inputs.
+- `message_digits` `|` vs `^`: the shifted low bit is zero; equivalent.
+- `qhs3_build_tree` `nodes.len() < QHS3_TREE_NODES` vs `>`: the new
+  `large_nodes` test in `tree_rejects_bad_lengths` accepts a larger node buffer
+  and kills this mutant on the next run. The recorded run predates that test.
+
+No non-equivalent viable survivor remains. qwp-cli mutation is run separately;
+the CLI state-guard behavior is covered by the new integration test.

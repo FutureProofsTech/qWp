@@ -224,8 +224,10 @@ Latest results:
   (tarpaulin instruments only the package test binary).
 - Extended attacks: 20/20; full bit sweep 0 accepted; BL-0031/0032/0033 fixed.
 - Mutation: QHS-E 47/46/0/1 equivalent; qwp-classical field 253/229/15/9
-  equivalent; scalar 48/40/5/3 equivalent; evidence in
-  `docs/evidence/classical-mutation-final.txt`.
+  equivalent; scalar 48/40/5/3 equivalent; qwp-crypto qhs 114/110/2/2,
+  qhs2 119/113/3/3, qhs3 165/131/7/27, qhs6 66/34/0/32; all missed mutants
+  are documented equivalents; evidence in `docs/evidence/classical-mutation-final.txt`
+  and `docs/evidence/crypto-mutation-final.txt`.
 
 ## 6. Gaps and decisions
 
