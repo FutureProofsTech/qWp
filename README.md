@@ -11,6 +11,7 @@ and explicit version separation for every signature format.
 [![dependencies](https://img.shields.io/badge/runtime%20dependencies-zero-2E6B4F)](#design-principles)
 [![unsafe](https://img.shields.io/badge/unsafe-forbidden-8A2D2D)](#design-principles)
 [![tests](https://img.shields.io/badge/release%20tests-308-2E6B4F)](#verification)
+[![license](https://img.shields.io/badge/license-GPL--3.0--only-2E6B4F)](LICENSE)
 [![QHS-E](https://img.shields.io/badge/QHS--E-rc1-A67C00)](#the-qhs-family)
 
 ---
@@ -411,9 +412,12 @@ directly. Do not open a public issue for a suspected vulnerability.
 
 ## License
 
-qWp is proprietary software. The workspace license identifier is
-`LicenseRef-qWp`. All rights reserved by the repository owner. Contact
-FutureProofsTech for licensing terms.
+qWp is free software: you can redistribute it and/or modify it under the terms
+of the **GNU General Public License version 3** as published by the Free
+Software Foundation.
+
+See [LICENSE](LICENSE) for the full text. The workspace license identifier is
+`GPL-3.0-only`.
 
 ---
 

@@ -6,7 +6,7 @@ description = "QHS-E static-library size probe."
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.99"
-license = "LicenseRef-qWp"
+license = "GPL-3.0-only"
 authors = ["qWp"]
 publish = false
 
