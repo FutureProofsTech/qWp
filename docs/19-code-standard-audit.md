@@ -211,8 +211,8 @@ Latest results:
 - No `unsafe` code in first-party source.
 - QHS-E code size: 12,771 B (thumbv7em) / 14,247 B (riscv32imac).
 - QHS-E peak stack frame: ≈6.0 KB (BLAKE3 hasher); `verify_common` ≈256 B.
-- 72-hour all-version soak runner is prepared: `scripts/soak-72h.sh` and
-  `docs/evidence/soak-72h-plan.md`. It has not been run yet.
+- 72-hour all-version soak runner is prepared: `scripts/soak-72h.sh`. It has
+  not been run yet.
 - libFuzzer: 17,961,180 QHS-E runs / 61 s; 29,378,990 + 28,951,672
   parser runs / 46 s each; 0 crashes.
 - Proptest: 5 properties × 64 cases + 4 regressions.
