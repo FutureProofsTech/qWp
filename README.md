@@ -296,6 +296,27 @@ Detailed evidence is in [`docs/evidence/`](docs/evidence/). The code-standard
 audit and tooling matrix are in
 [`docs/19-code-standard-audit.md`](docs/19-code-standard-audit.md).
 
+### Attacks and results
+
+The complete attack design is in **[Attack trees](docs/attack-trees.md)**. The
+executable harnesses are in **[`crates/qwp-attacks`](crates/qwp-attacks)**,
+including the 20-group suite, the extended structural and transplant attacks,
+the public-key and cross-version attacks, the QHS-6 component tests, the
+Ed25519 edge cases, and the standalone byte-sweep binary.
+
+| Result | Evidence |
+|---|---|
+| 20/20 attack groups | [QHS-E attack suite](docs/evidence/qhse-attack-suite.txt) |
+| Extended structural, transplant, cross-version, QHS-6, and Ed25519 attacks | [Extended attack results](docs/evidence/qhse-extended-attacks.txt) |
+| Full bit sweep of every signature byte | [Byte-sweep results](docs/evidence/qhse-byte-sweep.txt) |
+| QHS-4 attack suite | [QHS-4 results](docs/evidence/qhs4-attack-suite.txt) |
+| QHS-4.1 attack suite | [QHS-4.1 results](docs/evidence/qhs41-attack-suite.txt) |
+| QHS-4.2 attack suite | [QHS-4.2 results](docs/evidence/qhs42-attack-suite.txt) |
+| QHS-5 attack suite | [QHS-5 results](docs/evidence/qhs5-attack-suite.txt) |
+| QHS-6 attack suite | [QHS-6 results](docs/evidence/qhs6-attack-suite.txt) |
+
+All evidence files are indexed under [`docs/evidence/`](docs/evidence/).
+
 ### Reproduce the local checks
 
 ```bash
